@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentSetIndex = 0;
     let favorites = new Set(JSON.parse(localStorage.getItem('vloitz_favorites') || '[]')); // Cargar favoritos guardados
     let currentLoadedSet = null; // Para saber qué set está cargado
-    let wavesurfer = null; // Declarar wavesurfer aquí para que sea accesible en todo el scope
+    let wavesurfer = null; // Declarar wavesurfer aquí
 
     console.log("Variables globales inicializadas. Favoritos cargados:", favorites); // LOG
 
@@ -114,8 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         console.log(`WaveSurfer intentará cargar: ${set.audio_url}`); // LOG
 
-        currentTracklistElement.classList.add('disabled'); // Deshabilitar tracklist
-        console.log("Tracklist deshabilitado durante la carga."); // LOG
+        // Ya no se deshabilita el tracklist aquí
 
         wavesurfer.load(set.audio_url);
 
@@ -131,7 +130,6 @@ document.addEventListener('DOMContentLoaded', () => {
             item.classList.remove('playing');
         });
         const activeItem = tracklistElement.querySelector(`.track-item[data-index="${currentSetIndex}"]`);
-        // Asegurarse de que wavesurfer esté inicializado antes de llamar a isPlaying()
         if (activeItem && wavesurfer && wavesurfer.isPlaying()) {
             activeItem.classList.add('playing');
             console.log(`Resaltando track ${currentSetIndex} como activo.`); // LOG
@@ -199,8 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentTrackTitle.textContent = allSets[currentSetIndex]?.title || "Set Listo";
         console.log("WaveSurfer listo para track:", allSets[currentSetIndex]?.title); // LOG ÉXITO
 
-        currentTracklistElement.classList.remove('disabled'); // Habilitar tracklist
-        console.log("Tracklist habilitado."); // LOG
+        // Ya no se habilita el tracklist aquí
     });
 
      wavesurfer.on('loading', (percent) => {
@@ -213,8 +210,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentTrackTitle.textContent = `Error: ${err.message || err}`;
         playPauseBtn.textContent = '❌';
         playPauseBtn.disabled = true;
-        currentTracklistElement.classList.add('disabled'); // Mantener deshabilitado
-        console.log("Tracklist permanece deshabilitado debido a error.");// LOG
+        // Ya no se deshabilita el tracklist aquí
     });
 
     wavesurfer.on('timeupdate', (currentTime) => {
@@ -278,26 +274,37 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             console.log(`Clic en tracklist item: ${timeString} (${timeInSeconds}s). Intentando buscar...`); // LOG
+            // LOG DE DEPURACIÓN ESPECÍFICO (Mantenido):
             console.log("Estado de wavesurfer.isReady al hacer clic:", wavesurfer ? wavesurfer.isReady : 'wavesurfer no definido');
+            // NUEVO LOG para ver el objeto wavesurfer en este scope:
+            console.log("Objeto wavesurfer DENTRO del listener:", wavesurfer); // <-- Mantenemos este log importante
 
             // --- SIMPLIFICACIÓN ---
             // Quitamos el if (wavesurfer && wavesurfer.isReady)
-            // Confiamos en que si el tracklist está habilitado, wavesurfer está listo.
             try {
-                const duration = wavesurfer.getDuration();
-                if (duration > 0) {
-                    const progress = timeInSeconds / duration;
-                    const clampedProgress = Math.max(0, Math.min(1, progress));
-                    console.log(`Calculando progreso: ${timeInSeconds}s / ${duration.toFixed(2)}s = ${clampedProgress.toFixed(4)}`); // LOG
-                    wavesurfer.seekTo(clampedProgress);
-                    console.log(`Ejecutado wavesurfer.seekTo(${clampedProgress.toFixed(4)})`); // LOG
-                } else {
-                    console.warn("La duración es 0, no se puede calcular el progreso para seekTo."); // LOG ADVERTENCIA
-                }
+                // Comprobación mínima de que wavesurfer existe y tiene los métodos
+                if (wavesurfer && typeof wavesurfer.getDuration === 'function' && typeof wavesurfer.seekTo === 'function') {
+                    const duration = wavesurfer.getDuration();
+                    if (duration > 0) {
+                        const progress = timeInSeconds / duration;
+                        const clampedProgress = Math.max(0, Math.min(1, progress));
+                        console.log(`Calculando progreso: ${timeInSeconds}s / ${duration.toFixed(2)}s = ${clampedProgress.toFixed(4)}`); // LOG
+                        wavesurfer.seekTo(clampedProgress);
+                        console.log(`Ejecutado wavesurfer.seekTo(${clampedProgress.toFixed(4)})`); // LOG
+                    } else {
+                        console.warn("La duración es 0, no se puede calcular el progreso para seekTo."); // LOG ADVERTENCIA
+                    }
 
-                // Asegurarse de que se reproduzca si estaba pausado
-                if (!wavesurfer.isPlaying()) {
-                    wavesurfer.play();
+                    // Asegurarse de que se reproduzca si estaba pausado
+                    if (typeof wavesurfer.isPlaying === 'function' && !wavesurfer.isPlaying()) {
+                         if (typeof wavesurfer.play === 'function') {
+                             wavesurfer.play();
+                         } else {
+                              console.warn("wavesurfer.play no es una función");
+                         }
+                    }
+                } else {
+                    console.error("El objeto wavesurfer no está correctamente inicializado o le faltan métodos en este punto."); // LOG ERROR
                 }
             } catch (error) {
                  console.error("Error al intentar buscar (seekTo) o reproducir:", error); // LOG ERROR
@@ -350,11 +357,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Botón Play/Pause Principal ---
     playPauseBtn.addEventListener('click', () => {
         console.log("Clic en botón Play/Pause principal"); // LOG
-        // Añadimos una comprobación extra por si acaso
         if (wavesurfer && typeof wavesurfer.playPause === 'function') {
             wavesurfer.playPause();
         } else {
-            console.warn("Intento de Play/Pause pero WaveSurfer no está listo o no tiene el método."); // LOG ADVERTENCIA
+            console.warn("Intento de Play/Pause pero WaveSurfer no está listo o no tiene el método.");
         }
     });
 
