@@ -14,6 +14,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let allSets = [];
     let currentSetIndex = 0;
+
+    const currentTracklistElement = document.getElementById('current-tracklist'); // Referencia al nuevo <ul>
+    let favorites = new Set(JSON.parse(localStorage.getItem('vloitz_favorites') || '[]')); // Cargar favoritos guardados
+    let currentLoadedSet = null; // Para saber qué set está cargado
+    console.log("Variables globales inicializadas. Favoritos cargados:", favorites); // LOG
+
+
     let wavesurfer = null;
 
     // --- Inicializar WaveSurfer ---
@@ -107,6 +114,10 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log(`WaveSurfer intentará cargar: ${set.audio_url}`); // LOG
         wavesurfer.load(set.audio_url);
 
+        currentLoadedSet = set; // Guardar referencia al set cargado
+        // Llamar a la nueva función para mostrar el tracklist
+        displayTracklist(set.tracklist || []); // Pasar el tracklist del set o un array vacío si no existe
+
         updatePlayingHighlight();
     }
 
@@ -127,6 +138,41 @@ document.addEventListener('DOMContentLoaded', () => {
         const minutes = Math.floor(seconds / 60);
         const secs = Math.floor(seconds % 60);
         return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
+    }
+
+        // --- NUEVA FUNCIÓN: Mostrar el tracklist del set actual ---
+    function displayTracklist(tracklistData) {
+        console.log("Mostrando tracklist para el set actual..."); // LOG
+        currentTracklistElement.innerHTML = ''; // Limpiar lista anterior
+
+        if (!tracklistData || tracklistData.length === 0) {
+            currentTracklistElement.innerHTML = '<li>No hay tracklist disponible para este set.</li>';
+            console.warn("No se encontró tracklist en los datos del set."); // LOG ADVERTENCIA
+            return;
+        }
+
+        tracklistData.forEach((track, index) => {
+            const li = document.createElement('li');
+            li.className = 'current-tracklist-item';
+            li.dataset.time = track.time; // Guardar el timestamp MM:SS
+            li.dataset.index = index; // Guardar índice por si acaso
+
+            // Convertir MM:SS a segundos para el botón de favorito
+            const timeParts = track.time.split(':');
+            const totalSeconds = parseInt(timeParts[0], 10) * 60 + parseInt(timeParts[1], 10);
+            const isFavorited = favorites.has(totalSeconds); // Comprobar si está en favoritos
+
+            li.innerHTML = `
+                <span class="track-time">${track.time}</span>
+                <span class="track-emoji">${track.emoji || ''}</span>
+                <span class="track-title">${track.title}</span>
+                <button class="favorite-btn ${isFavorited ? 'favorited' : ''}" data-seconds="${totalSeconds}" title="Añadir/Quitar Favorito">
+                    ${isFavorited ? '★' : '☆'}
+                </button>
+            `;
+            currentTracklistElement.appendChild(li);
+        });
+        console.log(`Tracklist mostrado con ${tracklistData.length} items.`); // LOG
     }
 
     // --- Eventos de WaveSurfer ---
@@ -184,6 +230,65 @@ document.addEventListener('DOMContentLoaded', () => {
             wavesurfer.play();
         });
     });
+
+        // --- NUEVO: Manejar clics en el tracklist actual ---
+    currentTracklistElement.addEventListener('click', (e) => {
+        const target = e.target;
+
+        // Caso 1: Clic en el botón de favorito
+        if (target.classList.contains('favorite-btn')) {
+            const seconds = parseInt(target.dataset.seconds, 10);
+            if (isNaN(seconds)) return;
+
+            toggleFavorite(seconds, target);
+            console.log(`Clic en botón favorito para t=${seconds}s.`); // LOG
+        }
+        // Caso 2: Clic en cualquier otra parte del item (para saltar)
+        else {
+            const listItem = target.closest('.current-tracklist-item');
+            if (!listItem || !listItem.dataset.time) return;
+
+            const timeString = listItem.dataset.time;
+            const timeParts = timeString.split(':');
+            const timeInSeconds = parseInt(timeParts[0], 10) * 60 + parseInt(timeParts[1], 10);
+
+            console.log(`Clic en tracklist item: ${timeString} (${timeInSeconds}s). Intentando buscar...`); // LOG
+
+            if (wavesurfer && wavesurfer.isReady) {
+                // Usar seekTo (porcentaje) o setTime (segundos)
+                // setTime es más directo si ya tenemos los segundos
+                wavesurfer.setTime(timeInSeconds);
+                // Asegurarse de que se reproduzca si estaba pausado
+                if (!wavesurfer.isPlaying()) {
+                    wavesurfer.play();
+                }
+            } else {
+                console.warn("WaveSurfer no está listo para buscar."); // LOG ADVERTENCIA
+            }
+        }
+    });
+
+    // --- NUEVA FUNCIÓN: Añadir/Quitar Favorito ---
+    function toggleFavorite(seconds, buttonElement) {
+        if (favorites.has(seconds)) {
+            favorites.delete(seconds);
+            buttonElement.classList.remove('favorited');
+            buttonElement.innerHTML = '☆';
+            console.log(`Favorito eliminado: ${seconds}s`); // LOG
+        } else {
+            favorites.add(seconds);
+            buttonElement.classList.add('favorited');
+            buttonElement.innerHTML = '★';
+            console.log(`Favorito añadido: ${seconds}s`); // LOG
+        }
+        // Guardar en Local Storage
+        try {
+            localStorage.setItem('vloitz_favorites', JSON.stringify(Array.from(favorites)));
+            console.log("Favoritos guardados en Local Storage."); // LOG
+        } catch (error) {
+            console.error("Error al guardar favoritos en Local Storage:", error); // LOG ERROR
+        }
+    }
 
     // --- Clic en lista ---
     tracklistElement.addEventListener('click', e => {
