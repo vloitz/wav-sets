@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vloitz - High Quality Sets</title>
+    <script src="https://unpkg.com/wavesurfer.js@7.7.5"></script>
+
     <style>
         /* --- Reseteo Básico y Tema Oscuro --- */
         :root {
@@ -12,6 +14,8 @@
             --light-bg: #1e1e1e;
             --text-primary: #ffffff;
             --text-secondary: #b3b3b3;
+            --waveform-wave-color: #555; /* Color de la onda */
+            --waveform-progress-color: var(--brand-color); /* Color del progreso */
         }
 
         body, html {
@@ -37,7 +41,6 @@
         .profile-banner {
             height: 250px;
             background-color: var(--light-bg);
-            /* La imagen se carga desde JS */
             background-size: cover;
             background-position: center;
         }
@@ -71,7 +74,7 @@
             margin: 10px 0 0 10px;
         }
 
-        /* --- 2a. Reproductor Principal --- */
+        /* --- 2a. Reproductor Principal (CON WAVESURFER) --- */
         .player-card {
             display: flex;
             background-color: var(--light-bg);
@@ -87,7 +90,7 @@
             object-fit: cover;
             border-radius: 6px;
             background-color: var(--dark-bg);
-            flex-shrink: 0;
+            flex-shrink: 0; /* Evita que la imagen se encoja */
         }
 
         .player-details {
@@ -95,7 +98,7 @@
             flex-direction: column;
             justify-content: center;
             flex-grow: 1;
-            min-width: 0;
+            min-width: 0; /* Permite que el contenedor se encoja si es necesario */
         }
 
         #current-track-title {
@@ -103,20 +106,67 @@
             font-size: 1.8em;
             white-space: nowrap;
             overflow: hidden;
-            text-overflow: ellipsis;
+            text-overflow: ellipsis; /* Añade puntos suspensivos si el título es largo */
         }
 
         #current-track-artist {
-            margin: 0 0 20px 0; /* Aumentado margen inferior */
+            margin: 0 0 15px 0; /* Reducido el margen inferior */
             font-size: 1.2em;
             color: var(--text-secondary);
         }
 
-        /* ESTILOS PARA EL REPRODUCTOR <audio> NATIVO */
-        audio {
+        /* Contenedor para la forma de onda y controles */
+        .waveform-container {
             width: 100%;
-            /* Puedes añadir más estilos si quieres personalizarlo un poco más */
-            /* filter: invert(1) sepia(1) saturate(5) hue-rotate(100deg); /* Ejemplo para cambiar color */
+            margin-bottom: 10px;
+        }
+        #waveform {
+            cursor: pointer; /* Indica que se puede hacer clic */
+            height: 100px; /* Altura de la forma de onda */
+        }
+
+        /* Controles personalizados */
+        .player-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-top: 10px;
+        }
+
+        #playPauseBtn {
+            background-color: var(--brand-color);
+            color: var(--text-primary);
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            font-size: 1.5em;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #playPauseBtn:hover {
+            opacity: 0.8;
+        }
+        #playPauseBtn:disabled { /* Estilo para botón deshabilitado */
+             background-color: #555;
+             cursor: not-allowed;
+             opacity: 0.6;
+        }
+        #currentTime, #totalDuration {
+            font-size: 0.9em;
+            color: var(--text-secondary);
+            min-width: 45px; /* Espacio para el tiempo */
+        }
+        #totalDuration {
+             margin-left: auto; /* Empuja la duración total a la derecha */
+             text-align: right;
+        }
+
+        /* Ocultamos el reproductor <audio> original */
+        #audio-player {
+            display: none;
         }
 
         /* --- 2b. Lista de Sets --- */
@@ -197,13 +247,16 @@
 
             .player-details {
                 align-items: center;
-                width: 100%;
+                width: 100%; /* Asegura que ocupe todo el ancho */
             }
 
             #current-track-title {
                 text-align: center;
                 font-size: 1.5em;
             }
+             #waveform {
+                 height: 80px; /* Un poco más pequeña en móvil */
+             }
 
             .track-item-title {
                 font-size: 1em;
@@ -233,9 +286,14 @@
                 <h2 id="current-track-title">Cargando...</h2>
                 <h3 id="current-track-artist">Vloitz</h3>
 
-                <audio id="audio-player" controls preload="metadata">
-                    Tu navegador no soporta este audio.
-                </audio>
+                <div class="waveform-container">
+                    <div id="waveform"></div>
+                </div>
+                <div class="player-controls">
+                    <button id="playPauseBtn" disabled>🔄</button> <span id="currentTime">0:00</span>
+                    <span id="totalDuration">0:00</span>
+                </div>
+                <audio id="audio-player" style="display: none;"></audio>
 
             </div>
         </section>
@@ -249,8 +307,11 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
 
-            // --- Referencias a elementos del DOM ---
-            const audioPlayer = document.getElementById('audio-player'); // Referencia al <audio>
+            // --- Referencias ---
+            const waveformContainer = document.getElementById('waveform');
+            const playPauseBtn = document.getElementById('playPauseBtn');
+            const currentTimeEl = document.getElementById('currentTime');
+            const totalDurationEl = document.getElementById('totalDuration');
             const currentCoverArt = document.getElementById('current-cover-art');
             const currentTrackTitle = document.getElementById('current-track-title');
             const tracklistElement = document.getElementById('tracklist');
@@ -259,8 +320,33 @@
 
             let allSets = [];
             let currentSetIndex = 0;
+            let wavesurfer = null;
 
-            // --- 1. Cargar la base de datos de sets ---
+            // --- Inicializar WaveSurfer ---
+            try {
+                wavesurfer = WaveSurfer.create({
+                    container: '#waveform',
+                    waveColor: getComputedStyle(document.documentElement).getPropertyValue('--waveform-wave-color').trim(),
+                    progressColor: getComputedStyle(document.documentElement).getPropertyValue('--waveform-progress-color').trim(),
+                    height: 100,
+                    cursorWidth: 2,
+                    cursorColor: '#fff',
+                    barWidth: 3,
+                    barGap: 2,
+                    responsive: true,
+                    // Usamos el elemento <audio> oculto como backend. Esto a veces ayuda con la compatibilidad
+                    // y podría mejorar la gestión de CORS/Range Requests en algunos casos.
+                    backend: 'MediaElement',
+                    media: document.getElementById('audio-player') // Conectarlo al <audio>
+                });
+            } catch (error) {
+                 console.error("Error al inicializar WaveSurfer:", error);
+                 currentTrackTitle.textContent = "Error al iniciar reproductor";
+                 playPauseBtn.textContent = '❌';
+                 return; // Detener si WaveSurfer no se puede crear
+            }
+
+            // --- Cargar sets.json ---
             fetch('sets.json')
                 .then(response => response.json())
                 .then(data => {
@@ -279,10 +365,10 @@
                 })
                 .catch(error => {
                     console.error('Error al cargar sets.json:', error);
-                    currentTrackTitle.textContent = "Error al cargar sets.";
+                    currentTrackTitle.textContent = "Error al cargar datos de sets.";
                 });
 
-            // --- 2. Poblar la lista de reproducción ---
+            // --- Poblar la lista ---
             function populateTracklist(sets) {
                 tracklistElement.innerHTML = '';
                 sets.forEach((set, index) => {
@@ -298,75 +384,110 @@
                 });
             }
 
-            // --- 3. Cargar un set en el reproductor (ADAPTADO) ---
+            // --- Cargar un set ---
             function loadTrack(set, index) {
                 currentCoverArt.src = set.cover_art_url;
-                currentTrackTitle.textContent = set.title;
-                // Asignamos directamente la URL al 'src' del <audio>
-                audioPlayer.src = set.audio_url;
-                // Le decimos al navegador que cargue la metadata (duración, etc.)
-                // No es estrictamente necesario con preload="metadata", pero asegura
-                audioPlayer.load();
-
+                currentTrackTitle.textContent = `Cargando: ${set.title}...`; // Mostrar que está cargando
                 currentSetIndex = index;
+
+                // Resetear UI del reproductor
+                totalDurationEl.textContent = '0:00';
+                currentTimeEl.textContent = '0:00';
+                playPauseBtn.disabled = true;
+                playPauseBtn.textContent = '🔄';
+
+                console.log(`Intentando cargar: ${set.audio_url}`);
+                // Cargar el audio en WaveSurfer (usará el <audio> como backend)
+                wavesurfer.load(set.audio_url);
+
                 updatePlayingHighlight();
             }
 
-            // --- 4. Resaltar el set activo en la lista ---
+            // --- Resaltar activo ---
             function updatePlayingHighlight() {
                 tracklistElement.querySelectorAll('.track-item').forEach(item => {
                     item.classList.remove('playing');
                 });
                 const activeItem = tracklistElement.querySelector(`.track-item[data-index="${currentSetIndex}"]`);
-                if (activeItem) {
-                    // Añadimos 'playing' solo si el audio está realmente reproduciéndose
-                    if (!audioPlayer.paused) {
-                        activeItem.classList.add('playing');
-                    }
+                if (activeItem && wavesurfer && wavesurfer.isPlaying()) { // Resaltar solo si está reproduciendo
+                    activeItem.classList.add('playing');
                 }
             }
 
-            // --- 5. Manejar clics en la lista de reproducción (ADAPTADO) ---
+            // Formatear tiempo
+            function formatTime(seconds) {
+                const minutes = Math.floor(seconds / 60);
+                const secs = Math.floor(seconds % 60);
+                return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
+            }
+
+            // --- Eventos de WaveSurfer ---
+            wavesurfer.on('ready', () => {
+                const duration = wavesurfer.getDuration();
+                totalDurationEl.textContent = formatTime(duration);
+                currentTimeEl.textContent = formatTime(0); // Reiniciar tiempo actual
+                playPauseBtn.disabled = false;
+                playPauseBtn.textContent = '▶️';
+                currentTrackTitle.textContent = allSets[currentSetIndex].title; // Poner título correcto
+                console.log("WaveSurfer listo!");
+            });
+
+             wavesurfer.on('loading', (percent) => {
+                 console.log(`Cargando: ${percent}%`);
+                 // Opcional: Mostrar progreso en el título
+                 currentTrackTitle.textContent = `Cargando: ${allSets[currentSetIndex].title} (${percent}%)`;
+            });
+
+            wavesurfer.on('error', (err) => {
+                console.error('WaveSurfer error:', err);
+                // Mostrar el error real si es posible
+                currentTrackTitle.textContent = `Error: ${err.message || err}`;
+                playPauseBtn.textContent = '❌';
+                playPauseBtn.disabled = true;
+            });
+
+            // Usamos 'timeupdate' del MediaElement backend para actualizar el tiempo
+            wavesurfer.on('timeupdate', (currentTime) => {
+                currentTimeEl.textContent = formatTime(currentTime);
+            });
+
+            wavesurfer.on('seeking', (currentTime) => { // Actualizar al buscar
+                 currentTimeEl.textContent = formatTime(currentTime);
+            });
+
+            wavesurfer.on('play', () => {
+                playPauseBtn.textContent = '⏸️';
+                updatePlayingHighlight();
+            });
+            wavesurfer.on('pause', () => {
+                playPauseBtn.textContent = '▶️';
+                updatePlayingHighlight(); // Quitar resaltado al pausar
+            });
+
+            wavesurfer.on('finish', () => {
+                playPauseBtn.textContent = '▶️';
+                const nextIndex = (currentSetIndex + 1) % allSets.length;
+                loadTrack(allSets[nextIndex], nextIndex);
+                wavesurfer.once('ready', () => wavesurfer.play());
+            });
+
+            // --- Clic en lista ---
             tracklistElement.addEventListener('click', e => {
                 const clickedItem = e.target.closest('.track-item');
                 if (!clickedItem) return;
 
                 const trackIndex = parseInt(clickedItem.dataset.index);
-                // Solo cargamos si es un set diferente
                 if (trackIndex !== currentSetIndex) {
                     loadTrack(allSets[trackIndex], trackIndex);
-                    // Intentamos reproducir después de cargar
-                    // Usamos una promesa para asegurarnos de que el navegador esté listo
-                    const playPromise = audioPlayer.play();
-                    if (playPromise !== undefined) {
-                        playPromise.catch(error => {
-                            console.error("Error al intentar reproducir:", error);
-                            // A veces los navegadores bloquean la reproducción automática
-                            // El usuario tendrá que hacer clic en Play en los controles
-                        });
-                    }
+                    wavesurfer.once('ready', () => wavesurfer.play());
                 } else {
-                    // Si se hace clic en el mismo, solo play/pause
-                     if (audioPlayer.paused) {
-                        audioPlayer.play();
-                    } else {
-                        audioPlayer.pause();
-                    }
+                    wavesurfer.playPause();
                 }
             });
 
-            // --- 6. Evento para resaltar al empezar/pausar reproducción (ADAPTADO) ---
-            audioPlayer.addEventListener('play', updatePlayingHighlight);
-            audioPlayer.addEventListener('pause', updatePlayingHighlight); // Quitar resaltado al pausar
-
-            // --- 7. Reproducir el siguiente set al terminar (ADAPTADO) ---
-            audioPlayer.addEventListener('ended', () => {
-                const nextIndex = (currentSetIndex + 1) % allSets.length;
-                loadTrack(allSets[nextIndex], nextIndex);
-                 const playPromise = audioPlayer.play();
-                 if (playPromise !== undefined) {
-                    playPromise.catch(error => console.error("Error al reproducir siguiente:", error));
-                 }
+            // --- Botón Play/Pause ---
+            playPauseBtn.addEventListener('click', () => {
+                wavesurfer.playPause();
             });
 
         });
