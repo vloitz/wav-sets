@@ -11,11 +11,31 @@
 
     <header class="profile-header">
         <div class="profile-banner"></div>
-        <div class="profile-info">
-            <img src="" alt="Vloitz Profile" class="profile-pic" id="profile-pic-img">
+
+
+    <div class="profile-info">
+        <img src="" alt="Vloitz Profile" class="profile-pic" id="profile-pic-img"> <div class="profile-details-container">
             <h1 class="profile-name">Vloitz</h1>
             <p class="profile-location">Lima, Peru</p>
+             <div class="profile-bio" id="profile-bio-text">
+                Aquí iría una biografía interesante sobre Vloitz, su estilo musical... Lorem ipsum dolor sit amet...
+            </div>
+            <div class="profile-socials">
+                <a href="#" class="social-icon soundcloud" title="SoundCloud"></a>
+                <a href="#" class="social-icon youtube" title="YouTube"></a>
+                <a href="#" class="social-icon instagram" title="Instagram"></a>
+            </div>
         </div>
+        <div class="profile-extra-content">
+            <div class="latest-set-highlight">
+                <h5>Último Set</h5>
+                <p id="latest-set-title">Cargando...</p>
+                <span id="latest-set-date"></span>
+            </div>
+        </div>
+    </div>
+
+
     </header>
 
     <main class="app-container">
@@ -37,12 +57,18 @@
             </div>
         </section>
 
-        <section class="current-tracklist-container">
+    <section class="current-tracklist-container">
+        <div class="current-tracklist-header">
             <h4>Tracklist del Set</h4>
-            <ul id="current-tracklist" class="current-tracklist">
-                <li>Cargando tracklist...</li>
-            </ul>
-        </section>
+            <label class="favorites-filter" for="fav-toggle">
+                <input type="checkbox" id="fav-toggle"> <span class="star-icon">★</span>
+                <span>Mostrar Favoritos</span>
+            </label>
+        </div>
+        <ul id="current-tracklist" class="current-tracklist">
+            <li>Cargando tracklist...</li>
+        </ul>
+    </section>
 
         <section class="tracklist-container">
             <h3>Todos los Sets (FLAC/WAV)</h3>
