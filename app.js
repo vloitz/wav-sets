@@ -40,6 +40,8 @@ document.addEventListener('DOMContentLoaded', () => {
             media: document.getElementById('audio-player') // Conectarlo al <audio>
         });
         console.log("WaveSurfer inicializado correctamente."); // LOG
+        window.wavesurfer = wavesurfer; // <-- AÑADIR ESTA LÍNEA
+        console.log("Instancia de WaveSurfer asignada a window.wavesurfer para depuración."); // LOG
     } catch (error) {
          console.error("Error CRÍTICO al inicializar WaveSurfer:", error); // LOG ERROR
          currentTrackTitle.textContent = "Error al iniciar reproductor";
