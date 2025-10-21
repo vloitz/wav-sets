@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const profilePicImg = document.getElementById('profile-pic-img');
     const profileBanner = document.querySelector('.profile-banner');
     const currentTracklistElement = document.getElementById('current-tracklist'); // Referencia al nuevo <ul>
+    const favToggleCheckbox = document.getElementById('fav-toggle'); // Referencia al checkbox
 
     let allSets = [];
     let currentSetIndex = 0;
@@ -78,6 +79,18 @@ let wasPlayingBeforeDrag = false; // Para saber si pausar/reanudar
             // Cargar sets
             allSets = data.sets;
             allSets.sort((a, b) => new Date(b.date) - new Date(a.date)); // Ordenar
+
+            // --- INICIO: Cargar datos del último set en el placeholder ---
+            if (allSets.length > 0) {
+                const latestSet = allSets[0];
+                const latestSetTitleEl = document.getElementById('latest-set-title');
+                const latestSetDateEl = document.getElementById('latest-set-date');
+                if (latestSetTitleEl) latestSetTitleEl.textContent = latestSet.title;
+                if (latestSetDateEl) latestSetDateEl.textContent = latestSet.date;
+                console.log("Placeholder 'Último Set' actualizado."); // LOG
+            }
+            // --- FIN: Cargar datos ---
+
             populateTracklist(allSets);
             if (allSets.length > 0) {
                 loadTrack(allSets[0], 0);
@@ -182,44 +195,57 @@ let wasPlayingBeforeDrag = false; // Para saber si pausar/reanudar
         return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
     }
 
-    // --- Mostrar el tracklist del set actual ---
-    function displayTracklist(tracklistData) {
-        console.log("Mostrando tracklist para el set actual..."); // LOG
-        currentTracklistElement.innerHTML = ''; // Limpiar lista anterior
+// --- Mostrar el tracklist del set actual (MODIFICADO para filtro) ---
+    function displayTracklist(tracklistData, filterFavorites = false) { // Added filterFavorites parameter
+        console.log(`Mostrando tracklist. Filtrar favoritos: ${filterFavorites}`); // LOG
+        currentTracklistElement.innerHTML = ''; // Clear previous list
+        let itemsDisplayed = 0; // Counter to check if anything was displayed
 
         if (!tracklistData || tracklistData.length === 0) {
             currentTracklistElement.innerHTML = '<li>No hay tracklist disponible para este set.</li>';
-            console.warn("No se encontró tracklist en los datos del set."); // LOG ADVERTENCIA
+            console.warn("No se encontró tracklist en los datos del set."); // LOG WARNING
             return;
         }
 
         tracklistData.forEach((track, index) => {
-            const li = document.createElement('li');
-            li.className = 'current-tracklist-item';
-            li.dataset.time = track.time;
-            li.dataset.index = index;
-
+            // Calculate totalSeconds and check if favorited (same as before)
             const timeParts = track.time.split(':');
             let totalSeconds = 0;
             if (timeParts.length === 2 && !isNaN(parseInt(timeParts[0], 10)) && !isNaN(parseInt(timeParts[1], 10))) {
                  totalSeconds = parseInt(timeParts[0], 10) * 60 + parseInt(timeParts[1], 10);
             } else {
-                 console.warn(`Timestamp inválido en tracklist: ${track.time}`); // LOG ADVERTENCIA
+                 console.warn(`Timestamp inválido en tracklist: ${track.time}`); // LOG WARNING
             }
-
             const isFavorited = favorites.has(totalSeconds);
 
-            li.innerHTML = `
-                <span class="track-time">${track.time}</span>
-                <span class="track-emoji">${track.emoji || ''}</span>
-                <span class="track-title">${track.title}</span>
-                <button class="favorite-btn ${isFavorited ? 'favorited' : ''}" data-seconds="${totalSeconds}" title="Añadir/Quitar Favorito">
-                    ${isFavorited ? '★' : '☆'}
-                </button>
-            `;
-            currentTracklistElement.appendChild(li);
+            // --- START: Filter Logic ---
+            if (!filterFavorites || (filterFavorites && isFavorited)) {
+                // Only display if we're not filtering OR if we are filtering and it's a favorite
+                const li = document.createElement('li');
+                li.className = 'current-tracklist-item';
+                li.dataset.time = track.time;
+                li.dataset.index = index;
+                li.innerHTML = `
+                    <span class="track-time">${track.time}</span>
+                    <span class="track-emoji">${track.emoji || ''}</span>
+                    <span class="track-title">${track.title}</span>
+                    <button class="favorite-btn ${isFavorited ? 'favorited' : ''}" data-seconds="${totalSeconds}" title="Añadir/Quitar Favorito">
+                        ${isFavorited ? '★' : '☆'}
+                    </button>
+                `;
+                currentTracklistElement.appendChild(li);
+                itemsDisplayed++; // Increment counter
+            }
+            // --- END: Filter Logic ---
         });
-        console.log(`Tracklist mostrado con ${tracklistData.length} items.`); // LOG
+
+        // Display message if the filter found nothing
+        if (itemsDisplayed === 0 && filterFavorites) {
+             currentTracklistElement.innerHTML = '<li>No tienes favoritos marcados en este set.</li>';
+             console.log("Filtro activo, pero no se encontraron favoritos."); // LOG
+        } else if (itemsDisplayed > 0){
+             console.log(`Tracklist mostrado con ${itemsDisplayed} items.`); // LOG (Updated)
+        }
     }
 
 // --- Función SeekWaveform (Requerida por Drag Logic) ---
@@ -540,5 +566,24 @@ if (waveformInteractionElement && wavesurfer) {
         }
     });
 
+
+        // --- Listener para el Toggle de Favoritos ---
+    if (favToggleCheckbox) {
+        favToggleCheckbox.addEventListener('change', () => {
+            console.log("Toggle Favoritos cambiado:", favToggleCheckbox.checked); // LOG
+            // Volver a dibujar el tracklist actual con la opción de filtro
+            if (currentLoadedSet) {
+                displayTracklist(currentLoadedSet.tracklist || [], favToggleCheckbox.checked);
+            } else {
+                console.warn("No hay set cargado actualmente para filtrar."); // LOG ADVERTENCIA
+            }
+        });
+        console.log("Listener para Toggle Favoritos añadido."); // LOG
+    } else {
+        console.warn("Checkbox de filtro de favoritos no encontrado."); // LOG ADVERTENCIA
+    }
+
     console.log("Aplicación inicializada y listeners configurados."); // LOG FINAL INIT
+
+
 });
