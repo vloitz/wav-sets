@@ -1,3 +1,5 @@
+const ENABLE_WAVEFORM_TUNER = true; // Poner en false para ocultar los controles
+
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DOM listo. Iniciando aplicación..."); // LOG INICIAL
 
@@ -19,6 +21,28 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentLoadedSet = null; // Para saber qué set está cargado
     let wavesurfer = null; // Declarar wavesurfer aquí
 
+
+
+
+// Referencias para el Tuner (si está habilitado)
+let tunerContainer = null, barWidthSlider = null, barGapSlider = null, barHeightSlider = null;
+let barWidthValueSpan = null, barGapValueSpan = null, barHeightValueSpan = null;
+
+if (ENABLE_WAVEFORM_TUNER) {
+    tunerContainer = document.getElementById('waveform-tuner');
+    barWidthSlider = document.getElementById('barWidthSlider');
+    barGapSlider = document.getElementById('barGapSlider');
+    barHeightSlider = document.getElementById('barHeightSlider');
+    barWidthValueSpan = document.getElementById('barWidthValue');
+    barGapValueSpan = document.getElementById('barGapValue');
+    barHeightValueSpan = document.getElementById('barHeightValue');
+    if (tunerContainer) tunerContainer.style.display = 'block'; // Mostrar el contenedor
+    console.log("Waveform Tuner habilitado."); // LOG
+}
+
+
+
+
     console.log("Variables globales inicializadas. Favoritos cargados:", favorites); // LOG
 
     // --- Inicializar WaveSurfer ---
@@ -31,9 +55,10 @@ document.addEventListener('DOMContentLoaded', () => {
             height: 100,
             cursorWidth: 2,
             cursorColor: '#fff',
-            barWidth: 1,
-            barGap: 0,
-            barHeight: 1, // <-- AÑADIR ESTA LÍNEA (Valor entre 0 y 1, 1 = altura completa)
+            // Leer valores iniciales del Tuner si está habilitado
+            barWidth: ENABLE_WAVEFORM_TUNER && barWidthSlider ? parseInt(barWidthSlider.value) : 1,
+            barGap: ENABLE_WAVEFORM_TUNER && barGapSlider ? parseInt(barGapSlider.value) : 0,
+            barHeight: ENABLE_WAVEFORM_TUNER && barHeightSlider ? parseFloat(barHeightSlider.value) : 1,
             responsive: true,
             backend: 'MediaElement',
             media: document.getElementById('audio-player')
@@ -396,6 +421,37 @@ document.addEventListener('DOMContentLoaded', () => {
             console.warn("Intento de Play/Pause pero WaveSurfer no está listo o no tiene el método.");
         }
     });
+
+
+    // --- Lógica del Waveform Tuner (si está habilitado) ---
+    if (ENABLE_WAVEFORM_TUNER && wavesurfer && barWidthSlider && barGapSlider && barHeightSlider) {
+        const updateWaveformAppearance = () => {
+            const newOptions = {
+                barWidth: parseInt(barWidthSlider.value),
+                barGap: parseInt(barGapSlider.value),
+                barHeight: parseFloat(barHeightSlider.value)
+            };
+            // Actualizar spans de valores
+            if(barWidthValueSpan) barWidthValueSpan.textContent = newOptions.barWidth;
+            if(barGapValueSpan) barGapValueSpan.textContent = newOptions.barGap;
+            if(barHeightValueSpan) barHeightValueSpan.textContent = newOptions.barHeight.toFixed(1);
+
+            console.log("Aplicando nuevas opciones de renderizado:", newOptions); // LOG
+            try {
+                wavesurfer.setOptions(newOptions);
+                // setOptions debería redibujar automáticamente si el audio está cargado.
+            } catch (error) {
+                console.error("Error al aplicar setOptions:", error); // LOG ERROR
+            }
+        };
+
+        barWidthSlider.addEventListener('input', updateWaveformAppearance);
+        barGapSlider.addEventListener('input', updateWaveformAppearance);
+        barHeightSlider.addEventListener('input', updateWaveformAppearance);
+        console.log("Listeners del Waveform Tuner añadidos."); // LOG
+    }
+
+
 
     console.log("Aplicación inicializada y listeners configurados."); // LOG FINAL INIT
 });
