@@ -116,7 +116,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Ya no se deshabilita el tracklist aquí
 
-        wavesurfer.load(set.audio_url);
+        // --- LÓGICA MODIFICADA PARA CARGAR PICOS ---
+        if (set.peaks_url) {
+            console.log(`Intentando cargar picos desde: ${set.peaks_url}`); // LOG
+            fetch(set.peaks_url)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Error HTTP al cargar picos! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(peaksData => {
+                    // Extraer el array de datos de picos del JSON
+                    const peaksArray = peaksData.data;
+                    if (peaksArray && Array.isArray(peaksArray)) {
+                        console.log(`Picos cargados (${peaksArray.length} puntos). Cargando audio con picos...`); // LOG
+                        // Cargar audio Y picos en WaveSurfer
+                        wavesurfer.load(set.audio_url, peaksArray);
+                    } else {
+                        console.warn("El JSON de picos no tiene un array 'data' válido. Cargando solo audio..."); // LOG ADVERTENCIA
+                        wavesurfer.load(set.audio_url); // Fallback: cargar solo audio
+                    }
+                })
+                .catch(error => {
+                    console.error('Error al cargar o parsear el JSON de picos:', error); // LOG ERROR
+                    console.warn("Fallback: Cargando solo audio debido a error con picos..."); // LOG ADVERTENCIA
+                    wavesurfer.load(set.audio_url); // Fallback: cargar solo audio
+                });
+        } else {
+            // Si no hay peaks_url, cargar solo el audio como antes
+            console.log("No se encontró peaks_url. Cargando solo audio..."); // LOG
+            wavesurfer.load(set.audio_url);
+        }
+        // --- FIN LÓGICA MODIFICADA ---
 
         currentLoadedSet = set; // Guardar referencia al set cargado
         displayTracklist(set.tracklist || []); // Mostrar tracklist
