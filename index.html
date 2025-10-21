@@ -30,6 +30,7 @@
             border-radius: 25px;
             cursor: pointer;
             transition: opacity 0.2s;
+            margin: 5px;
         }
         button:hover:not(:disabled) { opacity: 0.8; }
         button:disabled {
@@ -43,91 +44,194 @@
             padding: 10px;
             background-color: #1e1e1e;
             border-radius: 5px;
+            font-size: 0.9em;
         }
+        .url-list {
+            background-color: #1e1e1e;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        .url-item {
+            padding: 8px;
+            margin: 5px 0;
+            background-color: #2a2a2a;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 0.85em;
+        }
+        .url-item.trying { border-left: 3px solid #FFA500; }
+        .url-item.success { border-left: 3px solid #1DB954; }
+        .url-item.failed { border-left: 3px solid #FF4444; }
     </style>
 </head>
 <body>
-    <h1>🎵 Prueba WaveSurfer + FLAC</h1>
+    <h1>🎵 Prueba WaveSurfer + FLAC (Multi-URL)</h1>
     <div id="waveform"></div>
-    <button id="playPauseBtn" disabled>⏳ Cargando...</button>
-    <div id="status">Intentando cargar el archivo FLAC desde GitHub Pages...</div>
+    <div>
+        <button id="playPauseBtn" disabled>⏳ Esperando...</button>
+        <button id="testAllBtn">🔄 Probar todas las URLs</button>
+    </div>
+    <div id="status">Listo para probar...</div>
+    
+    <div class="url-list" id="urlList">
+        <strong>URLs a probar:</strong>
+        <div id="urlItems"></div>
+    </div>
+
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const waveformDiv = document.getElementById('waveform');
-            const playPauseBtn = document.getElementById('playPauseBtn');
-            const statusDiv = document.getElementById('status');
-            
-            // ✅ URL CORRECTA - GitHub Pages (tiene CORS habilitado)
-            const audioUrl = "https://vloitz.github.io/wav-sets/audio/Jungle Rhythmic Grooves 004.flac";
-            
-            let wavesurfer = null;
-            
-            try {
-                wavesurfer = WaveSurfer.create({
-                    container: '#waveform',
-                    waveColor: '#555',
-                    progressColor: '#1DB954',
-                    height: 128,
-                    cursorWidth: 2,
-                    cursorColor: '#fff',
-                    barWidth: 3,
-                    barGap: 2,
-                    responsive: true,
-                    normalize: true
-                });
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const testAllBtn = document.getElementById('testAllBtn');
+        const statusDiv = document.getElementById('status');
+        const urlItemsDiv = document.getElementById('urlItems');
+        
+        let wavesurfer = null;
+        let currentUrlIndex = 0;
+
+        // Lista de todas las posibles URLs a probar
+        const audioUrls = [
+            {
+                name: "GitHub Pages - Espacios normales",
+                url: "https://vloitz.github.io/wav-sets/audio/Jungle Rhythmic Grooves 004.flac"
+            },
+            {
+                name: "GitHub Pages - Espacios codificados (%20)",
+                url: "https://vloitz.github.io/wav-sets/audio/Jungle%20Rhythmic%20Grooves%20004.flac"
+            },
+            {
+                name: "GitHub Pages - Espacios con +",
+                url: "https://vloitz.github.io/wav-sets/audio/Jungle+Rhythmic+Grooves+004.flac"
+            },
+            {
+                name: "GitHub Raw (main branch)",
+                url: "https://raw.githubusercontent.com/vloitz/wav-sets/main/audio/Jungle Rhythmic Grooves 004.flac"
+            },
+            {
+                name: "GitHub Raw - Espacios codificados",
+                url: "https://raw.githubusercontent.com/vloitz/wav-sets/main/audio/Jungle%20Rhythmic%20Grooves%20004.flac"
+            }
+        ];
+
+        // Mostrar lista de URLs
+        function displayUrls() {
+            urlItemsDiv.innerHTML = '';
+            audioUrls.forEach((item, index) => {
+                const div = document.createElement('div');
+                div.className = 'url-item';
+                div.id = `url-${index}`;
+                div.innerHTML = `<strong>${index + 1}.</strong> ${item.name}<br><small>${item.url}</small>`;
+                urlItemsDiv.appendChild(div);
+            });
+        }
+
+        // Inicializar WaveSurfer
+        function initWaveSurfer() {
+            if (wavesurfer) {
+                wavesurfer.destroy();
+            }
+
+            wavesurfer = WaveSurfer.create({
+                container: '#waveform',
+                waveColor: '#555',
+                progressColor: '#1DB954',
+                height: 128,
+                cursorWidth: 2,
+                cursorColor: '#fff',
+                barWidth: 3,
+                barGap: 2,
+                responsive: true,
+                normalize: true
+            });
+
+            wavesurfer.on('loading', (percent) => {
+                statusDiv.textContent = `⏳ Cargando forma de onda: ${percent}%`;
+            });
+
+            wavesurfer.on('ready', () => {
+                const duration = wavesurfer.getDuration();
+                const minutes = Math.floor(duration / 60);
+                const seconds = Math.floor(duration % 60);
+                statusDiv.textContent = `✅ ¡Éxito! Audio listo. Duración: ${minutes}:${seconds.toString().padStart(2, '0')}`;
+                playPauseBtn.textContent = '▶️ Play';
+                playPauseBtn.disabled = false;
                 
-                statusDiv.textContent = `Inicializado. Cargando desde GitHub Pages...`;
-                console.log(`Cargando URL: ${audioUrl}`);
+                // Marcar URL exitosa
+                document.getElementById(`url-${currentUrlIndex}`).classList.add('success');
                 
-                // --- Eventos ---
-                wavesurfer.on('loading', (percent) => {
-                    statusDiv.textContent = `⏳ Cargando forma de onda: ${percent}%`;
-                    console.log(`Cargando: ${percent}%`);
-                });
+                console.log(`✅ URL exitosa: ${audioUrls[currentUrlIndex].url}`);
+            });
+
+            wavesurfer.on('error', (err) => {
+                console.error(`❌ Falló URL ${currentUrlIndex + 1}:`, err);
+                document.getElementById(`url-${currentUrlIndex}`).classList.add('failed');
                 
-                wavesurfer.on('ready', () => {
-                    const duration = wavesurfer.getDuration();
-                    const minutes = Math.floor(duration / 60);
-                    const seconds = Math.floor(duration % 60);
-                    statusDiv.textContent = `✅ ¡Audio listo! Duración: ${minutes}:${seconds.toString().padStart(2, '0')}`;
-                    console.log("WaveSurfer listo!");
-                    playPauseBtn.textContent = '▶️ Play';
-                    playPauseBtn.disabled = false;
-                });
-                
-                wavesurfer.on('error', (err) => {
-                    statusDiv.textContent = `❌ Error: ${err}`;
-                    console.error('WaveSurfer error:', err);
+                // Intentar siguiente URL
+                currentUrlIndex++;
+                if (currentUrlIndex < audioUrls.length) {
+                    tryNextUrl();
+                } else {
+                    statusDiv.textContent = `❌ Ninguna URL funcionó. Verifica que el archivo esté subido correctamente.`;
                     playPauseBtn.textContent = '❌ Error';
                     playPauseBtn.disabled = true;
-                });
-                
-                wavesurfer.on('play', () => { 
-                    playPauseBtn.textContent = '⏸️ Pause'; 
-                });
-                
-                wavesurfer.on('pause', () => { 
-                    playPauseBtn.textContent = '▶️ Play'; 
-                });
-                
-                wavesurfer.on('finish', () => { 
-                    playPauseBtn.textContent = '▶️ Play';
-                    statusDiv.textContent = '✅ Reproducción finalizada';
-                });
-                
-                // --- Cargar el audio ---
-                wavesurfer.load(audioUrl);
-                
-                // --- Conectar botón ---
-                playPauseBtn.addEventListener('click', () => {
-                    wavesurfer.playPause();
-                });
-                
-            } catch (error) {
-                statusDiv.textContent = `❌ Error al inicializar WaveSurfer: ${error.message}`;
-                console.error("Error al inicializar WaveSurfer:", error);
+                }
+            });
+
+            wavesurfer.on('play', () => { playPauseBtn.textContent = '⏸️ Pause'; });
+            wavesurfer.on('pause', () => { playPauseBtn.textContent = '▶️ Play'; });
+            wavesurfer.on('finish', () => { 
+                playPauseBtn.textContent = '▶️ Play';
+                statusDiv.textContent = '✅ Reproducción finalizada';
+            });
+        }
+
+        // Probar siguiente URL
+        function tryNextUrl() {
+            if (currentUrlIndex >= audioUrls.length) {
+                statusDiv.textContent = '❌ No hay más URLs para probar';
+                return;
+            }
+
+            const currentUrl = audioUrls[currentUrlIndex];
+            statusDiv.textContent = `🔍 Probando URL ${currentUrlIndex + 1}/${audioUrls.length}: ${currentUrl.name}`;
+            
+            // Marcar URL actual
+            document.getElementById(`url-${currentUrlIndex}`).classList.add('trying');
+            
+            console.log(`Intentando cargar: ${currentUrl.url}`);
+            
+            initWaveSurfer();
+            wavesurfer.load(currentUrl.url);
+        }
+
+        // Botón para probar todas las URLs
+        testAllBtn.addEventListener('click', () => {
+            currentUrlIndex = 0;
+            
+            // Resetear estilos
+            document.querySelectorAll('.url-item').forEach(item => {
+                item.classList.remove('trying', 'success', 'failed');
+            });
+            
+            playPauseBtn.disabled = true;
+            playPauseBtn.textContent = '⏳ Probando...';
+            
+            tryNextUrl();
+        });
+
+        // Botón play/pause
+        playPauseBtn.addEventListener('click', () => {
+            if (wavesurfer) {
+                wavesurfer.playPause();
             }
         });
+
+        // Mostrar URLs al cargar
+        displayUrls();
+
+        // Iniciar automáticamente al cargar la página
+        setTimeout(() => {
+            testAllBtn.click();
+        }, 500);
     </script>
 </body>
 </html>
