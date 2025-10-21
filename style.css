@@ -1,369 +1,191 @@
-/* --- Reseteo B�sico y Tema Oscuro --- */
+/* --- Reseteo Básico y Tema Oscuro --- */
 :root {
-    --brand-color: #1DB954; /* Un acento verde */
+    --brand-color: #1DB954;
     --dark-bg: #121212;
     --light-bg: #1e1e1e;
     --text-primary: #ffffff;
     --text-secondary: #b3b3b3;
-    --waveform-wave-color: #555; /* Color de la onda */
-    --waveform-progress-color: var(--brand-color); /* Color del progreso */
+    --waveform-wave-color: #cccccc;
+    --waveform-progress-color: #ff7f00;
 }
 
 body, html {
-    margin: 0;
-    padding: 0;
+    margin: 0; padding: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background-color: var(--dark-bg);
-    color: var(--text-primary);
+    background-color: var(--dark-bg); color: var(--text-primary);
 }
+.app-container { max-width: 1200px; margin: 20px auto; padding: 0 15px; }
 
-.app-container {
-    max-width: 1200px;
-    margin: 20px auto;
-    padding: 0 15px;
-}
-
-/* --- 1. Encabezado de Perfil --- */
-.profile-header {
-    width: 100%;
-    margin-bottom: 20px;
-}
-
-.profile-banner {
-    height: 250px;
-    background-color: var(--light-bg);
-    background-size: cover;
-    background-position: center;
-}
-
+/* --- 1. Encabezado de Perfil (Revisado v4) --- */
+.profile-header { width: 100%; margin-bottom: 30px; }
+.profile-banner { height: 250px; background-color: var(--light-bg); background-size: cover; background-position: center; /* background-image cargado desde JS */ }
 .profile-info {
     display: flex;
-    align-items: center;
+    align-items: flex-start; /* Alinear arriba */
+    justify-content: space-between; /* Empujar contenido extra a la derecha */
     padding: 0 30px;
-    margin-top: -50px;
+    margin-top: -75px; /* Subir foto sobre banner */
     position: relative;
     z-index: 2;
+    gap: 25px; /* Espacio entre foto, detalles y contenido extra */
 }
-
 .profile-pic {
-    width: 150px;
-    height: 150px;
-    border-radius: 50%;
-    border: 4px solid var(--dark-bg);
-    object-fit: cover;
-    background-color: var(--dark-bg);
+    width: 150px; height: 150px; border-radius: 50%; border: 4px solid var(--dark-bg);
+    object-fit: cover; background-color: var(--dark-bg); flex-shrink: 0; margin-right: 0; /* Quitamos margen derecho, usamos gap */
+    margin-top: 10px; /* Bajar ligeramente la foto para mejor alineación vertical */
 }
 
-.profile-name {
-    font-size: 2.5em;
-    margin: 0 0 0 20px;
+/* Contenedor para Nombre, Loc, Bio, Sociales */
+.profile-details-container {
+    display: flex; flex-direction: column;
+    padding-top: 20px; /* Espacio arriba para alinear mejor con la foto */
+    flex-grow: 1; /* Permite que ocupe espacio, pero limitado por max-width */
+    max-width: 650px; /* Limitar ancho del texto */
 }
+.profile-name { font-size: 2.8em; margin: 0 0 5px 0; line-height: 1.1; }
+.profile-location { font-size: 1.1em; color: var(--text-secondary); margin: 0 0 20px 0; }
 
-.profile-location {
-    font-size: 1.2em;
-    color: var(--text-secondary);
-    margin: 10px 0 0 10px;
+/* Bio y Sociales (Debajo) */
+.profile-bio {
+    font-size: 0.95em; color: var(--text-secondary); margin-bottom: 15px;
+    line-height: 1.5;
+    /* Lógica colapsable (Simulación CSS) */
+    max-height: 5.4em; /* Aprox 3 líneas */ overflow: hidden; position: relative;
+    padding-bottom: 1.8em; /* Espacio para botón */ box-sizing: border-box;
 }
+.profile-bio::after { /* Botón "Ver más" refinado */
+    content: '... Ver más'; position: absolute; bottom: 0; right: 0; height: 1.8em; /* Altura igual al padding-bottom */
+    background: linear-gradient(to right, transparent, var(--dark-bg) 50%, var(--dark-bg) 100%);
+    padding: 0.3em 0 0.3em 1.5em; /* Ajustar padding */ line-height: 1.5; /* Igual que el texto */
+    color: var(--brand-color); cursor: pointer; font-weight: bold; font-size: 0.9em;
+}
+/* Clase simulada para expansión (JS la manejaría) */
+/* .profile-bio.expanded { max-height: none; padding-bottom: 0; } */
+/* .profile-bio.expanded::after { display: none; } */
 
-/* --- 2a. Reproductor Principal (CON WAVESURFER) --- */
-.player-card {
-    display: flex;
+.profile-socials { display: flex; gap: 15px; }
+.social-icon { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; background-color: var(--light-bg); border-radius: 50%; color: var(--text-primary); font-size: 1.1em; text-decoration: none; transition: background-color 0.2s; }
+.social-icon:hover { background-color: var(--brand-color); }
+.social-icon svg { width: 16px; height: 16px; fill: currentColor; }
+/* Placeholder Iconos */
+.social-icon.soundcloud::before { content: '☁️'; }
+.social-icon.youtube::before { content: '▶️'; }
+.social-icon.instagram::before { content: '📸'; }
+
+/* Contenedor para Espacio Extra (Desktop) */
+.profile-extra-content {
+    padding-top: 20px; /* Alinear verticalmente con detalles */
+    width: 250px; /* Ancho fijo */
+    flex-shrink: 0; /* No encoger */
+    display: block; /* Mostrar por defecto */
+}
+/* Placeholder para "Latest Set" */
+.latest-set-highlight {
     background-color: var(--light-bg);
-    border-radius: 8px;
-    padding: 20px;
-    margin-bottom: 30px;
-    gap: 20px;
-}
-
-.player-cover-art {
-    width: 200px;
-    height: 200px;
-    object-fit: cover;
     border-radius: 6px;
-    background-color: var(--dark-bg);
-    flex-shrink: 0; /* Evita que la imagen se encoja */
-}
-
-.player-details {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    flex-grow: 1;
-    min-width: 0; /* Permite que el contenedor se encoja si es necesario */
-}
-
-#current-track-title {
-    margin: 0 0 5px 0;
-    font-size: 1.8em;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis; /* A�ade puntos suspensivos si el t�tulo es largo */
-}
-
-#current-track-artist {
-    margin: 0 0 15px 0; /* Reducido el margen inferior */
-    font-size: 1.2em;
-    color: var(--text-secondary);
-}
-
-/* Contenedor para la forma de onda y controles */
-.waveform-container {
-    width: 100%;
-    margin-bottom: 10px;
-}
-#waveform {
-    cursor: pointer; /* Indica que se puede hacer clic */
-    height: 100px; /* Altura de la forma de onda */
-}
-
-/* Controles personalizados */
-.player-controls {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    margin-top: 10px;
-}
-
-#playPauseBtn {
-    background-color: var(--brand-color);
-    color: var(--text-primary);
-    border: none;
-    border-radius: 50%;
-    width: 50px;
-    height: 50px;
-    font-size: 1.5em;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-#playPauseBtn:hover {
-    opacity: 0.8;
-}
-#playPauseBtn:disabled { /* Estilo para bot�n deshabilitado */
-     background-color: #555;
-     cursor: not-allowed;
-     opacity: 0.6;
-}
-#currentTime, #totalDuration {
+    padding: 15px;
     font-size: 0.9em;
-    color: var(--text-secondary);
-    min-width: 45px; /* Espacio para el tiempo */
 }
-#totalDuration {
-     margin-left: auto; /* Empuja la duraci�n total a la derecha */
-     text-align: right;
-}
+.latest-set-highlight h5 { margin: 0 0 8px 0; color: var(--text-secondary); font-size: 0.8em; text-transform: uppercase; }
+.latest-set-highlight p { margin: 0; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.latest-set-highlight span { display: block; font-size: 0.85em; color: var(--text-secondary); margin-top: 3px; }
 
-/* Ocultamos el reproductor <audio> original */
-#audio-player {
-    display: none;
-}
+/* --- 2a. Reproductor Principal --- */
+.player-card { display: flex; background-color: var(--light-bg); border-radius: 8px; padding: 20px; margin-bottom: 30px; gap: 20px; overflow: hidden; position: relative; }
+.player-cover-art { width: 200px; height: 200px; object-fit: cover; border-radius: 6px; background-color: var(--dark-bg); flex-shrink: 0; position: static; opacity: 1; z-index: auto; /* src cargado desde JS */ }
+.player-details { display: flex; flex-direction: column; justify-content: center; flex-grow: 1; min-width: 0; position: relative; z-index: 1; background-color: transparent; }
+#current-track-title { margin: 0 0 5px 0; font-size: 1.8em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: none; }
+#current-track-artist { margin: 0 0 15px 0; font-size: 1.2em; color: var(--text-secondary); text-shadow: none; }
+.waveform-container { width: 100%; margin-bottom: 10px; }
+#waveform { cursor: pointer; height: 100px; }
+.player-controls { display: flex; align-items: center; gap: 15px; margin-top: 10px; }
+#playPauseBtn { background-color: var(--brand-color); color: var(--text-primary); border: none; border-radius: 50%; width: 50px; height: 50px; font-size: 1.5em; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+#playPauseBtn:hover { opacity: 0.8; }
+#playPauseBtn:disabled { background-color: #555; cursor: not-allowed; opacity: 0.6; }
+#currentTime, #totalDuration { font-size: 0.9em; color: var(--text-secondary); min-width: 45px; text-shadow: 1px 1px 2px rgba(0,0,0,0.6); }
+#totalDuration { margin-left: auto; text-align: right; }
+#audio-player { display: none; }
 
-/* --- 2b. Lista de Sets --- */
-.tracklist-container {
-    background-color: var(--light-bg);
-    border-radius: 8px;
-    padding: 20px;
-}
+/* --- Tracklist del Set Actual --- */
+.current-tracklist-container { background-color: var(--light-bg); border-radius: 8px; padding: 15px 20px; margin-bottom: 30px; }
+/* Cabecera con título y filtro */
+.current-tracklist-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+.current-tracklist-header h4 { margin: 0; color: var(--text-secondary); font-size: 0.9em; text-transform: uppercase; letter-spacing: 0.5px; }
+/* Estilo Filtro Favoritos */
+.favorites-filter { display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--text-secondary); font-size: 0.9em; padding: 3px 6px; border-radius: 4px; transition: background-color 0.2s, color 0.2s; user-select: none; -webkit-user-select: none; }
+.favorites-filter:hover { background-color: rgba(255, 255, 255, 0.1); color: var(--text-primary); }
+.favorites-filter input[type="checkbox"] { display: none; }
+.favorites-filter .star-icon { color: #ffc107; font-size: 1.3em; line-height: 1; transition: transform 0.2s; }
+.favorites-filter:hover .star-icon { transform: scale(1.1); }
+/* Estilo cuando el filtro está activo (checkbox checked) - JS manejará la clase 'active' o similar si se desea */
+/* .favorites-filter input:checked + .star-icon {} */
+/* .favorites-filter input:checked ~ span {} */
 
-.tracklist {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-}
+.current-tracklist { list-style: none; padding: 0; margin: 0; max-height: 400px; overflow-y: auto; }
+.current-tracklist-item { display: flex; align-items: center; padding: 8px 5px; border-bottom: 1px solid #333; cursor: pointer; transition: background-color 0.2s; user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; }
+.current-tracklist-item:last-child { border-bottom: none; }
+.current-tracklist-item:hover { background-color: rgba(255, 255, 255, 0.05); }
+.track-time { color: var(--text-secondary); font-size: 0.9em; min-width: 45px; margin-right: 10px; font-variant-numeric: tabular-nums; }
+.track-time:hover { color: var(--brand-color); }
+.track-emoji { margin-right: 10px; }
+.track-title { flex-grow: 1; }
+.favorite-btn { background: none; border: none; color: var(--text-secondary); font-size: 1.3em; cursor: pointer; padding: 0 5px; margin-left: 10px; transition: color 0.2s, transform 0.1s; }
+.favorite-btn:hover { color: #ffc107; }
+.favorite-btn.favorited { color: #ffc107; transform: scale(1.1); }
 
-.track-item {
-    display: flex;
-    align-items: center;
-    padding: 10px;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
-
-.track-item:hover, .track-item.playing {
-    background-color: rgba(255, 255, 255, 0.1);
-}
-
-.track-item-cover {
-    width: 50px;
-    height: 50px;
-    object-fit: cover;
-    border-radius: 4px;
-    margin-right: 15px;
-    background-color: var(--dark-bg);
-}
-
-.track-item-title {
-    font-size: 1.1em;
-    font-weight: 500;
-}
-
-.track-item-date {
-    font-size: 0.9em;
-    color: var(--text-secondary);
-    margin-left: auto;
-}
+/* --- Lista General de Sets --- */
+.tracklist-container { background-color: var(--light-bg); border-radius: 8px; padding: 20px; }
+.tracklist { list-style: none; padding: 0; margin: 0; }
+.track-item { display: flex; align-items: center; padding: 10px; border-radius: 4px; cursor: pointer; transition: background-color 0.2s; }
+.track-item:hover, .track-item.playing { background-color: rgba(255, 255, 255, 0.1); }
+.track-item-cover { width: 50px; height: 50px; object-fit: cover; border-radius: 4px; margin-right: 15px; background-color: var(--dark-bg); }
+.track-item-title { font-size: 1.1em; font-weight: 500; }
+.track-item-date { font-size: 0.9em; color: var(--text-secondary); margin-left: auto; }
 
 
-/* --- NUEVOS ESTILOS: Tracklist del Set Actual --- */
-.current-tracklist-container {
-    background-color: var(--light-bg);
-    border-radius: 8px;
-    padding: 15px 20px;
-    margin-bottom: 30px;
-}
+/* --- Responsive --- */
 
-.current-tracklist-container h4 {
-    margin-top: 0;
-    margin-bottom: 10px;
-    color: var(--text-secondary);
-    font-size: 0.9em;
-    text-transform: uppercase;
-}
-
-.current-tracklist {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    max-height: 400px; /* Altura máxima con scroll */
-    overflow-y: auto;
-}
-
-.current-tracklist-item {
-    display: flex;
-    align-items: center;
-    padding: 8px 5px;
-    border-bottom: 1px solid #333; /* Separador sutil */
-    cursor: pointer;
-    transition: background-color 0.2s;
-
-    /* --- AÑADIR ESTA LÍNEA --- */
-    user-select: none; /* Evita la selección de texto */
-    -webkit-user-select: none; /* Para navegadores basados en WebKit (Safari, Chrome antiguo) */
-    -moz-user-select: none; /* Para Firefox */
-    -ms-user-select: none; /* Para Internet Explorer/Edge antiguo */
-
-}
-.current-tracklist-item:last-child {
-    border-bottom: none;
-}
-
-.current-tracklist-item:hover {
-    background-color: rgba(255, 255, 255, 0.05);
-}
-
-.track-time {
-    color: var(--text-secondary);
-    font-size: 0.9em;
-    min-width: 45px; /* Alineación */
-    margin-right: 10px;
-    font-variant-numeric: tabular-nums; /* Asegura ancho fijo para números */
-}
-.track-time:hover {
-    color: var(--brand-color); /* Resaltar al pasar el mouse */
-}
-
-.track-emoji {
-    margin-right: 10px;
-}
-
-.track-title {
-    flex-grow: 1; /* Ocupa el espacio restante */
-}
-
-.favorite-btn {
-    background: none;
-    border: none;
-    color: var(--text-secondary);
-    font-size: 1.3em;
-    cursor: pointer;
-    padding: 0 5px;
-    margin-left: 10px;
-    transition: color 0.2s, transform 0.1s;
-}
-.favorite-btn:hover {
-    color: #ffc107; /* Amarillo para hover */
-}
-.favorite-btn.favorited {
-    color: #ffc107; /* Amarillo cuando es favorito */
-    transform: scale(1.1);
-}
-/*  2025-10-21_011846_ */
-
-
-/* --- 3. Responsive para M�vil --- */
-@media (max-width: 768px) {
+/* Ocultar Contenido Extra en pantallas medianas/pequeñas */
+@media (max-width: 992px) {
+    .profile-extra-content {
+        display: none;
+    }
     .profile-info {
-        flex-direction: column;
-        align-items: center;
-        margin-top: -75px;
-        text-align: center;
-        padding: 0 15px;
+        justify-content: flex-start; /* Evitar que el texto se expanda */
     }
+}
 
-    .profile-name {
-        font-size: 2em;
-        margin: 10px 0 0 0;
-    }
+/* Ajustes para Móvil */
+@media (max-width: 768px) {
+    /* Perfil Móvil */
+    .profile-info { flex-direction: column; align-items: center; margin-top: -75px; text-align: center; padding: 0 15px; gap: 0; }
+    .profile-pic { margin-right: 0; margin-bottom: 15px; width: 120px; height: 120px; margin-top: 0; }
+    .profile-details-container { align-items: center; padding-top: 0; max-width: 100%; }
+    .profile-name { font-size: 2em; margin: 0 0 5px 0; }
+    .profile-location { margin: 0 0 10px 0; font-size: 1em; }
+    .profile-bio { max-width: 100%; max-height: 4.8em; margin-bottom: 15px; font-size: 0.9em; padding-bottom: 1.8em; }
+    .profile-bio::after { background: linear-gradient(to right, transparent, var(--dark-bg) 80%); padding: 0.8em 0 0.5em 1.5em; }
+    .profile-socials { justify-content: center; }
 
-    .profile-location {
-        margin: 5px 0 0 0;
-    }
+    /* Player Móvil (Portada detrás) */
+    .player-card { flex-direction: column; padding: 0; }
+    .player-cover-art { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; opacity: 0.25; border-radius: 8px; }
+    .player-details { position: relative; z-index: 1; width: 100%; background: linear-gradient(rgba(18,18,18,0.5), rgba(18,18,18,0.8)); padding: 20px; box-sizing: border-box; align-items: center; }
+    #current-track-title { text-align: center; font-size: 1.5em; text-shadow: 1px 1px 3px rgba(0,0,0,0.7); }
+    #current-track-artist { text-shadow: 1px 1px 3px rgba(0,0,0,0.7); text-align: center; }
 
-    .player-card {
-        flex-direction: column;
-        align-items: center;
-    }
+    #waveform { height: 80px; }
+    .track-item-title { font-size: 1em; }
+    .track-item-date { font-size: 0.8em; }
 
-    .player-cover-art {
-        width: 100%;
-        height: auto;
-        max-width: 300px;
-    }
-
-    .player-details {
-        align-items: center;
-        width: 100%; /* Asegura que ocupe todo el ancho */
-    }
-
-    #current-track-title {
-        text-align: center;
-        font-size: 1.5em;
-    }
-     #waveform {
-         height: 80px; /* Un poco m�s peque�a en m�vil */
-     }
-
-    .track-item-title {
-        font-size: 1em;
-    }
-
-    .track-item-date {
-        font-size: 0.8em;
-    }
-
-
-    /* Responsive para el nuevo tracklist */
-    .current-tracklist-container {
-        padding: 10px 15px;
-    }
-    .current-tracklist {
-        max-height: 300px; /* Menos altura en móvil */
-    }
-    .current-tracklist-item {
-        padding: 6px 0px;
-    }
-    .track-time {
-        font-size: 0.85em;
-        min-width: 40px;
-    }
-    .track-title {
-        font-size: 0.95em;
-    }
-    .favorite-btn {
-        font-size: 1.2em;
-    }
-
+    /* Tracklist Actual Móvil */
+    .current-tracklist-container { padding: 10px 15px; }
+    .current-tracklist-header { margin-bottom: 10px; flex-direction: column; align-items: flex-start; gap: 5px; }
+    .current-tracklist-header h4 { font-size: 0.8em; }
+    .favorites-filter { font-size: 0.8em; padding: 2px 4px; }
+    .current-tracklist { max-height: 300px; }
+    .current-tracklist-item { padding: 6px 0px; }
+    .track-time { font-size: 0.85em; min-width: 40px; }
+    .track-title { font-size: 0.95em; }
+    .favorite-btn { font-size: 1.2em; }
 }
