@@ -19,6 +19,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentLoadedSet = null; // Para saber qué set está cargado
     let wavesurfer = null; // Declarar wavesurfer aquí
 
+    let isDraggingWaveformTouch = false; // Bandera específica para arrastre táctil
+
     console.log("Variables globales inicializadas. Favoritos cargados:", favorites); // LOG
 
     // --- Inicializar WaveSurfer ---
@@ -273,7 +275,111 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+        // --- NUEVO: Lógica Drag-to-Seek (SOLO TÁCTIL) ---
+        const waveformInteractionElement = document.getElementById('waveform');
+
+        if (waveformInteractionElement && wavesurfer) {
+            console.log("Añadiendo listeners TÁCTILES para Drag-to-Seek."); // LOG
+
+            // Función para manejar el movimiento (solo se llamará en touchmove)
+            const handleWaveformTouchMove = (event) => {
+                if (!isDraggingWaveformTouch) return;
+
+                // Prevenir scroll de la página durante el arrastre táctil
+                event.preventDefault();
+
+                const wavesurferElement = wavesurfer.getWrapper();
+                const rect = wavesurferElement.getBoundingClientRect();
+                // Asegurarse de que hay touches
+                if (!event.touches || event.touches.length === 0) return;
+                const clientX = event.touches[0].clientX;
+                const x = Math.max(0, clientX - rect.left); // Asegurar no negativo
+                const width = rect.width;
+                const progress = Math.max(0, Math.min(1, x / width)); // Asegurar entre 0 y 1
+
+                console.log(`Touch Move: progress=${progress.toFixed(4)}`); // LOG
+
+                wavesurfer.seekTo(progress);
+
+                // Actualizar tiempo visual
+                const duration = wavesurfer.getDuration();
+                if (duration > 0 && currentTimeEl) {
+                    currentTimeEl.textContent = formatTime(progress * duration);
+                }
+            };
+
+            // Función para manejar el fin del arrastre táctil
+            const handleWaveformTouchEnd = (event) => {
+                if (!isDraggingWaveformTouch) return;
+
+                isDraggingWaveformTouch = false;
+                console.log("Touch End."); // LOG
+
+                // Quitar listeners globales de touch
+                window.removeEventListener('touchmove', handleWaveformTouchMove, { passive: false });
+                window.removeEventListener('touchend', handleWaveformTouchEnd);
+            };
+
+            // Listener para el inicio del arrastre táctil
+            waveformInteractionElement.addEventListener('touchstart', (event) => {
+                if (!wavesurfer || !wavesurfer.isReady || event.target.closest('button')) {
+                    console.warn("Intento de Touch Start, pero WaveSurfer no está listo o fue en un botón."); // LOG
+                    return;
+                }
+
+                isDraggingWaveformTouch = true;
+                console.log("Touch Start en Waveform."); // LOG
+
+                // Calcular y buscar posición inicial inmediatamente
+                // (Reutilizamos parte de la lógica de handleWaveformTouchMove para esto)
+                const wavesurferElement = wavesurfer.getWrapper();
+                const rect = wavesurferElement.getBoundingClientRect();
+                if (!event.touches || event.touches.length === 0) return; // Seguridad
+                const clientX = event.touches[0].clientX;
+                const x = Math.max(0, clientX - rect.left);
+                const width = rect.width;
+                const progress = Math.max(0, Math.min(1, x / width));
+                console.log(`Touch Start Seek: progress=${progress.toFixed(4)}`); // LOG
+                wavesurfer.seekTo(progress);
+                const duration = wavesurfer.getDuration();
+                if (duration > 0 && currentTimeEl) {
+                    currentTimeEl.textContent = formatTime(progress * duration);
+                }
+
+
+                // Añadir listeners globales para movimiento y fin del toque
+                window.addEventListener('touchmove', handleWaveformTouchMove, { passive: false });
+                window.addEventListener('touchend', handleWaveformTouchEnd);
+
+            }, { passive: true }); // passive:true en touchstart está bien
+
+            // Listener simple para CLIC de RATÓN (PC) - Solo salta, sin arrastre continuo
+            waveformInteractionElement.addEventListener('click', (event) => {
+                // Asegurarse de que no sea parte de un arrastre táctil y que WS esté listo
+                if (!isDraggingWaveformTouch && wavesurfer && wavesurfer.isReady && !event.target.closest('button')) {
+                    console.log("Clic simple de ratón detectado en Waveform."); // LOG
+
+                    const wavesurferElement = wavesurfer.getWrapper();
+                    const rect = wavesurferElement.getBoundingClientRect();
+                    const clientX = event.clientX;
+                    const x = Math.max(0, clientX - rect.left);
+                    const width = rect.width;
+                    const progress = Math.max(0, Math.min(1, x / width));
+
+                    console.log(`Mouse Click Seek: progress=${progress.toFixed(4)}`); // LOG
+                    wavesurfer.seekTo(progress);
+                    // No necesitamos actualizar tiempo aquí, el evento 'seeking' de WaveSurfer lo hará
+                }
+            });
+
+        } else {
+            console.error("No se pudo añadir lógica de interacción con Waveform: #waveform o wavesurfer no encontrados."); // LOG ERROR
+        }
+        // --- FIN NUEVO BLOQUE ---
+
     // --- Manejar clics en el tracklist actual ---
+
+
     currentTracklistElement.addEventListener('click', (e) => {
         const target = e.target;
 
