@@ -6,84 +6,125 @@
     <title>Prueba WaveSurfer + FLAC</title>
     <script src="https://unpkg.com/wavesurfer.js@7.7.5"></script>
     <style>
-        body { background-color: #121212; color: #fff; font-family: sans-serif; padding: 20px; }
-        #waveform { border: 1px solid #333; height: 128px; margin-bottom: 10px; }
-        button { padding: 10px; font-size: 1em; }
-        #status { margin-top: 10px; color: #aaa; }
+        body { 
+            background-color: #121212; 
+            color: #fff; 
+            font-family: sans-serif; 
+            padding: 20px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        h1 { color: #1DB954; }
+        #waveform { 
+            border: 1px solid #333; 
+            height: 128px; 
+            margin-bottom: 10px;
+            background-color: #1e1e1e;
+        }
+        button { 
+            padding: 12px 24px; 
+            font-size: 1em;
+            background-color: #1DB954;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        button:hover:not(:disabled) { opacity: 0.8; }
+        button:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+        #status { 
+            margin-top: 10px; 
+            color: #aaa;
+            padding: 10px;
+            background-color: #1e1e1e;
+            border-radius: 5px;
+        }
     </style>
 </head>
 <body>
-
-    <h1>Prueba de Carga WaveSurfer + FLAC</h1>
+    <h1>🎵 Prueba WaveSurfer + FLAC</h1>
     <div id="waveform"></div>
-    <button id="playPauseBtn" disabled>Cargando...</button>
-    <div id="status">Intentando cargar el archivo FLAC...</div>
-
+    <button id="playPauseBtn" disabled>⏳ Cargando...</button>
+    <div id="status">Intentando cargar el archivo FLAC desde GitHub Pages...</div>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const waveformDiv = document.getElementById('waveform');
             const playPauseBtn = document.getElementById('playPauseBtn');
             const statusDiv = document.getElementById('status');
-
-            // --- URL de tu archivo FLAC ---
-            const audioUrl = "https://github.com/vloitz/wav-sets/blob/main/audio/Jungle%20Rhythmic%20Grooves%20004.flac";
-
+            
+            // ✅ URL CORRECTA - GitHub Pages (tiene CORS habilitado)
+            const audioUrl = "https://vloitz.github.io/wav-sets/audio/Jungle Rhythmic Grooves 004.flac";
+            
             let wavesurfer = null;
-
+            
             try {
                 wavesurfer = WaveSurfer.create({
                     container: '#waveform',
                     waveColor: '#555',
                     progressColor: '#1DB954',
                     height: 128,
-                    cursorWidth: 1,
+                    cursorWidth: 2,
                     cursorColor: '#fff',
-                    barWidth: 2,
-                    barGap: 1,
-                    responsive: true
+                    barWidth: 3,
+                    barGap: 2,
+                    responsive: true,
+                    normalize: true
                 });
-
-                statusDiv.textContent = `Inicializado. Cargando URL: ${audioUrl}`;
-                console.log(`Inicializado. Cargando URL: ${audioUrl}`);
-
-                // --- Eventos para depuración ---
+                
+                statusDiv.textContent = `Inicializado. Cargando desde GitHub Pages...`;
+                console.log(`Cargando URL: ${audioUrl}`);
+                
+                // --- Eventos ---
                 wavesurfer.on('loading', (percent) => {
-                    statusDiv.textContent = `Cargando forma de onda: ${percent}%`;
+                    statusDiv.textContent = `⏳ Cargando forma de onda: ${percent}%`;
                     console.log(`Cargando: ${percent}%`);
                 });
-
+                
                 wavesurfer.on('ready', () => {
-                    statusDiv.textContent = "¡Audio listo!";
+                    const duration = wavesurfer.getDuration();
+                    const minutes = Math.floor(duration / 60);
+                    const seconds = Math.floor(duration % 60);
+                    statusDiv.textContent = `✅ ¡Audio listo! Duración: ${minutes}:${seconds.toString().padStart(2, '0')}`;
                     console.log("WaveSurfer listo!");
                     playPauseBtn.textContent = '▶️ Play';
                     playPauseBtn.disabled = false;
                 });
-
+                
                 wavesurfer.on('error', (err) => {
-                    statusDiv.textContent = `Error: ${err}`;
+                    statusDiv.textContent = `❌ Error: ${err}`;
                     console.error('WaveSurfer error:', err);
                     playPauseBtn.textContent = '❌ Error';
                     playPauseBtn.disabled = true;
                 });
-
-                wavesurfer.on('play', () => { playPauseBtn.textContent = '⏸️ Pause'; });
-                wavesurfer.on('pause', () => { playPauseBtn.textContent = '▶️ Play'; });
-                wavesurfer.on('finish', () => { playPauseBtn.textContent = '▶️ Play'; });
-
+                
+                wavesurfer.on('play', () => { 
+                    playPauseBtn.textContent = '⏸️ Pause'; 
+                });
+                
+                wavesurfer.on('pause', () => { 
+                    playPauseBtn.textContent = '▶️ Play'; 
+                });
+                
+                wavesurfer.on('finish', () => { 
+                    playPauseBtn.textContent = '▶️ Play';
+                    statusDiv.textContent = '✅ Reproducción finalizada';
+                });
+                
                 // --- Cargar el audio ---
                 wavesurfer.load(audioUrl);
-
+                
                 // --- Conectar botón ---
                 playPauseBtn.addEventListener('click', () => {
-                    if (wavesurfer.isPlaying()) {
-                        wavesurfer.pause();
-                    } else {
-                        wavesurfer.play();
-                    }
+                    wavesurfer.playPause();
                 });
-
+                
             } catch (error) {
-                statusDiv.textContent = `Error al inicializar WaveSurfer: ${error.message}`;
+                statusDiv.textContent = `❌ Error al inicializar WaveSurfer: ${error.message}`;
                 console.error("Error al inicializar WaveSurfer:", error);
             }
         });
