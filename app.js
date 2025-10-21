@@ -34,14 +34,7 @@ if (ENABLE_WAVEFORM_TUNER) {
     barGapSlider = document.getElementById('barGapSlider');
     barHeightSlider = document.getElementById('barHeightSlider');
 
-// Listeners para nuevos sliders
-heightSlider.addEventListener('input', updateWaveformAppearance);
-barRadiusSlider.addEventListener('input', updateWaveformAppearance);
-cursorWidthSlider.addEventListener('input', updateWaveformAppearance);
-// Listeners para nuevos color pickers (usan 'input' también)
-waveColorPicker.addEventListener('input', updateWaveformAppearance);
-progressColorPicker.addEventListener('input', updateWaveformAppearance);
-cursorColorPicker.addEventListener('input', updateWaveformAppearance);
+
 
 
     barWidthValueSpan = document.getElementById('barWidthValue');
@@ -485,6 +478,15 @@ cursorColorPicker.addEventListener('input', updateWaveformAppearance);
         barWidthSlider.addEventListener('input', updateWaveformAppearance);
         barGapSlider.addEventListener('input', updateWaveformAppearance);
         barHeightSlider.addEventListener('input', updateWaveformAppearance);
+
+
+        heightSlider.addEventListener('input', updateWaveformAppearance);
+        barRadiusSlider.addEventListener('input', updateWaveformAppearance);
+        cursorWidthSlider.addEventListener('input', updateWaveformAppearance);
+        waveColorPicker.addEventListener('input', updateWaveformAppearance);
+        progressColorPicker.addEventListener('input', updateWaveformAppearance);
+        cursorColorPicker.addEventListener('input', updateWaveformAppearance);
+
         console.log("Listeners del Waveform Tuner añadidos."); // LOG
     }
 
