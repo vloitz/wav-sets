@@ -312,12 +312,19 @@ const seekWaveform = (clientX, rect, eventType) => {
                 wavesurfer.play();
             });
         }
+    });
 
 
 
 
 
-        // --- NUEVO v5 Stable: Lógica Drag-to-Seek (Depuración Inicio Táctil) ---
+
+
+
+
+
+
+    // --- NUEVO v5 Stable: Lógica Drag-to-Seek (Depuración Inicio Táctil) ---
 const waveformInteractionElement = document.getElementById('waveform'); // Referencia al div de la onda
 
 if (waveformInteractionElement && wavesurfer) {
@@ -415,6 +422,15 @@ if (waveformInteractionElement && wavesurfer) {
      console.error("[Drag V5 Stable] No se pudo añadir lógica de interacción: #waveform o wavesurfer no encontrados."); // LOG ERROR
 }
 // --- FIN NUEVO BLOQUE v5 Stable ---
+
+
+
+
+
+
+
+
+
 
 
 
