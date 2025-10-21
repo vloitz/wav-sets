@@ -1,4 +1,4 @@
-/* --- Reseteo Básico y Tema Oscuro --- */
+/* --- Reseteo B�sico y Tema Oscuro --- */
 :root {
     --brand-color: #1DB954; /* Un acento verde */
     --dark-bg: #121212;
@@ -97,7 +97,7 @@ body, html {
     font-size: 1.8em;
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis; /* Añade puntos suspensivos si el título es largo */
+    text-overflow: ellipsis; /* A�ade puntos suspensivos si el t�tulo es largo */
 }
 
 #current-track-artist {
@@ -140,7 +140,7 @@ body, html {
 #playPauseBtn:hover {
     opacity: 0.8;
 }
-#playPauseBtn:disabled { /* Estilo para botón deshabilitado */
+#playPauseBtn:disabled { /* Estilo para bot�n deshabilitado */
      background-color: #555;
      cursor: not-allowed;
      opacity: 0.6;
@@ -151,7 +151,7 @@ body, html {
     min-width: 45px; /* Espacio para el tiempo */
 }
 #totalDuration {
-     margin-left: auto; /* Empuja la duración total a la derecha */
+     margin-left: auto; /* Empuja la duraci�n total a la derecha */
      text-align: right;
 }
 
@@ -206,7 +206,87 @@ body, html {
     margin-left: auto;
 }
 
-/* --- 3. Responsive para Móvil --- */
+
+/* --- NUEVOS ESTILOS: Tracklist del Set Actual --- */
+.current-tracklist-container {
+    background-color: var(--light-bg);
+    border-radius: 8px;
+    padding: 15px 20px;
+    margin-bottom: 30px;
+}
+
+.current-tracklist-container h4 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: var(--text-secondary);
+    font-size: 0.9em;
+    text-transform: uppercase;
+}
+
+.current-tracklist {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 400px; /* Altura máxima con scroll */
+    overflow-y: auto;
+}
+
+.current-tracklist-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 5px;
+    border-bottom: 1px solid #333; /* Separador sutil */
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+.current-tracklist-item:last-child {
+    border-bottom: none;
+}
+
+.current-tracklist-item:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.track-time {
+    color: var(--text-secondary);
+    font-size: 0.9em;
+    min-width: 45px; /* Alineación */
+    margin-right: 10px;
+    font-variant-numeric: tabular-nums; /* Asegura ancho fijo para números */
+}
+.track-time:hover {
+    color: var(--brand-color); /* Resaltar al pasar el mouse */
+}
+
+.track-emoji {
+    margin-right: 10px;
+}
+
+.track-title {
+    flex-grow: 1; /* Ocupa el espacio restante */
+}
+
+.favorite-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 1.3em;
+    cursor: pointer;
+    padding: 0 5px;
+    margin-left: 10px;
+    transition: color 0.2s, transform 0.1s;
+}
+.favorite-btn:hover {
+    color: #ffc107; /* Amarillo para hover */
+}
+.favorite-btn.favorited {
+    color: #ffc107; /* Amarillo cuando es favorito */
+    transform: scale(1.1);
+}
+/*  2025-10-21_011846_ */
+
+
+/* --- 3. Responsive para M�vil --- */
 @media (max-width: 768px) {
     .profile-info {
         flex-direction: column;
@@ -246,7 +326,7 @@ body, html {
         font-size: 1.5em;
     }
      #waveform {
-         height: 80px; /* Un poco más pequeña en móvil */
+         height: 80px; /* Un poco m�s peque�a en m�vil */
      }
 
     .track-item-title {
@@ -256,4 +336,28 @@ body, html {
     .track-item-date {
         font-size: 0.8em;
     }
+
+
+    /* Responsive para el nuevo tracklist */
+    .current-tracklist-container {
+        padding: 10px 15px;
+    }
+    .current-tracklist {
+        max-height: 300px; /* Menos altura en móvil */
+    }
+    .current-tracklist-item {
+        padding: 6px 0px;
+    }
+    .track-time {
+        font-size: 0.85em;
+        min-width: 40px;
+    }
+    .track-title {
+        font-size: 0.95em;
+    }
+    .favorite-btn {
+        font-size: 1.2em;
+    }
+
 }
+
