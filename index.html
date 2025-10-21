@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vloitz - High Quality Sets</title>
+    
+    <style>
+        /* --- Reseteo Básico y Tema Oscuro --- */
+        :root {
+            --brand-color: #1DB954; /* Un acento verde */
+            --dark-bg: #121212;
+            --light-bg: #1e1e1e;
+            --text-primary: #ffffff;
+            --text-secondary: #b3b3b3;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--dark-bg);
+            color: var(--text-primary);
+        }
+
+        .app-container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 15px;
+        }
+
+        /* --- 1. Encabezado de Perfil --- */
+        .profile-header {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        .profile-banner {
+            height: 250px;
+            background-color: var(--light-bg);
+            /* La imagen se carga desde JS */
+            background-size: cover;
+            background-position: center;
+        }
+
+        .profile-info {
+            display: flex;
+            align-items: center;
+            padding: 0 30px;
+            margin-top: -50px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .profile-pic {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            border: 4px solid var(--dark-bg);
+            object-fit: cover;
+            background-color: var(--dark-bg);
+        }
+
+        .profile-name {
+            font-size: 2.5em;
+            margin: 0 0 0 20px;
+        }
+
+        .profile-location {
+            font-size: 1.2em;
+            color: var(--text-secondary);
+            margin: 10px 0 0 10px;
+        }
+
+        /* --- 2a. Reproductor Principal --- */
+        .player-card {
+            display: flex;
+            background-color: var(--light-bg);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+            gap: 20px;
+        }
+
+        .player-cover-art {
+            width: 200px;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 6px;
+            background-color: var(--dark-bg);
+        }
+
+        .player-details {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            flex-grow: 1;
+        }
+
+        #current-track-title {
+            margin: 0 0 5px 0;
+            font-size: 1.8em;
+        }
+
+        #current-track-artist {
+            margin: 0 0 20px 0;
+            font-size: 1.2em;
+            color: var(--text-secondary);
+        }
+
+        audio {
+            width: 100%;
+        }
+
+        /* --- 2b. Lista de Sets --- */
+        .tracklist-container {
+            background-color: var(--light-bg);
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .tracklist {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .track-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .track-item:hover, .track-item.playing {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .track-item-cover {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 4px;
+            margin-right: 15px;
+            background-color: var(--dark-bg);
+        }
+
+        .track-item-title {
+            font-size: 1.1em;
+            font-weight: 500;
+        }
+
+        .track-item-date {
+            font-size: 0.9em;
+            color: var(--text-secondary);
+            margin-left: auto;
+        }
+
+        /* --- 3. Responsive para Móvil --- */
+        @media (max-width: 768px) {
+            .profile-info {
+                flex-direction: column;
+                align-items: center;
+                margin-top: -75px;
+                text-align: center;
+                padding: 0 15px;
+            }
+            
+            .profile-name {
+                font-size: 2em;
+                margin: 10px 0 0 0;
+            }
+            
+            .profile-location {
+                margin: 5px 0 0 0;
+            }
+
+            .player-card {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .player-cover-art {
+                width: 100%;
+                height: auto;
+                max-width: 300px;
+            }
+
+            .player-details {
+                align-items: center;
+            }
+
+            #current-track-title {
+                text-align: center;
+            }
+
+            .track-item-title {
+                font-size: 1em;
+            }
+            
+            .track-item-date {
+                font-size: 0.8em;
+            }
+        }
+    </style>
+    </head>
+<body>
+
+    <header class="profile-header">
+        <div class="profile-banner">
+            </div>
+        <div class="profile-info">
+            <img src="" alt="Vloitz Profile" class="profile-pic" id="profile-pic-img">
+            <h1 class="profile-name">Vloitz</h1>
+            <p class="profile-location">Lima, Peru</p>
+        </div>
+    </header>
+
+    <main class="app-container">
+        
+        <section class="player-card">
+            <img src="" alt="Cover Art" class="player-cover-art" id="current-cover-art">
+            <div class="player-details">
+                <h2 id="current-track-title">Cargando...</h2>
+                <h3 id="current-track-artist">Vloitz</h3>
+                <audio id="audio-player" controls preload="metadata">
+                    Tu navegador no soporta este audio.
+                </audio>
+            </div>
+        </section>
+
+        <section class="tracklist-container">
+            <h3>Todos los Sets (FLAC/WAV)</h3>
+            <ul id="tracklist" class="tracklist">
+                </ul>
+        </section>
+
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // --- Referencias a elementos del DOM ---
+            const audioPlayer = document.getElementById('audio-player');
+            const currentCoverArt = document.getElementById('current-cover-art');
+            const currentTrackTitle = document.getElementById('current-track-title');
+            const tracklistElement = document.getElementById('tracklist');
+            const profilePicImg = document.getElementById('profile-pic-img');
+            const profileBanner = document.querySelector('.profile-banner');
+            
+            let allSets = []; 
+            let currentSetIndex = 0; 
+
+            // --- 1. Cargar la base de datos de sets ---
+            fetch('sets.json')
+                .then(response => response.json())
+                .then(data => {
+                    // Cargar perfil
+                    if (data.profile) {
+                        profilePicImg.src = data.profile.profile_pic_url;
+                        profileBanner.style.backgroundImage = `url('${data.profile.banner_url}')`;
+                    }
+                    
+                    // Cargar sets
+                    allSets = data.sets;
+                    allSets.sort((a, b) => new Date(b.date) - new Date(a.date)); // Ordenar por fecha (más nuevo primero)
+                    
+                    populateTracklist(allSets);
+                    
+                    if (allSets.length > 0) {
+                        loadTrack(allSets[0], 0);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error al cargar sets.json:', error);
+                    currentTrackTitle.textContent = "Error al cargar sets.";
+                });
+
+            // --- 2. Poblar la lista de reproducción ---
+            function populateTracklist(sets) {
+                tracklistElement.innerHTML = ''; // Limpiar
+                sets.forEach((set, index) => {
+                    const li = document.createElement('li');
+                    li.className = 'track-item';
+                    li.dataset.index = index; 
+
+                    li.innerHTML = `
+                        <img src="${set.cover_art_url}" alt="${set.title} cover" class="track-item-cover">
+                        <span class="track-item-title">${set.title}</span>
+                        <span class="track-item-date">${set.date}</span>
+                    `;
+                    tracklistElement.appendChild(li);
+                });
+            }
+
+            // --- 3. Cargar un set en el reproductor principal ---
+            function loadTrack(set, index) {
+                currentCoverArt.src = set.cover_art_url;
+                currentTrackTitle.textContent = set.title;
+                audioPlayer.src = set.audio_url; // Esta es la URL de GitHub Release
+                
+                currentSetIndex = index;
+                
+                updatePlayingHighlight();
+            }
+            
+            // --- 4. Resaltar el set activo en la lista ---
+            function updatePlayingHighlight() {
+                tracklistElement.querySelectorAll('.track-item').forEach(item => {
+                    item.classList.remove('playing');
+                });
+                
+                const activeItem = tracklistElement.querySelector(`.track-item[data-index="${currentSetIndex}"]`);
+                if (activeItem) {
+                    activeItem.classList.add('playing');
+                }
+            }
+
+            // --- 5. Manejar clics en la lista de reproducción ---
+            tracklistElement.addEventListener('click', e => {
+                const clickedItem = e.target.closest('.track-item');
+                if (!clickedItem) return; 
+
+                const trackIndex = parseInt(clickedItem.dataset.index);
+                if (trackIndex !== currentSetIndex) {
+                    loadTrack(allSets[trackIndex], trackIndex);
+                    audioPlayer.play();
+                }
+            });
+            
+            // --- 6. Evento para resaltar al empezar a reproducir ---
+            audioPlayer.addEventListener('play', () => {
+                 updatePlayingHighlight();
+            });
+            
+            // --- 7. (Opcional) Reproducir el siguiente set al terminar ---
+            audioPlayer.addEventListener('ended', () => {
+                const nextIndex = (currentSetIndex + 1) % allSets.length;
+                loadTrack(allSets[nextIndex], nextIndex);
+                audioPlayer.play();
+            });
+
+        });
+    </script>
+    </body>
+</html>
