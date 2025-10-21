@@ -19,7 +19,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentLoadedSet = null; // Para saber qué set está cargado
     let wavesurfer = null; // Declarar wavesurfer aquí
 
-    let isDraggingWaveformTouch = false; // Bandera específica para arrastre táctil
+    // --- Variables para lógica táctil ---
+    let isDraggingWaveformTouch = false; // Bandera específica para arrastre táctil (activada por toque largo)
+    let longTouchTimer = null; // Variable para el temporizador de toque largo
+    const LONG_TOUCH_THRESHOLD = 200; // Umbral en milisegundos
 
     console.log("Variables globales inicializadas. Favoritos cargados:", favorites); // LOG
 
@@ -275,17 +278,51 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // --- Función SeekWaveform (Necesaria para los listeners de abajo) ---
+    const seekWaveform = (clientX, rect, eventType) => {
+        console.log(`[Drag V5] seekWaveform llamado desde: ${eventType}`);
+        // Quitamos check isReady temporalmente basado en logs anteriores
+        if (!wavesurfer /*|| !wavesurfer.isReady*/) {
+             console.warn("[Drag V5] SeekWaveform ignorado: WS no inicializado.");
+             return false;
+        }
+        const x = Math.max(0, clientX - rect.left);
+        const width = rect.width;
+         if (width === 0) {
+             console.warn("[Drag V5] SeekWaveform abortado: Ancho del waveform es 0.");
+             return false;
+         }
+        const progress = Math.max(0, Math.min(1, x / width));
+        try {
+             // Solo buscar si wavesurfer está listo (protección adicional)
+             if(wavesurfer.isReady) {
+                 wavesurfer.seekTo(progress);
+                 const duration = wavesurfer.getDuration();
+                 if (duration > 0 && currentTimeEl) {
+                      currentTimeEl.textContent = formatTime(progress * duration);
+                 }
+                 console.log(`[Drag V5] Seek executed: progress=${progress.toFixed(4)}`);
+                 return true;
+             } else {
+                  console.warn("[Drag V5] SeekWaveform abortado DENTRO de try: WS no listo.");
+                  return false;
+             }
+        } catch (error) {
+             console.error(`[Drag V5] Error en wavesurfer.seekTo(${progress.toFixed(4)}):`, error);
+             return false;
+        }
+    };
 
 
-// --- NUEVO v5: Lógica Drag-to-Seek (Depuración Inicio Táctil) ---
-    const waveformInteractionElement = document.getElementById('waveform');
+    // --- NUEVO v5: Lógica Drag-to-Seek (Depuración Inicio Táctil) ---
+    // const waveformInteractionElement = document.getElementById('waveform'); // Ya definido arriba
 
     if (waveformInteractionElement && wavesurfer) {
         console.log("[Drag V5] Añadiendo listeners TÁCTILES v5 (Solo Start/Click)."); // LOG
 
-        let isDraggingWaveformTouch = false; // Bandera específica para arrastre táctil (renombrada)
-        let longTouchTimer = null; // Variable para el temporizador
-        const LONG_TOUCH_THRESHOLD = 200; // Umbral en milisegundos para considerar "largo"
+        // let isDraggingWaveformTouch = false; // Ya definida arriba
+        // let longTouchTimer = null; // Ya definida arriba
+        // const LONG_TOUCH_THRESHOLD = 200; // Ya definida arriba
 
         // Listener para INICIO TÁCTIL (touchstart)
         waveformInteractionElement.addEventListener('touchstart', (event) => {
@@ -307,56 +344,46 @@ document.addEventListener('DOMContentLoaded', () => {
             //      return;
             // }
 
-            // Si pasa el check mínimo, marcamos que el dedo está abajo (usamos isDraggingWaveformTouch ahora)
-            // isTouchDown = true; // <-- Reemplazado abajo por la lógica del timer
+            // Si pasa el check mínimo...
+            console.log("[Drag V5] Touch Start ACEPTADO (Check isReady temporalmente quitado)."); // LOG Aceptado
+
 
             // --- INICIO: Lógica de Detección Toque Largo ---
-            // Limpiar cualquier timer anterior por si acaso
-            clearTimeout(longTouchTimer);
+            clearTimeout(longTouchTimer); // Limpiar timer anterior
 
-            // Guardar el tiempo actual del audio al INICIO del toque
-            let touchStartTime = 0;
-            if (wavesurfer && wavesurfer.isReady) { // Solo si WS está listo
+            let touchStartTime = 0; // Guardar tiempo inicial
+            if (wavesurfer && wavesurfer.isReady) {
                 touchStartTime = wavesurfer.getCurrentTime();
             } else if (wavesurfer) {
-                // Si WS no está listo, intentamos obtenerlo del media element (puede ser 0)
                 touchStartTime = wavesurfer.getMediaElement()?.currentTime || 0;
             }
-             const formattedTouchStartTime = formatTime(touchStartTime); // Usar la función existente
+             const formattedTouchStartTime = formatTime(touchStartTime);
 
             console.log(`[Drag V5] Tiempo de audio al inicio del toque: ${formattedTouchStartTime} (${touchStartTime.toFixed(3)}s)`); // LOG TIEMPO
 
             // Iniciar temporizador
             longTouchTimer = setTimeout(() => {
-                // Si este código se ejecuta, significa que el dedo sigue presionado
                 console.warn(`[Drag V5] ¡TOQUE LARGO DETECTADO! (>${LONG_TOUCH_THRESHOLD}ms) en ${formattedTouchStartTime}`); // LOG LARGO
-                // Aquí es donde, en el futuro, podríamos activar la lógica de ARRASTRE ('touchmove')
-                isDraggingWaveformTouch = true; // Confirmamos que es un arrastre
+                isDraggingWaveformTouch = true; // Activar bandera de arrastre SOLO si es largo
                  console.log("[Drag V5] Bandera isDraggingWaveformTouch establecida a TRUE (por toque largo)."); // LOG
+                 // Aquí podríamos añadir listeners para touchmove/touchend en window si quisiéramos arrastre continuo
             }, LONG_TOUCH_THRESHOLD);
             // --- FIN: Lógica de Detección Toque Largo ---
 
-
-            // IMPORTANTE: Por ahora, NO añadimos listeners de touchmove/touchend en window
-            // Solo queremos ver si este evento se detecta bien y si el timer diferencia largo/corto.
-
             console.log(`[Drag V5] touchstart FIN.`); // LOG FIN
-        } /* Quitamos { passive: true } para poder usar preventDefault si fuera necesario después */);
+        } /* Quitamos { passive: true } */);
 
-        // Listener simple para CLIC de RATÓN (PC) - Modificado
+        // Listener simple para CLIC de RATÓN (PC)
         waveformInteractionElement.addEventListener('click', (event) => {
-            // Cambiar isTouchDown por isDraggingWaveformTouch
+            // Solo si NO estamos en modo arrastre táctil y WS está listo
             if (!isDraggingWaveformTouch && wavesurfer && wavesurfer.isReady && !event.target.closest('button')) {
                 console.log("[Drag V5] Clic simple (Mouse) detectado."); // LOG Click
                 const wavesurferElement = wavesurfer.getWrapper();
                 const rect = wavesurferElement.getBoundingClientRect();
                 seekWaveform(event.clientX, rect, "click");
             } else {
-                // Actualizar log
-                console.log(`[Drag V5] Clic de ratón ignorado. isDraggingWaveformTouch: ${isDraggingWaveformTouch}`); // LOG Ignorado
+                 console.log(`[Drag V5] Clic de ratón ignorado. isDraggingWaveformTouch: ${isDraggingWaveformTouch}`); // LOG Ignorado
             }
-            // Ya no necesitamos resetear la bandera aquí, touchend lo hace.
-            // isDraggingWaveformTouch = false; // <-- ELIMINADO
         });
 
         // Listener para FIN de toque (SOLO para resetear bandera y cancelar timer)
@@ -364,50 +391,14 @@ document.addEventListener('DOMContentLoaded', () => {
              clearTimeout(longTouchTimer); // Cancelar el timer si el dedo se levanta rápido
              console.log("[Drag V5] Temporizador de toque largo cancelado (si estaba activo)."); // LOG CANCEL
 
-             // Reemplazar: isTouchDown = false;
-             // Con:
-             isDraggingWaveformTouch = false;
-             console.log(`[Drag V5] Evento: ${event.type}. Bandera isDraggingWaveformTouch reseteada a false.`); // LOG (Actualizado)
-
-             // if (!isTouchDown) return; // Ya no usamos isTouchDown
-             // isTouchDown = false; // Ya no usamos isTouchDown
-             // console.log(`[Drag V5] Evento: ${event.type}. Bandera isTouchDown reseteada a false.`); // Log anterior
+             // Resetear bandera SOLO si estaba activa (evita logs extra en taps)
+             if (isDraggingWaveformTouch) {
+                 isDraggingWaveformTouch = false;
+                 console.log(`[Drag V5] Evento: ${event.type}. Bandera isDraggingWaveformTouch reseteada a false.`); // LOG
+             }
          };
-         // Añadimos touchend y touchcancel al elemento, no a window por ahora
          waveformInteractionElement.addEventListener('touchend', handleWaveformTouchEndSimple);
          waveformInteractionElement.addEventListener('touchcancel', handleWaveformTouchEndSimple);
-
-
-        // --- Asegúrate de que la función seekWaveform exista (copiada de la versión anterior) ---
-        const seekWaveform = (clientX, rect, eventType) => {
-            console.log(`[Drag V5] seekWaveform llamado desde: ${eventType}`);
-            if (!wavesurfer || !wavesurfer.isReady) { // Mantenemos el check aquí por seguridad
-                 console.warn("[Drag V5] SeekWaveform ignorado: WS no listo.");
-                 return false;
-            }
-            const x = Math.max(0, clientX - rect.left);
-            const width = rect.width;
-             if (width === 0) {
-                 console.warn("[Drag V5] SeekWaveform abortado: Ancho del waveform es 0.");
-                 return false;
-             }
-            const progress = Math.max(0, Math.min(1, x / width));
-            try {
-                 wavesurfer.seekTo(progress);
-                 const duration = wavesurfer.getDuration();
-                 if (duration > 0 && currentTimeEl) {
-                      currentTimeEl.textContent = formatTime(progress * duration);
-                 }
-                 console.log(`[Drag V5] Seek executed: progress=${progress.toFixed(4)}`);
-                 return true;
-            } catch (error) {
-                 console.error(`[Drag V5] Error en wavesurfer.seekTo(${progress.toFixed(4)}):`, error);
-                 return false;
-            }
-        };
-        // --- Asegúrate de que la función formatTime exista (definida globalmente en app.js) ---
-        /* function formatTime(seconds) { ... } */ // Ya existe fuera de este bloque
-
 
     } else {
          console.error("[Drag V5] No se pudo añadir lógica de interacción: #waveform o wavesurfer no encontrados."); // LOG ERROR
@@ -416,23 +407,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // --- Manejar clics en el tracklist actual ---
-
-
     currentTracklistElement.addEventListener('click', (e) => {
         const target = e.target;
-
-        // Caso 1: Clic en el botón de favorito
+        // Caso 1: Favorito
         if (target.classList.contains('favorite-btn')) {
             const seconds = parseInt(target.dataset.seconds, 10);
             if (isNaN(seconds)) return;
             toggleFavorite(seconds, target);
             console.log(`Clic en botón favorito para t=${seconds}s.`); // LOG
         }
-        // Caso 2: Clic en cualquier otra parte del item (para saltar)
+        // Caso 2: Saltar tiempo
         else {
             const listItem = target.closest('.current-tracklist-item');
             if (!listItem || !listItem.dataset.time) return;
-
             const timeString = listItem.dataset.time;
             const timeParts = timeString.split(':');
             let timeInSeconds = 0;
@@ -442,36 +429,22 @@ document.addEventListener('DOMContentLoaded', () => {
                  console.warn(`Timestamp inválido al hacer clic: ${timeString}`);
                  return;
             }
-
             console.log(`Clic en tracklist item: ${timeString} (${timeInSeconds}s). Intentando buscar...`); // LOG
-            console.log("Objeto wavesurfer DENTRO del listener:", wavesurfer); // Log de depuración
-
             try {
                 if (wavesurfer && typeof wavesurfer.getDuration === 'function' && typeof wavesurfer.seekTo === 'function') {
-                    const duration = wavesurfer.getDuration();
-                    if (duration > 0) {
-                        const progress = timeInSeconds / duration;
-                        const clampedProgress = Math.max(0, Math.min(1, progress));
-                        console.log(`Calculando progreso: ${timeInSeconds}s / ${duration.toFixed(2)}s = ${clampedProgress.toFixed(4)}`); // LOG
-                        wavesurfer.seekTo(clampedProgress);
-                        console.log(`Ejecutado wavesurfer.seekTo(${clampedProgress.toFixed(4)})`); // LOG
-                    } else {
-                        console.warn("La duración es 0, no se puede calcular el progreso para seekTo."); // LOG ADVERTENCIA
-                    }
-
-                    if (typeof wavesurfer.isPlaying === 'function' && !wavesurfer.isPlaying()) {
-                         if (typeof wavesurfer.play === 'function') {
-                             wavesurfer.play();
-                         } else {
-                              console.warn("wavesurfer.play no es una función");
-                         }
-                    }
-                } else {
-                    console.error("El objeto wavesurfer no está correctamente inicializado o le faltan métodos en este punto."); // LOG ERROR
-                }
-            } catch (error) {
-                 console.error("Error al intentar buscar (seekTo) o reproducir:", error); // LOG ERROR
-            }
+                    // Re-añadimos check isReady aquí por seguridad para el tracklist
+                    if (wavesurfer.isReady) {
+                        const duration = wavesurfer.getDuration();
+                        if (duration > 0) {
+                            const progress = timeInSeconds / duration;
+                            const clampedProgress = Math.max(0, Math.min(1, progress));
+                            wavesurfer.seekTo(clampedProgress);
+                            console.log(`Ejecutado wavesurfer.seekTo(${clampedProgress.toFixed(4)}) desde tracklist`); // LOG
+                        } else { console.warn("Duración 0 desde tracklist."); }
+                        if (!wavesurfer.isPlaying()) { wavesurfer.play(); }
+                    } else { console.warn("Clic en tracklist ignorado: WS no listo."); }
+                } else { console.error("wavesurfer no inicializado correctamente (tracklist)."); }
+            } catch (error) { console.error("Error al buscar desde tracklist:", error); }
         }
     });
 
@@ -488,7 +461,6 @@ document.addEventListener('DOMContentLoaded', () => {
             buttonElement.innerHTML = '★';
             console.log(`Favorito añadido: ${seconds}s`); // LOG
         }
-        // Guardar en Local Storage
         try {
             localStorage.setItem('vloitz_favorites', JSON.stringify(Array.from(favorites)));
             console.log("Favoritos guardados en Local Storage."); // LOG
@@ -501,7 +473,6 @@ document.addEventListener('DOMContentLoaded', () => {
     tracklistElement.addEventListener('click', e => {
         const clickedItem = e.target.closest('.track-item');
         if (!clickedItem) return;
-
         const trackIndex = parseInt(clickedItem.dataset.index);
         console.log(`Clic en lista general de sets, item: ${trackIndex}`); // LOG
         if (trackIndex !== currentSetIndex && allSets[trackIndex]) {
@@ -520,9 +491,14 @@ document.addEventListener('DOMContentLoaded', () => {
     playPauseBtn.addEventListener('click', () => {
         console.log("Clic en botón Play/Pause principal"); // LOG
         if (wavesurfer && typeof wavesurfer.playPause === 'function') {
-            wavesurfer.playPause();
+             // Re-añadimos check isReady por seguridad
+            if (wavesurfer.isReady) {
+                wavesurfer.playPause();
+            } else {
+                 console.warn("Intento de Play/Pause pero WaveSurfer no está listo.");
+            }
         } else {
-            console.warn("Intento de Play/Pause pero WaveSurfer no está listo o no tiene el método.");
+            console.warn("Intento de Play/Pause pero WaveSurfer no está inicializado o no tiene el método.");
         }
     });
 
