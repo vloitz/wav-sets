@@ -5,10 +5,10 @@
     },
     "sets": [
         {
-            "title": "Mi Primer Set (FLAC)",
+            "title": "Jungle Rhythmic Grooves 004",
             "date": "2025-10-20",
-            "audio_url": "PEGA_AQUÍ_EL_ENLACE_DE_TU_RELEASE_DE_GITHUB",
-            "cover_art_url": "PEGA_AQUÍ_EL_ENLACE_RAW_DE_TU_IMAGEN_DE_CARÁTULA"
+            "audio_url": "https://github.com/vloitz/wav-sets/releases/download/JRG_004/Jungle.Rhythmic.Grooves.004.wav",
+            "cover_art_url": "https://i1.sndcdn.com/artworks-mS3G3teAbdAutPAq-7e5HeA-t500x500.png"
         }
     ]
 }
