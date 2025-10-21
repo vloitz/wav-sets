@@ -283,6 +283,8 @@ if (waveformInteractionElement && wavesurfer) {
     console.log("[Drag V5] Añadiendo listeners TÁCTILES v5 (Solo Start/Click)."); // LOG
 
     let isTouchDown = false; // Bandera simple para saber si el dedo está abajo
+    let longTouchTimer = null; // Variable para el temporizador
+    const LONG_TOUCH_THRESHOLD = 200; // Umbral en milisegundos para considerar "largo"
 
     // Listener para INICIO TÁCTIL (touchstart)
     waveformInteractionElement.addEventListener('touchstart', (event) => {
@@ -308,6 +310,34 @@ if (waveformInteractionElement && wavesurfer) {
         isTouchDown = true;
         console.log("[Drag V5] Touch Start ACEPTADO. Bandera isTouchDown = true."); // LOG Aceptado
 
+
+            // --- INICIO: Lógica de Detección Toque Largo ---
+            // Limpiar cualquier timer anterior por si acaso
+            clearTimeout(longTouchTimer);
+
+            // Guardar el tiempo actual del audio al INICIO del toque
+            let touchStartTime = 0;
+            if (wavesurfer && wavesurfer.isReady) { // Solo si WS está listo
+                touchStartTime = wavesurfer.getCurrentTime();
+            } else if (wavesurfer) {
+                // Si WS no está listo, intentamos obtenerlo del media element (puede ser 0)
+                touchStartTime = wavesurfer.getMediaElement()?.currentTime || 0;
+            }
+             const formattedTouchStartTime = formatTime(touchStartTime); // Usar la función existente
+
+            console.log(`[Drag V5] Tiempo de audio al inicio del toque: ${formattedTouchStartTime} (${touchStartTime.toFixed(3)}s)`); // LOG TIEMPO
+
+            // Iniciar temporizador
+            longTouchTimer = setTimeout(() => {
+                // Si este código se ejecuta, significa que el dedo sigue presionado
+                console.warn(`[Drag V5] ¡TOQUE LARGO DETECTADO! (>${LONG_TOUCH_THRESHOLD}ms) en ${formattedTouchStartTime}`); // LOG LARGO
+                // Aquí es donde, en el futuro, podríamos activar la lógica de ARRASTRE ('touchmove')
+                isDraggingWaveformTouch = true; // Confirmamos que es un arrastre
+                 console.log("[Drag V5] Bandera isDraggingWaveformTouch establecida a TRUE (por toque largo)."); // LOG
+            }, LONG_TOUCH_THRESHOLD);
+            // --- FIN: Lógica de Detección Toque Largo ---
+
+
         // IMPORTANTE: Por ahora, NO añadimos listeners de touchmove/touchend
         // Solo queremos ver si este evento se detecta bien.
 
@@ -323,22 +353,30 @@ if (waveformInteractionElement && wavesurfer) {
 
     // Listener simple para CLIC de RATÓN (PC) - Sin cambios por ahora
     waveformInteractionElement.addEventListener('click', (event) => {
-        // Solo si NO es un toque (isTouchDown es false) y WS está listo
-        if (!isTouchDown && wavesurfer && wavesurfer.isReady && !event.target.closest('button')) {
-            console.log("[Drag V5] Clic simple (Mouse) detectado."); // LOG Click
-            const wavesurferElement = wavesurfer.getWrapper();
-            const rect = wavesurferElement.getBoundingClientRect();
-            // Reutilizamos la función seekWaveform (asegúrate de que esté definida)
-            seekWaveform(event.clientX, rect, "click");
-        } else {
-             console.log(`[Drag V5] Clic de ratón ignorado. isTouchDown: ${isTouchDown}`); // LOG Ignorado
-        }
-         // Resetear bandera por si acaso (aunque touchend debería hacerlo)
-         isTouchDown = false;
-    });
+            // Cambiar isTouchDown por isDraggingWaveformTouch
+            if (!isDraggingWaveformTouch && wavesurfer && wavesurfer.isReady && !event.target.closest('button')) {
+                console.log("[Drag V5] Clic simple (Mouse) detectado."); // LOG Click
+                const wavesurferElement = wavesurfer.getWrapper();
+                const rect = wavesurferElement.getBoundingClientRect();
+                seekWaveform(event.clientX, rect, "click");
+            } else {
+                // Actualizar log
+                console.log(`[Drag V5] Clic de ratón ignorado. isDraggingWaveformTouch: ${isDraggingWaveformTouch}`); // LOG Ignorado
+            }
+            // Ya no necesitamos resetear la bandera aquí, touchend lo hace.
+            // isDraggingWaveformTouch = false; // <-- ELIMINAR O COMENTAR
+        });
 
     // Listener para FIN de toque (SOLO para resetear bandera)
      const handleWaveformTouchEndSimple = (event) => {
+
+    // Reemplazar: isTouchDown = false;
+    // Con:
+    isDraggingWaveformTouch = false;
+    console.log(`[Drag V5] Evento: ${event.type}. Bandera isDraggingWaveformTouch reseteada a false.`); // LOG (Actualizado)
+
+    console.log("[Drag V5] Temporizador de toque largo cancelado (si estaba activo)."); // LOG CANCEL
+
          if (!isTouchDown) return; // Si ya se reseteó, no hacer nada
          isTouchDown = false;
          console.log(`[Drag V5] Evento: ${event.type}. Bandera isTouchDown reseteada a false.`); // LOG
