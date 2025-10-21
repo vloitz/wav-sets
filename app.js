@@ -20,9 +20,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let wavesurfer = null; // Declarar wavesurfer aquí
 
     // --- Variables para lógica táctil ---
-    let isDraggingWaveformTouch = false; // Bandera específica para arrastre táctil (activada por toque largo)
-    let longTouchTimer = null; // Variable para el temporizador de toque largo
-    const LONG_TOUCH_THRESHOLD = 200; // Umbral en milisegundos
+    let isDraggingWaveformTouch = false; // Bandera activada por toque largo
+    let longTouchTimer = null; // Temporizador
+    const LONG_TOUCH_THRESHOLD = 200; // Umbral ms
 
     console.log("Variables globales inicializadas. Favoritos cargados:", favorites); // LOG
 
@@ -31,476 +31,224 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log("Inicializando WaveSurfer..."); // LOG
         wavesurfer = WaveSurfer.create({
             container: '#waveform',
-            // --- VALORES FINALES BASADOS EN image_b05879.png ---
-            waveColor: "#cccccc",       // Color base (gris claro)
-            progressColor: "#ff7f00",   // Color de progreso (naranja)
-            cursorColor: "#ffffff",     // Color del cursor (blanco)
-            height: 100,                // Altura
-            cursorWidth: 1,             // Ancho cursor
-            barWidth: 1,                // Ancho barra
-            barGap: 0,                  // Espacio barra
-            barHeight: 0.9,             // Altura relativa barra
-            barRadius: 10,              // Radio barra
-            // --- FIN VALORES FINALES ---
-            responsive: true,
-            backend: 'MediaElement',
-            media: document.getElementById('audio-player') // Conectarlo al <audio>
+            waveColor: "#cccccc", progressColor: "#ff7f00", cursorColor: "#ffffff",
+            height: 100, cursorWidth: 1, barWidth: 1, barGap: 0, barHeight: 0.9, barRadius: 10,
+            responsive: true, backend: 'MediaElement', media: document.getElementById('audio-player')
         });
         console.log("WaveSurfer inicializado correctamente."); // LOG
-        // Hacer accesible globalmente para depuración desde la consola
         window.wavesurfer = wavesurfer;
         console.log("Instancia de WaveSurfer asignada a window.wavesurfer para depuración."); // LOG
     } catch (error) {
          console.error("Error CRÍTICO al inicializar WaveSurfer:", error); // LOG ERROR
          currentTrackTitle.textContent = "Error al iniciar reproductor";
-         playPauseBtn.textContent = '❌';
-         return; // Detener si WaveSurfer no se puede crear
+         playPauseBtn.textContent = '❌'; return;
     }
 
     // --- Cargar sets.json ---
     console.log("Cargando sets.json..."); // LOG
     fetch('sets.json')
-        .then(response => {
-            if (!response.ok) { // LOG ERROR RED
-                throw new Error(`Error HTTP! status: ${response.status}`);
-            }
-            return response.json();
-         })
+        .then(response => { if (!response.ok) { throw new Error(`Error HTTP! status: ${response.status}`); } return response.json(); })
         .then(data => {
             console.log("sets.json cargado:", data); // LOG ÉXITO
-            // Cargar perfil
-            if (data.profile) {
-                profilePicImg.src = data.profile.profile_pic_url;
-                profileBanner.style.backgroundImage = `url('${data.profile.banner_url}')`;
-                console.log("Perfil cargado."); // LOG
-            }
-            // Cargar sets
-            allSets = data.sets;
-            allSets.sort((a, b) => new Date(b.date) - new Date(a.date)); // Ordenar
+            if (data.profile) { profilePicImg.src = data.profile.profile_pic_url; profileBanner.style.backgroundImage = `url('${data.profile.banner_url}')`; console.log("Perfil cargado."); }
+            allSets = data.sets; allSets.sort((a, b) => new Date(b.date) - new Date(a.date));
             populateTracklist(allSets);
-            if (allSets.length > 0) {
-                loadTrack(allSets[0], 0);
-            } else {
-                currentTrackTitle.textContent = "No hay sets para mostrar.";
-                console.warn("No se encontraron sets en sets.json"); // LOG ADVERTENCIA
-            }
+            if (allSets.length > 0) { loadTrack(allSets[0], 0); } else { currentTrackTitle.textContent = "No hay sets."; console.warn("No se encontraron sets."); }
         })
-        .catch(error => {
-            console.error('Error FATAL al cargar o parsear sets.json:', error); // LOG ERROR
-            currentTrackTitle.textContent = "Error al cargar datos de sets.";
-        });
+        .catch(error => { console.error('Error FATAL al cargar sets.json:', error); currentTrackTitle.textContent = "Error al cargar datos."; });
 
-    // --- Poblar la lista ---
-    function populateTracklist(sets) {
-        console.log("Poblando tracklist..."); // LOG
+    // --- Poblar la lista general ---
+    function populateTracklist(sets) { /* ... (sin cambios) ... */
+        console.log("Poblando tracklist general..."); // LOG
         tracklistElement.innerHTML = '';
         sets.forEach((set, index) => {
-            const li = document.createElement('li');
-            li.className = 'track-item';
-            li.dataset.index = index;
-            li.innerHTML = `
-                <img src="${set.cover_art_url}" alt="${set.title} cover" class="track-item-cover">
-                <span class="track-item-title">${set.title}</span>
-                <span class="track-item-date">${set.date}</span>
-            `;
+            const li = document.createElement('li'); li.className = 'track-item'; li.dataset.index = index;
+            li.innerHTML = `<img src="${set.cover_art_url}" alt="${set.title} cover" class="track-item-cover"><span class="track-item-title">${set.title}</span><span class="track-item-date">${set.date}</span>`;
             tracklistElement.appendChild(li);
         });
-        console.log(`Tracklist poblado con ${sets.length} items.`); // LOG
-    }
+        console.log(`Tracklist general poblado con ${sets.length} items.`); // LOG
+     }
 
     // --- Cargar un set ---
-    function loadTrack(set, index) {
+    function loadTrack(set, index) { /* ... (lógica fetch picos sin cambios) ... */
         console.log(`Cargando track ${index}: ${set.title}`); // LOG
-        currentCoverArt.src = set.cover_art_url;
-        currentTrackTitle.textContent = `Cargando: ${set.title}...`;
-        currentSetIndex = index;
-
-        // Resetear UI del reproductor
-        totalDurationEl.textContent = '0:00';
-        currentTimeEl.textContent = '0:00';
-        playPauseBtn.disabled = true;
-        playPauseBtn.textContent = '🔄';
-
+        currentCoverArt.src = set.cover_art_url; currentTrackTitle.textContent = `Cargando: ${set.title}...`; currentSetIndex = index;
+        totalDurationEl.textContent = '0:00'; currentTimeEl.textContent = '0:00'; playPauseBtn.disabled = true; playPauseBtn.textContent = '🔄';
         console.log(`WaveSurfer intentará cargar: ${set.audio_url}`); // LOG
-
-        // Lógica para cargar picos
         if (set.peaks_url) {
             console.log(`Intentando cargar picos desde: ${set.peaks_url}`); // LOG
-            fetch(set.peaks_url)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`Error HTTP al cargar picos! status: ${response.status}`);
-                    }
-                    return response.json();
-                })
-                .then(peaksData => {
-                    const peaksArray = peaksData.data;
-                    if (peaksArray && Array.isArray(peaksArray)) {
-                        console.log(`Picos cargados (${peaksArray.length} puntos). Cargando audio con picos...`); // LOG
-                        wavesurfer.load(set.audio_url, peaksArray);
-                    } else {
-                        console.warn("El JSON de picos no tiene un array 'data' válido. Cargando solo audio..."); // LOG ADVERTENCIA
-                        wavesurfer.load(set.audio_url);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error al cargar o parsear el JSON de picos:', error); // LOG ERROR
-                    console.warn("Fallback: Cargando solo audio debido a error con picos..."); // LOG ADVERTENCIA
-                    wavesurfer.load(set.audio_url);
-                });
-        } else {
-            console.log("No se encontró peaks_url. Cargando solo audio..."); // LOG
-            wavesurfer.load(set.audio_url);
-        }
-
-        currentLoadedSet = set;
-        displayTracklist(set.tracklist || []);
-        updatePlayingHighlight();
-    }
+            fetch(set.peaks_url).then(response => { if (!response.ok) { throw new Error(`HTTP picos! ${response.status}`); } return response.json(); })
+            .then(peaksData => { const peaksArray = peaksData.data; if (peaksArray && Array.isArray(peaksArray)) { console.log(`Picos cargados (${peaksArray.length}). Cargando audio+picos...`); wavesurfer.load(set.audio_url, peaksArray); } else { console.warn("JSON picos inválido."); wavesurfer.load(set.audio_url); } })
+            .catch(error => { console.error('Error picos:', error); console.warn("Fallback: solo audio."); wavesurfer.load(set.audio_url); });
+        } else { console.log("Sin peaks_url."); wavesurfer.load(set.audio_url); }
+        currentLoadedSet = set; displayTracklist(set.tracklist || []); updatePlayingHighlight();
+     }
 
     // --- Resaltar activo ---
-    function updatePlayingHighlight() {
-        tracklistElement.querySelectorAll('.track-item').forEach(item => {
-            item.classList.remove('playing');
-        });
+    function updatePlayingHighlight() { /* ... (sin cambios) ... */
+        tracklistElement.querySelectorAll('.track-item').forEach(item => item.classList.remove('playing'));
         const activeItem = tracklistElement.querySelector(`.track-item[data-index="${currentSetIndex}"]`);
-        if (activeItem && wavesurfer && wavesurfer.isPlaying()) {
-            activeItem.classList.add('playing');
-            console.log(`Resaltando track ${currentSetIndex} como activo.`); // LOG
-        }
-    }
+        if (activeItem && wavesurfer && wavesurfer.isPlaying()) { activeItem.classList.add('playing'); }
+     }
 
     // Formatear tiempo
-    function formatTime(seconds) {
-        seconds = Number(seconds);
-        if (isNaN(seconds) || seconds < 0) {
-            seconds = 0;
-        }
-        const minutes = Math.floor(seconds / 60);
-        const secs = Math.floor(seconds % 60);
+    function formatTime(seconds) { /* ... (sin cambios) ... */
+        seconds = Number(seconds); if (isNaN(seconds) || seconds < 0) { seconds = 0; }
+        const minutes = Math.floor(seconds / 60); const secs = Math.floor(seconds % 60);
         return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
-    }
+     }
 
     // --- Mostrar el tracklist del set actual ---
-    function displayTracklist(tracklistData) {
-        console.log("Mostrando tracklist para el set actual..."); // LOG
-        currentTracklistElement.innerHTML = ''; // Limpiar lista anterior
-
-        if (!tracklistData || tracklistData.length === 0) {
-            currentTracklistElement.innerHTML = '<li>No hay tracklist disponible para este set.</li>';
-            console.warn("No se encontró tracklist en los datos del set."); // LOG ADVERTENCIA
-            return;
-        }
-
+    function displayTracklist(tracklistData) { /* ... (sin cambios) ... */
+        console.log("Mostrando tracklist del set..."); // LOG
+        currentTracklistElement.innerHTML = '';
+        if (!tracklistData || tracklistData.length === 0) { currentTracklistElement.innerHTML = '<li>No hay tracklist.</li>'; console.warn("Sin tracklist."); return; }
         tracklistData.forEach((track, index) => {
-            const li = document.createElement('li');
-            li.className = 'current-tracklist-item';
-            li.dataset.time = track.time;
-            li.dataset.index = index;
-
-            const timeParts = track.time.split(':');
-            let totalSeconds = 0;
-            if (timeParts.length === 2 && !isNaN(parseInt(timeParts[0], 10)) && !isNaN(parseInt(timeParts[1], 10))) {
-                 totalSeconds = parseInt(timeParts[0], 10) * 60 + parseInt(timeParts[1], 10);
-            } else {
-                 console.warn(`Timestamp inválido en tracklist: ${track.time}`); // LOG ADVERTENCIA
-            }
-
+            const li = document.createElement('li'); li.className = 'current-tracklist-item'; li.dataset.time = track.time; li.dataset.index = index;
+            let totalSeconds = 0; const timeParts = track.time.split(':'); if (timeParts.length === 2 && !isNaN(parseInt(timeParts[0], 10)) && !isNaN(parseInt(timeParts[1], 10))) { totalSeconds = parseInt(timeParts[0], 10) * 60 + parseInt(timeParts[1], 10); } else { console.warn(`Timestamp inválido: ${track.time}`); }
             const isFavorited = favorites.has(totalSeconds);
-
-            li.innerHTML = `
-                <span class="track-time">${track.time}</span>
-                <span class="track-emoji">${track.emoji || ''}</span>
-                <span class="track-title">${track.title}</span>
-                <button class="favorite-btn ${isFavorited ? 'favorited' : ''}" data-seconds="${totalSeconds}" title="Añadir/Quitar Favorito">
-                    ${isFavorited ? '★' : '☆'}
-                </button>
-            `;
+            li.innerHTML = `<span class="track-time">${track.time}</span><span class="track-emoji">${track.emoji || ''}</span><span class="track-title">${track.title}</span><button class="favorite-btn ${isFavorited ? 'favorited' : ''}" data-seconds="${totalSeconds}" title="Favorito">${isFavorited ? '★' : '☆'}</button>`;
             currentTracklistElement.appendChild(li);
         });
-        console.log(`Tracklist mostrado con ${tracklistData.length} items.`); // LOG
-    }
+        console.log(`Tracklist del set mostrado (${tracklistData.length}).`); // LOG
+     }
 
     // --- Eventos de WaveSurfer ---
-    wavesurfer.on('ready', () => {
-        const duration = wavesurfer.getDuration();
-        totalDurationEl.textContent = formatTime(duration);
-        currentTimeEl.textContent = formatTime(0);
-        playPauseBtn.disabled = false;
-        playPauseBtn.textContent = '▶️';
-        currentTrackTitle.textContent = allSets[currentSetIndex]?.title || "Set Listo";
-        console.log("WaveSurfer listo para track:", allSets[currentSetIndex]?.title); // LOG ÉXITO
-    });
+    wavesurfer.on('ready', () => { /* ... (sin cambios) ... */
+        const duration = wavesurfer.getDuration(); totalDurationEl.textContent = formatTime(duration); currentTimeEl.textContent = formatTime(0); playPauseBtn.disabled = false; playPauseBtn.textContent = '▶️'; currentTrackTitle.textContent = allSets[currentSetIndex]?.title || "Set Listo"; console.log("WS listo:", allSets[currentSetIndex]?.title);
+     });
+    wavesurfer.on('loading', (percent) => { /* ... (sin cambios) ... */
+        console.log(`WS cargando: ${percent}%`); currentTrackTitle.textContent = `Cargando: ${allSets[currentSetIndex]?.title || 'Set'} (${percent}%)`;
+     });
+    wavesurfer.on('error', (err) => { /* ... (sin cambios) ... */
+        console.error('WS error:', err); currentTrackTitle.textContent = `Error: ${err.message || err}`; playPauseBtn.textContent = '❌'; playPauseBtn.disabled = true;
+     });
+    wavesurfer.on('timeupdate', (currentTime) => { currentTimeEl.textContent = formatTime(currentTime); });
+    wavesurfer.on('seeking', (currentTime) => { currentTimeEl.textContent = formatTime(currentTime); console.log(`Seeking a: ${formatTime(currentTime)}`); });
+    wavesurfer.on('play', () => { playPauseBtn.textContent = '⏸️'; updatePlayingHighlight(); console.log("Evento: Play"); });
+    wavesurfer.on('pause', () => { playPauseBtn.textContent = '▶️'; updatePlayingHighlight(); console.log("Evento: Pause"); });
+    wavesurfer.on('finish', () => { /* ... (sin cambios) ... */
+        console.log("Evento: Finish"); playPauseBtn.textContent = '▶️'; const nextIndex = (currentSetIndex + 1) % allSets.length; console.log(`Cargando next: ${nextIndex}`); if (allSets.length > 0) { loadTrack(allSets[nextIndex], nextIndex); wavesurfer.once('ready', () => { console.log("Next listo, play..."); wavesurfer.play(); }); }
+     });
 
-     wavesurfer.on('loading', (percent) => {
-         console.log(`WaveSurfer cargando: ${percent}%`); // LOG PROGRESO
-         currentTrackTitle.textContent = `Cargando: ${allSets[currentSetIndex]?.title || 'Set'} (${percent}%)`;
-    });
-
-    wavesurfer.on('error', (err) => {
-        console.error('Error de WaveSurfer al cargar audio:', err); // LOG ERROR
-        currentTrackTitle.textContent = `Error: ${err.message || err}`;
-        playPauseBtn.textContent = '❌';
-        playPauseBtn.disabled = true;
-    });
-
-    wavesurfer.on('timeupdate', (currentTime) => {
-        currentTimeEl.textContent = formatTime(currentTime);
-    });
-
-    wavesurfer.on('seeking', (currentTime) => {
-         currentTimeEl.textContent = formatTime(currentTime);
-         console.log(`Seeking a: ${formatTime(currentTime)}`); // LOG
-    });
-
-    wavesurfer.on('play', () => {
-        playPauseBtn.textContent = '⏸️';
-        updatePlayingHighlight();
-        console.log("Evento: Play"); // LOG
-    });
-    wavesurfer.on('pause', () => {
-        playPauseBtn.textContent = '▶️';
-        updatePlayingHighlight(); // Quitar resaltado
-        console.log("Evento: Pause"); // LOG
-    });
-
-    wavesurfer.on('finish', () => {
-        console.log("Evento: Finish (track terminado)"); // LOG
-        playPauseBtn.textContent = '▶️';
-        const nextIndex = (currentSetIndex + 1) % allSets.length;
-        console.log(`Cargando siguiente track: ${nextIndex}`); // LOG
-        if (allSets.length > 0) {
-            loadTrack(allSets[nextIndex], nextIndex);
-            wavesurfer.once('ready', () => {
-                console.log("Siguiente track listo, reproduciendo..."); // LOG
-                wavesurfer.play();
-            });
-        }
-    });
-
-    // --- Función SeekWaveform (Necesaria para los listeners de abajo) ---
+    // --- Función SeekWaveform ---
     const seekWaveform = (clientX, rect, eventType) => {
-        console.log(`[Drag V5] seekWaveform llamado desde: ${eventType}`);
-        // Quitamos check isReady temporalmente basado en logs anteriores
-        if (!wavesurfer /*|| !wavesurfer.isReady*/) {
-             console.warn("[Drag V5] SeekWaveform ignorado: WS no inicializado.");
-             return false;
-        }
-        const x = Math.max(0, clientX - rect.left);
-        const width = rect.width;
-         if (width === 0) {
-             console.warn("[Drag V5] SeekWaveform abortado: Ancho del waveform es 0.");
-             return false;
-         }
+        console.log(`[Drag v6] seekWaveform desde: ${eventType}`);
+        if (!wavesurfer || !wavesurfer.isReady) { console.warn("[Drag v6] Seek ignorado: WS no listo."); return false; } // Re-activamos check isReady
+        const x = Math.max(0, clientX - rect.left); const width = rect.width; if (width === 0) { console.warn("[Drag v6] Seek abortado: Ancho 0."); return false; }
         const progress = Math.max(0, Math.min(1, x / width));
-        try {
-             // Solo buscar si wavesurfer está listo (protección adicional)
-             if(wavesurfer.isReady) {
-                 wavesurfer.seekTo(progress);
-                 const duration = wavesurfer.getDuration();
-                 if (duration > 0 && currentTimeEl) {
-                      currentTimeEl.textContent = formatTime(progress * duration);
-                 }
-                 console.log(`[Drag V5] Seek executed: progress=${progress.toFixed(4)}`);
-                 return true;
-             } else {
-                  console.warn("[Drag V5] SeekWaveform abortado DENTRO de try: WS no listo.");
-                  return false;
-             }
-        } catch (error) {
-             console.error(`[Drag V5] Error en wavesurfer.seekTo(${progress.toFixed(4)}):`, error);
-             return false;
-        }
+        try { wavesurfer.seekTo(progress); console.log(`[Drag v6] Seek executed: ${progress.toFixed(4)}`); return true; }
+        catch (error) { console.error(`[Drag v6] Error seekTo(${progress.toFixed(4)}):`, error); return false; }
     };
 
-
-    // --- NUEVO v5: Lógica Drag-to-Seek (Depuración Inicio Táctil) ---
-    // const waveformInteractionElement = document.getElementById('waveform'); // Ya definido arriba
+    // --- NUEVO v6: Lógica Drag-to-Seek (Móvil con toque largo) ---
+    const waveformInteractionElement = document.getElementById('waveform');
 
     if (waveformInteractionElement && wavesurfer) {
-        console.log("[Drag V5] Añadiendo listeners TÁCTILES v5 (Solo Start/Click)."); // LOG
+        console.log("[Drag v6] Añadiendo listeners TÁCTILES v6.");
 
-        // let isDraggingWaveformTouch = false; // Ya definida arriba
-        // let longTouchTimer = null; // Ya definida arriba
-        // const LONG_TOUCH_THRESHOLD = 200; // Ya definida arriba
+        // Función para manejar el MOVIMIENTO táctil (se añade/quita dinámicamente)
+        const handleWaveformTouchMove = (event) => {
+            console.log("[Drag v6] Touch Move event."); // LOG Move
+            if (!isDraggingWaveformTouch) return; // Seguridad extra
+            event.preventDefault(); // Prevenir scroll
+            if (event.touches && event.touches.length > 0) {
+                const rect = wavesurfer.getWrapper().getBoundingClientRect();
+                seekWaveform(event.touches[0].clientX, rect, "touchmove");
+            }
+        };
+
+        // Función para manejar el FIN del toque (se añade/quita dinámicamente)
+        const handleWaveformTouchEnd = (event) => {
+             console.log(`[Drag v6] Touch End/Cancel event. Type: ${event.type}`); // LOG End
+             clearTimeout(longTouchTimer); // Limpiar timer por si acaso
+             if (isDraggingWaveformTouch) {
+                 isDraggingWaveformTouch = false; // Resetear bandera
+                 console.log("[Drag v6] Bandera isDragging reseteada a false.");
+                 // Quitar listeners globales AHORA que terminó el arrastre
+                 window.removeEventListener('touchmove', handleWaveformTouchMove);
+                 window.removeEventListener('touchend', handleWaveformTouchEnd);
+                 window.removeEventListener('touchcancel', handleWaveformTouchEnd);
+                 console.log("[Drag v6] Listeners globales de window removidos.");
+             }
+        };
 
         // Listener para INICIO TÁCTIL (touchstart)
         waveformInteractionElement.addEventListener('touchstart', (event) => {
-            console.log("[Drag V5] Evento: touchstart INICIO."); // LOG INICIO
-            console.log("[Drag V5] Evento touchstart object:", event); // LOG Evento
-            console.log("[Drag V5] Estado de wavesurfer ANTES del check:", wavesurfer); // LOG Objeto WS
+            console.log("[Drag v6] Evento: touchstart INICIO.");
+            if (event.target.closest('button')) { console.warn("[Drag v6] Ignorado: Botón."); return; }
+            if (!wavesurfer || !wavesurfer.isReady) { console.warn(`[Drag v6] Ignorado: WS no listo.`); return; } // Usamos check isReady aquí
 
-            // Comprobación MÍNIMA: solo si fue en un botón, ignorar.
-            if (event.target.closest('button')) {
-                 console.warn("[Drag V5] Touch Start ignorado: Clic en botón.");
-                 console.log("[Drag V5] touchstart FIN (ignorado botón)."); // LOG FIN
-                 return;
-            }
+            // Prevenir menú contextual y otros defaults AHORA que sabemos que es en la onda
+            // y que el listener NO es pasivo.
+            event.preventDefault();
+            console.log("[Drag v6] preventDefault() llamado en touchstart.");
 
-            // *** TEMPORALMENTE QUITAMOS EL CHECK isReady para ver si el resto se ejecuta ***
-            // if (!wavesurfer || !wavesurfer.isReady) {
-            //      console.warn(`[Drag V5] Touch Start ignorado: WS no listo. wavesurfer: ${!!wavesurfer}, isReady: ${wavesurfer ? wavesurfer.isReady : 'N/A'}`);
-            //      console.log(`[Drag V5] touchstart FIN (ignorado WS no listo).`);
-            //      return;
-            // }
+            // Calcular y buscar posición inicial (Tap/Inicio de Drag)
+             let initialSeekDone = false;
+             if (event.touches && event.touches.length > 0) {
+                 const rect = wavesurfer.getWrapper().getBoundingClientRect();
+                 initialSeekDone = seekWaveform(event.touches[0].clientX, rect, "touchstart");
+             }
+             // Si el seek inicial falló (ej. WS no listo a pesar del check), no continuar
+             if(!initialSeekDone) {
+                  console.warn("[Drag v6] Seek inicial falló, no se inicia toque largo/drag.");
+                  return;
+             }
 
-            // Si pasa el check mínimo...
-            console.log("[Drag V5] Touch Start ACEPTADO (Check isReady temporalmente quitado)."); // LOG Aceptado
 
+            // --- Lógica Toque Largo ---
+            clearTimeout(longTouchTimer); // Limpiar anterior
+            const touchStartTime = wavesurfer.getCurrentTime(); // Usar tiempo después del seek inicial
+            const formattedTouchStartTime = formatTime(touchStartTime);
+            console.log(`[Drag v6] Tiempo audio inicio toque: ${formattedTouchStartTime}`);
 
-            // --- INICIO: Lógica de Detección Toque Largo ---
-            clearTimeout(longTouchTimer); // Limpiar timer anterior
-
-            let touchStartTime = 0; // Guardar tiempo inicial
-            if (wavesurfer && wavesurfer.isReady) {
-                touchStartTime = wavesurfer.getCurrentTime();
-            } else if (wavesurfer) {
-                touchStartTime = wavesurfer.getMediaElement()?.currentTime || 0;
-            }
-             const formattedTouchStartTime = formatTime(touchStartTime);
-
-            console.log(`[Drag V5] Tiempo de audio al inicio del toque: ${formattedTouchStartTime} (${touchStartTime.toFixed(3)}s)`); // LOG TIEMPO
-
-            // Iniciar temporizador
             longTouchTimer = setTimeout(() => {
-                console.warn(`[Drag V5] ¡TOQUE LARGO DETECTADO! (>${LONG_TOUCH_THRESHOLD}ms) en ${formattedTouchStartTime}`); // LOG LARGO
-                isDraggingWaveformTouch = true; // Activar bandera de arrastre SOLO si es largo
-                 console.log("[Drag V5] Bandera isDraggingWaveformTouch establecida a TRUE (por toque largo)."); // LOG
-                 // Aquí podríamos añadir listeners para touchmove/touchend en window si quisiéramos arrastre continuo
+                console.warn(`[Drag v6] ¡TOQUE LARGO DETECTADO! en ${formattedTouchStartTime}`);
+                isDraggingWaveformTouch = true; // Activar bandera de arrastre
+                console.log("[Drag v6] Bandera isDragging = TRUE. Añadiendo listeners globales...");
+                // Añadir listeners globales SOLO AHORA que es un toque largo
+                window.addEventListener('touchmove', handleWaveformTouchMove, { passive: false });
+                window.addEventListener('touchend', handleWaveformTouchEnd);
+                window.addEventListener('touchcancel', handleWaveformTouchEnd);
             }, LONG_TOUCH_THRESHOLD);
-            // --- FIN: Lógica de Detección Toque Largo ---
+            // --- Fin Toque Largo ---
 
-            console.log(`[Drag V5] touchstart FIN.`); // LOG FIN
-        } /* Quitamos { passive: true } */);
+            console.log("[Drag v6] touchstart FIN.");
+        }, { passive: false }); // <-- IMPORTANTE: NO PASIVO para permitir preventDefault
 
-        // Listener simple para CLIC de RATÓN (PC)
+        // Listener CLIC PC (sin cambios)
         waveformInteractionElement.addEventListener('click', (event) => {
-            // Solo si NO estamos en modo arrastre táctil y WS está listo
             if (!isDraggingWaveformTouch && wavesurfer && wavesurfer.isReady && !event.target.closest('button')) {
-                console.log("[Drag V5] Clic simple (Mouse) detectado."); // LOG Click
-                const wavesurferElement = wavesurfer.getWrapper();
-                const rect = wavesurferElement.getBoundingClientRect();
+                console.log("[Drag v6] Clic simple (Mouse).");
+                const rect = wavesurfer.getWrapper().getBoundingClientRect();
                 seekWaveform(event.clientX, rect, "click");
-            } else {
-                 console.log(`[Drag V5] Clic de ratón ignorado. isDraggingWaveformTouch: ${isDraggingWaveformTouch}`); // LOG Ignorado
-            }
+            } else { console.log(`[Drag v6] Clic ignorado. isDragging: ${isDraggingWaveformTouch}`); }
         });
 
-        // Listener para FIN de toque (SOLO para resetear bandera y cancelar timer)
-         const handleWaveformTouchEndSimple = (event) => {
-             clearTimeout(longTouchTimer); // Cancelar el timer si el dedo se levanta rápido
-             console.log("[Drag V5] Temporizador de toque largo cancelado (si estaba activo)."); // LOG CANCEL
-
-             // Resetear bandera SOLO si estaba activa (evita logs extra en taps)
-             if (isDraggingWaveformTouch) {
-                 isDraggingWaveformTouch = false;
-                 console.log(`[Drag V5] Evento: ${event.type}. Bandera isDraggingWaveformTouch reseteada a false.`); // LOG
-             }
-         };
-         waveformInteractionElement.addEventListener('touchend', handleWaveformTouchEndSimple);
-         waveformInteractionElement.addEventListener('touchcancel', handleWaveformTouchEndSimple);
-
-    } else {
-         console.error("[Drag V5] No se pudo añadir lógica de interacción: #waveform o wavesurfer no encontrados."); // LOG ERROR
-    }
-    // --- FIN NUEVO BLOQUE v5 ---
+    } else { console.error("[Drag v6] No se pudo añadir lógica interacción."); }
+    // --- FIN NUEVO BLOQUE v6 ---
 
 
     // --- Manejar clics en el tracklist actual ---
-    currentTracklistElement.addEventListener('click', (e) => {
-        const target = e.target;
-        // Caso 1: Favorito
-        if (target.classList.contains('favorite-btn')) {
-            const seconds = parseInt(target.dataset.seconds, 10);
-            if (isNaN(seconds)) return;
-            toggleFavorite(seconds, target);
-            console.log(`Clic en botón favorito para t=${seconds}s.`); // LOG
-        }
-        // Caso 2: Saltar tiempo
-        else {
-            const listItem = target.closest('.current-tracklist-item');
-            if (!listItem || !listItem.dataset.time) return;
-            const timeString = listItem.dataset.time;
-            const timeParts = timeString.split(':');
-            let timeInSeconds = 0;
-            if (timeParts.length === 2 && !isNaN(parseInt(timeParts[0], 10)) && !isNaN(parseInt(timeParts[1], 10))) {
-                 timeInSeconds = parseInt(timeParts[0], 10) * 60 + parseInt(timeParts[1], 10);
-            } else {
-                 console.warn(`Timestamp inválido al hacer clic: ${timeString}`);
-                 return;
-            }
-            console.log(`Clic en tracklist item: ${timeString} (${timeInSeconds}s). Intentando buscar...`); // LOG
-            try {
-                if (wavesurfer && typeof wavesurfer.getDuration === 'function' && typeof wavesurfer.seekTo === 'function') {
-                    // Re-añadimos check isReady aquí por seguridad para el tracklist
-                    if (wavesurfer.isReady) {
-                        const duration = wavesurfer.getDuration();
-                        if (duration > 0) {
-                            const progress = timeInSeconds / duration;
-                            const clampedProgress = Math.max(0, Math.min(1, progress));
-                            wavesurfer.seekTo(clampedProgress);
-                            console.log(`Ejecutado wavesurfer.seekTo(${clampedProgress.toFixed(4)}) desde tracklist`); // LOG
-                        } else { console.warn("Duración 0 desde tracklist."); }
-                        if (!wavesurfer.isPlaying()) { wavesurfer.play(); }
-                    } else { console.warn("Clic en tracklist ignorado: WS no listo."); }
-                } else { console.error("wavesurfer no inicializado correctamente (tracklist)."); }
-            } catch (error) { console.error("Error al buscar desde tracklist:", error); }
-        }
-    });
+    currentTracklistElement.addEventListener('click', (e) => { /* ... (sin cambios, usa seekTo) ... */
+        const target = e.target; if (target.classList.contains('favorite-btn')) { const s = parseInt(target.dataset.seconds, 10); if (!isNaN(s)) toggleFavorite(s, target); } else { const li = target.closest('.current-tracklist-item'); if (!li || !li.dataset.time) return; const t = li.dataset.time.split(':'); let s = 0; if (t.length === 2 && !isNaN(parseInt(t[0], 10)) && !isNaN(parseInt(t[1], 10))) { s = parseInt(t[0], 10) * 60 + parseInt(t[1], 10); } else { console.warn(`Inválido en clic: ${li.dataset.time}`); return; } console.log(`Clic tracklist: ${li.dataset.time} (${s}s)...`); try { if (wavesurfer && wavesurfer.isReady) { const d = wavesurfer.getDuration(); if (d > 0) { const p = Math.max(0, Math.min(1, s / d)); wavesurfer.seekTo(p); console.log(`Seek tracklist: ${p.toFixed(4)}`); } else { console.warn("Duración 0."); } if (!wavesurfer.isPlaying()) { wavesurfer.play(); } } else { console.warn("Clic tracklist ignorado: WS no listo."); } } catch (err) { console.error("Error seek tracklist:", err); } }
+     });
 
     // --- Añadir/Quitar Favorito ---
-    function toggleFavorite(seconds, buttonElement) {
-        if (favorites.has(seconds)) {
-            favorites.delete(seconds);
-            buttonElement.classList.remove('favorited');
-            buttonElement.innerHTML = '☆';
-            console.log(`Favorito eliminado: ${seconds}s`); // LOG
-        } else {
-            favorites.add(seconds);
-            buttonElement.classList.add('favorited');
-            buttonElement.innerHTML = '★';
-            console.log(`Favorito añadido: ${seconds}s`); // LOG
-        }
-        try {
-            localStorage.setItem('vloitz_favorites', JSON.stringify(Array.from(favorites)));
-            console.log("Favoritos guardados en Local Storage."); // LOG
-        } catch (error) {
-            console.error("Error al guardar favoritos en Local Storage:", error); // LOG ERROR
-        }
-    }
+    function toggleFavorite(seconds, buttonElement) { /* ... (sin cambios) ... */
+        if (favorites.has(seconds)) { favorites.delete(seconds); buttonElement.classList.remove('favorited'); buttonElement.innerHTML = '☆'; console.log(`Fav quitado: ${seconds}s`); } else { favorites.add(seconds); buttonElement.classList.add('favorited'); buttonElement.innerHTML = '★'; console.log(`Fav añadido: ${seconds}s`); } try { localStorage.setItem('vloitz_favorites', JSON.stringify(Array.from(favorites))); console.log("Favs guardados."); } catch (err) { console.error("Error guardando favs:", err); }
+     }
 
     // --- Clic en lista general de sets ---
-    tracklistElement.addEventListener('click', e => {
-        const clickedItem = e.target.closest('.track-item');
-        if (!clickedItem) return;
-        const trackIndex = parseInt(clickedItem.dataset.index);
-        console.log(`Clic en lista general de sets, item: ${trackIndex}`); // LOG
-        if (trackIndex !== currentSetIndex && allSets[trackIndex]) {
-            loadTrack(allSets[trackIndex], trackIndex);
-            wavesurfer.once('ready', () => {
-                console.log("Track seleccionado de lista general listo, reproduciendo..."); // LOG
-                wavesurfer.play();
-            });
-        } else if (trackIndex === currentSetIndex) {
-            console.log("Clic en track actual de lista general, ejecutando playPause..."); // LOG
-            wavesurfer.playPause();
-        }
-    });
+    tracklistElement.addEventListener('click', e => { /* ... (sin cambios) ... */
+        const clickedItem = e.target.closest('.track-item'); if (!clickedItem) return; const trackIndex = parseInt(clickedItem.dataset.index); console.log(`Clic lista general: ${trackIndex}`); if (trackIndex !== currentSetIndex && allSets[trackIndex]) { loadTrack(allSets[trackIndex], trackIndex); wavesurfer.once('ready', () => { console.log("Track lista general listo, play..."); wavesurfer.play(); }); } else if (trackIndex === currentSetIndex) { console.log("Clic track actual, playPause..."); wavesurfer.playPause(); }
+     });
 
     // --- Botón Play/Pause Principal ---
-    playPauseBtn.addEventListener('click', () => {
-        console.log("Clic en botón Play/Pause principal"); // LOG
-        if (wavesurfer && typeof wavesurfer.playPause === 'function') {
-             // Re-añadimos check isReady por seguridad
-            if (wavesurfer.isReady) {
-                wavesurfer.playPause();
-            } else {
-                 console.warn("Intento de Play/Pause pero WaveSurfer no está listo.");
-            }
-        } else {
-            console.warn("Intento de Play/Pause pero WaveSurfer no está inicializado o no tiene el método.");
-        }
-    });
+    playPauseBtn.addEventListener('click', () => { /* ... (sin cambios) ... */
+        console.log("Clic Play/Pause principal"); if (wavesurfer && typeof wavesurfer.playPause === 'function') { if (wavesurfer.isReady) { wavesurfer.playPause(); } else { console.warn("Play/Pause pero WS no listo."); } } else { console.warn("Play/Pause pero WS no ok."); }
+     });
 
     console.log("Aplicación inicializada y listeners configurados."); // LOG FINAL INIT
 });
