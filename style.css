@@ -360,10 +360,3 @@ body, html {
     }
 
 }
-
-/* --- NUEVO: Estilo para deshabilitar tracklist mientras carga --- */
-.current-tracklist.disabled .current-tracklist-item {
-    cursor: not-allowed;
-    opacity: 0.5;
-    pointer-events: none; /* Ignora clics */
-}
