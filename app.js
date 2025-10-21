@@ -36,6 +36,20 @@ if (ENABLE_WAVEFORM_TUNER) {
     barWidthValueSpan = document.getElementById('barWidthValue');
     barGapValueSpan = document.getElementById('barGapValue');
     barHeightValueSpan = document.getElementById('barHeightValue');
+
+
+// Nuevas referencias
+    heightSlider = document.getElementById('heightSlider');
+    barRadiusSlider = document.getElementById('barRadiusSlider');
+    cursorWidthSlider = document.getElementById('cursorWidthSlider');
+    heightValueSpan = document.getElementById('heightValue');
+    barRadiusValueSpan = document.getElementById('barRadiusValue');
+    cursorWidthValueSpan = document.getElementById('cursorWidthValue');
+    waveColorPicker = document.getElementById('waveColorPicker');
+    progressColorPicker = document.getElementById('progressColorPicker');
+    cursorColorPicker = document.getElementById('cursorColorPicker');
+
+
     if (tunerContainer) tunerContainer.style.display = 'block'; // Mostrar el contenedor
     console.log("Waveform Tuner habilitado."); // LOG
 }
@@ -50,15 +64,17 @@ if (ENABLE_WAVEFORM_TUNER) {
         console.log("Inicializando WaveSurfer..."); // LOG
         wavesurfer = WaveSurfer.create({
             container: '#waveform',
-            waveColor: getComputedStyle(document.documentElement).getPropertyValue('--waveform-wave-color').trim(),
-            progressColor: getComputedStyle(document.documentElement).getPropertyValue('--waveform-progress-color').trim(),
-            height: 100,
-            cursorWidth: 2,
-            cursorColor: '#fff',
-            // Leer valores iniciales del Tuner si está habilitado
+            // Leer colores iniciales del Tuner o usar defaults CSS
+            waveColor: ENABLE_WAVEFORM_TUNER && waveColorPicker ? waveColorPicker.value : getComputedStyle(document.documentElement).getPropertyValue('--waveform-wave-color').trim(),
+            progressColor: ENABLE_WAVEFORM_TUNER && progressColorPicker ? progressColorPicker.value : getComputedStyle(document.documentElement).getPropertyValue('--waveform-progress-color').trim(),
+            cursorColor: ENABLE_WAVEFORM_TUNER && cursorColorPicker ? cursorColorPicker.value : '#fff',
+            // Leer valores numéricos iniciales del Tuner o usar defaults
+            height: ENABLE_WAVEFORM_TUNER && heightSlider ? parseInt(heightSlider.value) : 100,
+            cursorWidth: ENABLE_WAVEFORM_TUNER && cursorWidthSlider ? parseInt(cursorWidthSlider.value) : 2,
             barWidth: ENABLE_WAVEFORM_TUNER && barWidthSlider ? parseInt(barWidthSlider.value) : 1,
             barGap: ENABLE_WAVEFORM_TUNER && barGapSlider ? parseInt(barGapSlider.value) : 0,
             barHeight: ENABLE_WAVEFORM_TUNER && barHeightSlider ? parseFloat(barHeightSlider.value) : 1,
+            barRadius: ENABLE_WAVEFORM_TUNER && barRadiusSlider ? parseInt(barRadiusSlider.value) : 0,
             responsive: true,
             backend: 'MediaElement',
             media: document.getElementById('audio-player')
@@ -427,19 +443,29 @@ if (ENABLE_WAVEFORM_TUNER) {
     if (ENABLE_WAVEFORM_TUNER && wavesurfer && barWidthSlider && barGapSlider && barHeightSlider) {
         const updateWaveformAppearance = () => {
             const newOptions = {
+                // Valores numéricos
                 barWidth: parseInt(barWidthSlider.value),
                 barGap: parseInt(barGapSlider.value),
-                barHeight: parseFloat(barHeightSlider.value)
+                barHeight: parseFloat(barHeightSlider.value),
+                height: parseInt(heightSlider.value),
+                barRadius: parseInt(barRadiusSlider.value),
+                cursorWidth: parseInt(cursorWidthSlider.value),
+                // Colores
+                waveColor: waveColorPicker.value,
+                progressColor: progressColorPicker.value,
+                cursorColor: cursorColorPicker.value
             };
             // Actualizar spans de valores
             if(barWidthValueSpan) barWidthValueSpan.textContent = newOptions.barWidth;
             if(barGapValueSpan) barGapValueSpan.textContent = newOptions.barGap;
             if(barHeightValueSpan) barHeightValueSpan.textContent = newOptions.barHeight.toFixed(1);
+            if(heightValueSpan) heightValueSpan.textContent = newOptions.height;
+            if(barRadiusValueSpan) barRadiusValueSpan.textContent = newOptions.barRadius;
+            if(cursorWidthValueSpan) cursorWidthValueSpan.textContent = newOptions.cursorWidth;
 
             console.log("Aplicando nuevas opciones de renderizado:", newOptions); // LOG
             try {
                 wavesurfer.setOptions(newOptions);
-                // setOptions debería redibujar automáticamente si el audio está cargado.
             } catch (error) {
                 console.error("Error al aplicar setOptions:", error); // LOG ERROR
             }
