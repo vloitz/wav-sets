@@ -23,6 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
 let isDraggingWaveformTouch = false;
 let longTouchTimer = null;
 const LONG_TOUCH_THRESHOLD = 200;
+let wasPlayingBeforeDrag = false; // Para saber si pausar/reanudar
 
     console.log("Variables globales inicializadas. Favoritos cargados:", favorites); // LOG
 
@@ -262,6 +263,15 @@ const handleWaveformTouchEnd = (endEvent) => {
     console.log(`[Drag v7 Refactored] handleWaveformTouchEnd (Global) INICIO. isDragging: ${isDraggingWaveformTouch}. Tipo: ${endEvent.type}`); // LOG
     if (!isDraggingWaveformTouch) { console.log("[Drag v7 Refactored] End (Global) ignorado: isDragging false."); return; }
     isDraggingWaveformTouch = false; // Resetear bandera
+
+                // --- INICIO: Reanudar al finalizar drag ---
+                if (wasPlayingBeforeDrag) {
+                    wavesurfer.play();
+                    console.log("[Drag v7 Pause] Audio reanudado al finalizar arrastre."); // LOG
+                }
+                wasPlayingBeforeDrag = false; // Resetear estado guardado
+                // --- FIN: Reanudar al finalizar drag ---
+
     console.log("[Drag v7 Refactored] Bandera isDragging reseteada (Global)."); // LOG
     console.log("[Drag v7 Refactored] Removiendo listeners GLOBALES..."); // LOG
     window.removeEventListener('touchmove', handleWaveformTouchMove);
@@ -361,7 +371,17 @@ if (waveformInteractionElement && wavesurfer) {
         // Iniciar temporizador
         longTouchTimer = setTimeout(() => {
             console.warn(`[Drag v6 Final Merged] ¡TOQUE LARGO DETECTADO! en ${formattedTouchStartTime}`);
-            isDraggingWaveformTouch = true;
+
+            // --- INICIO: Pausar al iniciar drag ---
+            wasPlayingBeforeDrag = wavesurfer.isPlaying(); // Guardar estado actual
+            if (wasPlayingBeforeDrag) {
+                wavesurfer.pause();
+                console.log("[Drag v7 Pause] Audio pausado al iniciar arrastre."); // LOG
+            }
+            // --- FIN: Pausar al iniciar drag ---
+
+            isDraggingWaveformTouch = true; // Activar bandera de arrastre (después de pausar)
+
             console.log("[Drag v6 Final Merged] isDragging=TRUE. Añadiendo listeners GLOBALES.");
 
             // --- Definir Handlers Globales ---
