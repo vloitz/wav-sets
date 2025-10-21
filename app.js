@@ -29,13 +29,13 @@ document.addEventListener('DOMContentLoaded', () => {
             waveColor: getComputedStyle(document.documentElement).getPropertyValue('--waveform-wave-color').trim(),
             progressColor: getComputedStyle(document.documentElement).getPropertyValue('--waveform-progress-color').trim(),
             height: 100,
-            cursorWidth: 2,
+            cursorWidth: 2, // Mantenemos cursor visible
             cursorColor: '#fff',
-            barWidth: 3,
-            barGap: 2,
+            barWidth: 1, // <-- CAMBIAR A 1 (Barras más finas)
+            barGap: 0,   // <-- CAMBIAR A 0 (Sin espacio entre barras)
             responsive: true,
             backend: 'MediaElement',
-            media: document.getElementById('audio-player') // Conectarlo al <audio>
+            media: document.getElementById('audio-player')
         });
         console.log("WaveSurfer inicializado correctamente."); // LOG
         // Hacer accesible globalmente para depuración desde la consola
