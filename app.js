@@ -26,17 +26,20 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log("Inicializando WaveSurfer..."); // LOG
         wavesurfer = WaveSurfer.create({
             container: '#waveform',
-            waveColor: getComputedStyle(document.documentElement).getPropertyValue('--waveform-wave-color').trim(),
-            progressColor: getComputedStyle(document.documentElement).getPropertyValue('--waveform-progress-color').trim(),
-            height: 100,
-            cursorWidth: 2,
-            cursorColor: '#fff',
-            barWidth: 1,
-            barGap: 0,
-            barHeight: 1, // <-- AÑADIR ESTA LÍNEA (Valor entre 0 y 1, 1 = altura completa)
+            // --- VALORES FINALES BASADOS EN image_b05879.png ---
+            waveColor: "#cccccc",       // Color base (gris claro)
+            progressColor: "#ff7f00",   // Color de progreso (naranja)
+            cursorColor: "#ffffff",     // Color del cursor (blanco)
+            height: 100,                // Altura
+            cursorWidth: 1,             // Ancho cursor
+            barWidth: 1,                // Ancho barra
+            barGap: 0,                  // Espacio barra
+            barHeight: 0.9,             // Altura relativa barra
+            barRadius: 10,              // Radio barra
+            // --- FIN VALORES FINALES ---
             responsive: true,
             backend: 'MediaElement',
-            media: document.getElementById('audio-player')
+            media: document.getElementById('audio-player') // Conectarlo al <audio>
         });
         console.log("WaveSurfer inicializado correctamente."); // LOG
         // Hacer accesible globalmente para depuración desde la consola
@@ -115,9 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         console.log(`WaveSurfer intentará cargar: ${set.audio_url}`); // LOG
 
-        // Ya no se deshabilita el tracklist aquí
-
-        // --- LÓGICA MODIFICADA PARA CARGAR PICOS ---
+        // Lógica para cargar picos
         if (set.peaks_url) {
             console.log(`Intentando cargar picos desde: ${set.peaks_url}`); // LOG
             fetch(set.peaks_url)
@@ -128,32 +129,27 @@ document.addEventListener('DOMContentLoaded', () => {
                     return response.json();
                 })
                 .then(peaksData => {
-                    // Extraer el array de datos de picos del JSON
                     const peaksArray = peaksData.data;
                     if (peaksArray && Array.isArray(peaksArray)) {
                         console.log(`Picos cargados (${peaksArray.length} puntos). Cargando audio con picos...`); // LOG
-                        // Cargar audio Y picos en WaveSurfer
                         wavesurfer.load(set.audio_url, peaksArray);
                     } else {
                         console.warn("El JSON de picos no tiene un array 'data' válido. Cargando solo audio..."); // LOG ADVERTENCIA
-                        wavesurfer.load(set.audio_url); // Fallback: cargar solo audio
+                        wavesurfer.load(set.audio_url);
                     }
                 })
                 .catch(error => {
                     console.error('Error al cargar o parsear el JSON de picos:', error); // LOG ERROR
                     console.warn("Fallback: Cargando solo audio debido a error con picos..."); // LOG ADVERTENCIA
-                    wavesurfer.load(set.audio_url); // Fallback: cargar solo audio
+                    wavesurfer.load(set.audio_url);
                 });
         } else {
-            // Si no hay peaks_url, cargar solo el audio como antes
             console.log("No se encontró peaks_url. Cargando solo audio..."); // LOG
             wavesurfer.load(set.audio_url);
         }
-        // --- FIN LÓGICA MODIFICADA ---
 
-        currentLoadedSet = set; // Guardar referencia al set cargado
-        displayTracklist(set.tracklist || []); // Mostrar tracklist
-
+        currentLoadedSet = set;
+        displayTracklist(set.tracklist || []);
         updatePlayingHighlight();
     }
 
@@ -229,8 +225,6 @@ document.addEventListener('DOMContentLoaded', () => {
         playPauseBtn.textContent = '▶️';
         currentTrackTitle.textContent = allSets[currentSetIndex]?.title || "Set Listo";
         console.log("WaveSurfer listo para track:", allSets[currentSetIndex]?.title); // LOG ÉXITO
-
-        // Ya no se habilita el tracklist aquí
     });
 
      wavesurfer.on('loading', (percent) => {
@@ -243,7 +237,6 @@ document.addEventListener('DOMContentLoaded', () => {
         currentTrackTitle.textContent = `Error: ${err.message || err}`;
         playPauseBtn.textContent = '❌';
         playPauseBtn.disabled = true;
-        // Ya no se deshabilita el tracklist aquí
     });
 
     wavesurfer.on('timeupdate', (currentTime) => {
@@ -307,15 +300,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             console.log(`Clic en tracklist item: ${timeString} (${timeInSeconds}s). Intentando buscar...`); // LOG
-            // LOG DE DEPURACIÓN ESPECÍFICO (Mantenido):
-            console.log("Estado de wavesurfer.isReady al hacer clic:", wavesurfer ? wavesurfer.isReady : 'wavesurfer no definido');
-            // NUEVO LOG para ver el objeto wavesurfer en este scope:
-            console.log("Objeto wavesurfer DENTRO del listener:", wavesurfer); // <-- Mantenemos este log importante
+            console.log("Objeto wavesurfer DENTRO del listener:", wavesurfer); // Log de depuración
 
-            // --- SIMPLIFICACIÓN ---
-            // Quitamos el if (wavesurfer && wavesurfer.isReady)
             try {
-                // Comprobación mínima de que wavesurfer existe y tiene los métodos
                 if (wavesurfer && typeof wavesurfer.getDuration === 'function' && typeof wavesurfer.seekTo === 'function') {
                     const duration = wavesurfer.getDuration();
                     if (duration > 0) {
@@ -328,7 +315,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         console.warn("La duración es 0, no se puede calcular el progreso para seekTo."); // LOG ADVERTENCIA
                     }
 
-                    // Asegurarse de que se reproduzca si estaba pausado
                     if (typeof wavesurfer.isPlaying === 'function' && !wavesurfer.isPlaying()) {
                          if (typeof wavesurfer.play === 'function') {
                              wavesurfer.play();
@@ -342,7 +328,6 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (error) {
                  console.error("Error al intentar buscar (seekTo) o reproducir:", error); // LOG ERROR
             }
-            // --- FIN SIMPLIFICACIÓN ---
         }
     });
 
