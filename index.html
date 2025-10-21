@@ -3,24 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prueba WaveSurfer + FLAC</title>
+    <title>Test Completo - FLAC + WaveSurfer</title>
     <script src="https://unpkg.com/wavesurfer.js@7.7.5"></script>
     <style>
         body { 
             background-color: #121212; 
             color: #fff; 
-            font-family: sans-serif; 
+            font-family: 'Segoe UI', sans-serif; 
             padding: 20px;
-            max-width: 900px;
+            max-width: 1000px;
             margin: 0 auto;
         }
-        h1 { color: #1DB954; }
+        h1 { color: #1DB954; margin-bottom: 5px; }
+        h2 { color: #1DB954; font-size: 1.2em; margin-top: 30px; }
+        .subtitle { color: #888; margin-bottom: 30px; }
+        
+        .test-section {
+            background-color: #1e1e1e;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
         #waveform { 
             border: 1px solid #333; 
             height: 128px; 
-            margin-bottom: 10px;
-            background-color: #1e1e1e;
+            margin: 15px 0;
+            background-color: #0a0a0a;
         }
+        
         button { 
             padding: 12px 24px; 
             font-size: 1em;
@@ -29,106 +40,285 @@
             border: none;
             border-radius: 25px;
             cursor: pointer;
-            transition: opacity 0.2s;
+            transition: all 0.2s;
             margin: 5px;
+            font-weight: 600;
         }
-        button:hover:not(:disabled) { opacity: 0.8; }
+        button:hover:not(:disabled) { 
+            opacity: 0.8; 
+            transform: translateY(-2px);
+        }
         button:disabled {
             background-color: #555;
             cursor: not-allowed;
             opacity: 0.5;
         }
-        #status { 
-            margin-top: 10px; 
-            color: #aaa;
-            padding: 10px;
-            background-color: #1e1e1e;
+        
+        .status { 
+            margin: 10px 0;
+            padding: 12px;
+            background-color: #2a2a2a;
             border-radius: 5px;
             font-size: 0.9em;
+            border-left: 3px solid #555;
         }
+        .status.info { border-left-color: #3b82f6; }
+        .status.success { border-left-color: #1DB954; }
+        .status.error { border-left-color: #ef4444; }
+        .status.warning { border-left-color: #f59e0b; }
+        
         .url-list {
-            background-color: #1e1e1e;
+            background-color: #0a0a0a;
             padding: 15px;
             border-radius: 5px;
             margin: 15px 0;
+            max-height: 400px;
+            overflow-y: auto;
         }
         .url-item {
-            padding: 8px;
-            margin: 5px 0;
-            background-color: #2a2a2a;
-            border-radius: 3px;
-            font-family: monospace;
+            padding: 10px;
+            margin: 8px 0;
+            background-color: #1e1e1e;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
             font-size: 0.85em;
+            border-left: 3px solid #555;
+            transition: all 0.3s;
         }
-        .url-item.trying { border-left: 3px solid #FFA500; }
-        .url-item.success { border-left: 3px solid #1DB954; }
-        .url-item.failed { border-left: 3px solid #FF4444; }
+        .url-item.checking { 
+            border-left-color: #3b82f6; 
+            background-color: #1a2332;
+        }
+        .url-item.exists { 
+            border-left-color: #1DB954; 
+            background-color: #1a2e1e;
+        }
+        .url-item.notfound { 
+            border-left-color: #ef4444; 
+            background-color: #2e1a1a;
+        }
+        .url-item.cors-error { 
+            border-left-color: #f59e0b; 
+            background-color: #2e2a1a;
+        }
+        
+        .audio-player {
+            margin: 15px 0;
+            width: 100%;
+        }
+        
+        code {
+            background-color: #0a0a0a;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #1DB954;
+        }
+        
+        .log {
+            background-color: #0a0a0a;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8em;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+        .log-entry {
+            padding: 2px 0;
+            color: #aaa;
+        }
+        .log-entry.error { color: #ef4444; }
+        .log-entry.success { color: #1DB954; }
+        .log-entry.info { color: #3b82f6; }
     </style>
 </head>
 <body>
-    <h1>🎵 Prueba WaveSurfer + FLAC (Multi-URL)</h1>
-    <div id="waveform"></div>
-    <div>
-        <button id="playPauseBtn" disabled>⏳ Esperando...</button>
-        <button id="testAllBtn">🔄 Probar todas las URLs</button>
+    <h1>🔬 Test Completo - FLAC + WaveSurfer</h1>
+    <p class="subtitle">Diagnóstico completo para encontrar por qué no carga el audio</p>
+
+    <!-- TEST 1: Verificar existencia del archivo -->
+    <div class="test-section">
+        <h2>📋 Test 1: Verificar si el archivo existe</h2>
+        <p>Comprobando si el archivo FLAC está accesible sin reproducirlo...</p>
+        <button id="testExistenceBtn">🔍 Verificar existencia de archivos</button>
+        <div class="url-list" id="existenceResults"></div>
+        <div id="existenceStatus" class="status info">
+            Haz clic en el botón para verificar si los archivos existen
+        </div>
     </div>
-    <div id="status">Listo para probar...</div>
-    
-    <div class="url-list" id="urlList">
-        <strong>URLs a probar:</strong>
-        <div id="urlItems"></div>
+
+    <!-- TEST 2: Audio HTML5 nativo -->
+    <div class="test-section">
+        <h2>🎵 Test 2: Reproductor HTML5 nativo</h2>
+        <p>Probando con <code>&lt;audio&gt;</code> tag de HTML5 (sin WaveSurfer):</p>
+        <select id="audioUrlSelect" style="width: 100%; padding: 10px; background: #2a2a2a; color: white; border: 1px solid #444; border-radius: 5px; margin: 10px 0;">
+            <option value="">Selecciona una URL para probar...</option>
+        </select>
+        <audio id="nativeAudio" controls class="audio-player"></audio>
+        <div id="nativeStatus" class="status info">
+            Selecciona una URL del menú desplegable
+        </div>
+    </div>
+
+    <!-- TEST 3: WaveSurfer -->
+    <div class="test-section">
+        <h2>🌊 Test 3: WaveSurfer.js</h2>
+        <p>Probando con la librería WaveSurfer:</p>
+        <button id="testWavesurferBtn">🌊 Probar con WaveSurfer</button>
+        <div id="waveform"></div>
+        <button id="playPauseBtn" disabled>⏸️ Pausa</button>
+        <div id="wavesurferStatus" class="status info">
+            Primero verifica que el archivo exista (Test 1)
+        </div>
+    </div>
+
+    <!-- LOG -->
+    <div class="test-section">
+        <h2>📝 Log de eventos</h2>
+        <div id="logContainer" class="log"></div>
     </div>
 
     <script>
+        const existenceResults = document.getElementById('existenceResults');
+        const existenceStatus = document.getElementById('existenceStatus');
+        const nativeAudio = document.getElementById('nativeAudio');
+        const audioUrlSelect = document.getElementById('audioUrlSelect');
+        const nativeStatus = document.getElementById('nativeStatus');
         const playPauseBtn = document.getElementById('playPauseBtn');
-        const testAllBtn = document.getElementById('testAllBtn');
-        const statusDiv = document.getElementById('status');
-        const urlItemsDiv = document.getElementById('urlItems');
+        const wavesurferStatus = document.getElementById('wavesurferStatus');
+        const logContainer = document.getElementById('logContainer');
         
         let wavesurfer = null;
-        let currentUrlIndex = 0;
+        let workingUrl = null;
 
-        // Lista de todas las posibles URLs a probar
+        // URLs a probar
         const audioUrls = [
             {
                 name: "GitHub Pages - Espacios normales",
                 url: "https://vloitz.github.io/wav-sets/audio/Jungle Rhythmic Grooves 004.flac"
             },
             {
-                name: "GitHub Pages - Espacios codificados (%20)",
+                name: "GitHub Pages - %20",
                 url: "https://vloitz.github.io/wav-sets/audio/Jungle%20Rhythmic%20Grooves%20004.flac"
             },
             {
-                name: "GitHub Pages - Espacios con +",
+                name: "GitHub Pages - Plus (+)",
                 url: "https://vloitz.github.io/wav-sets/audio/Jungle+Rhythmic+Grooves+004.flac"
             },
             {
-                name: "GitHub Raw (main branch)",
+                name: "GitHub Raw - main",
                 url: "https://raw.githubusercontent.com/vloitz/wav-sets/main/audio/Jungle Rhythmic Grooves 004.flac"
             },
             {
-                name: "GitHub Raw - Espacios codificados",
+                name: "GitHub Raw - %20",
                 url: "https://raw.githubusercontent.com/vloitz/wav-sets/main/audio/Jungle%20Rhythmic%20Grooves%20004.flac"
             }
         ];
 
-        // Mostrar lista de URLs
-        function displayUrls() {
-            urlItemsDiv.innerHTML = '';
-            audioUrls.forEach((item, index) => {
-                const div = document.createElement('div');
-                div.className = 'url-item';
-                div.id = `url-${index}`;
-                div.innerHTML = `<strong>${index + 1}.</strong> ${item.name}<br><small>${item.url}</small>`;
-                urlItemsDiv.appendChild(div);
-            });
+        // Función de logging
+        function log(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            const timestamp = new Date().toLocaleTimeString();
+            entry.textContent = `[${timestamp}] ${message}`;
+            logContainer.insertBefore(entry, logContainer.firstChild);
         }
 
-        // Inicializar WaveSurfer
-        function initWaveSurfer() {
-            if (wavesurfer) {
-                wavesurfer.destroy();
+        // TEST 1: Verificar existencia
+        async function checkFileExistence(urlObj, index) {
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'url-item checking';
+            itemDiv.id = `url-${index}`;
+            itemDiv.innerHTML = `
+                <strong>${index + 1}. ${urlObj.name}</strong><br>
+                <small>${urlObj.url}</small><br>
+                <em style="color: #3b82f6;">🔍 Verificando...</em>
+            `;
+            existenceResults.appendChild(itemDiv);
+
+            log(`Verificando: ${urlObj.name}`, 'info');
+
+            try {
+                const response = await fetch(urlObj.url, { method: 'HEAD' });
+                
+                if (response.ok) {
+                    itemDiv.className = 'url-item exists';
+                    itemDiv.innerHTML = `
+                        <strong>${index + 1}. ${urlObj.name}</strong><br>
+                        <small>${urlObj.url}</small><br>
+                        <em style="color: #1DB954;">✅ Archivo existe (${response.status}) - Tamaño: ${response.headers.get('content-length') ? (response.headers.get('content-length') / 1024 / 1024).toFixed(2) + ' MB' : 'desconocido'}</em>
+                    `;
+                    log(`✅ ${urlObj.name} - Archivo existe`, 'success');
+                    
+                    // Agregar al select
+                    const option = document.createElement('option');
+                    option.value = urlObj.url;
+                    option.textContent = `${urlObj.name} ✅`;
+                    audioUrlSelect.appendChild(option);
+                    
+                    if (!workingUrl) workingUrl = urlObj.url;
+                    return true;
+                } else {
+                    itemDiv.className = 'url-item notfound';
+                    itemDiv.innerHTML = `
+                        <strong>${index + 1}. ${urlObj.name}</strong><br>
+                        <small>${urlObj.url}</small><br>
+                        <em style="color: #ef4444;">❌ Error ${response.status}: ${response.statusText}</em>
+                    `;
+                    log(`❌ ${urlObj.name} - Error ${response.status}`, 'error');
+                    return false;
+                }
+            } catch (error) {
+                itemDiv.className = 'url-item cors-error';
+                itemDiv.innerHTML = `
+                    <strong>${index + 1}. ${urlObj.name}</strong><br>
+                    <small>${urlObj.url}</small><br>
+                    <em style="color: #f59e0b;">⚠️ Error: ${error.message}</em>
+                `;
+                log(`⚠️ ${urlObj.name} - ${error.message}`, 'error');
+                return false;
             }
+        }
+
+        // TEST 2: Audio nativo
+        audioUrlSelect.addEventListener('change', () => {
+            const url = audioUrlSelect.value;
+            if (!url) return;
+            
+            nativeAudio.src = url;
+            nativeStatus.className = 'status info';
+            nativeStatus.textContent = `⏳ Cargando desde: ${audioUrls.find(u => u.url === url)?.name}`;
+            log(`Cargando en audio nativo: ${url}`, 'info');
+            
+            nativeAudio.load();
+        });
+
+        nativeAudio.addEventListener('loadeddata', () => {
+            nativeStatus.className = 'status success';
+            nativeStatus.textContent = `✅ ¡Audio cargado! Duración: ${Math.floor(nativeAudio.duration / 60)}:${Math.floor(nativeAudio.duration % 60).toString().padStart(2, '0')}`;
+            log('✅ Audio HTML5 cargado correctamente', 'success');
+        });
+
+        nativeAudio.addEventListener('error', (e) => {
+            nativeStatus.className = 'status error';
+            nativeStatus.textContent = `❌ Error al cargar audio: ${nativeAudio.error?.message || 'desconocido'}`;
+            log(`❌ Error en audio nativo: ${nativeAudio.error?.message}`, 'error');
+        });
+
+        // TEST 3: WaveSurfer
+        document.getElementById('testWavesurferBtn').addEventListener('click', () => {
+            if (!workingUrl) {
+                wavesurferStatus.className = 'status error';
+                wavesurferStatus.textContent = '❌ Primero verifica que al menos una URL funcione (Test 1)';
+                return;
+            }
+
+            log(`Iniciando WaveSurfer con: ${workingUrl}`, 'info');
+            wavesurferStatus.className = 'status info';
+            wavesurferStatus.textContent = '⏳ Inicializando WaveSurfer...';
+
+            if (wavesurfer) wavesurfer.destroy();
 
             wavesurfer = WaveSurfer.create({
                 container: '#waveform',
@@ -144,94 +334,68 @@
             });
 
             wavesurfer.on('loading', (percent) => {
-                statusDiv.textContent = `⏳ Cargando forma de onda: ${percent}%`;
+                wavesurferStatus.className = 'status info';
+                wavesurferStatus.textContent = `⏳ Cargando waveform: ${percent}%`;
+                log(`Cargando waveform: ${percent}%`, 'info');
             });
 
             wavesurfer.on('ready', () => {
                 const duration = wavesurfer.getDuration();
                 const minutes = Math.floor(duration / 60);
                 const seconds = Math.floor(duration % 60);
-                statusDiv.textContent = `✅ ¡Éxito! Audio listo. Duración: ${minutes}:${seconds.toString().padStart(2, '0')}`;
-                playPauseBtn.textContent = '▶️ Play';
+                wavesurferStatus.className = 'status success';
+                wavesurferStatus.textContent = `✅ ¡WaveSurfer listo! Duración: ${minutes}:${seconds.toString().padStart(2, '0')}`;
                 playPauseBtn.disabled = false;
-                
-                // Marcar URL exitosa
-                document.getElementById(`url-${currentUrlIndex}`).classList.add('success');
-                
-                console.log(`✅ URL exitosa: ${audioUrls[currentUrlIndex].url}`);
+                playPauseBtn.textContent = '▶️ Play';
+                log('✅ WaveSurfer cargado exitosamente', 'success');
             });
 
             wavesurfer.on('error', (err) => {
-                console.error(`❌ Falló URL ${currentUrlIndex + 1}:`, err);
-                document.getElementById(`url-${currentUrlIndex}`).classList.add('failed');
-                
-                // Intentar siguiente URL
-                currentUrlIndex++;
-                if (currentUrlIndex < audioUrls.length) {
-                    tryNextUrl();
-                } else {
-                    statusDiv.textContent = `❌ Ninguna URL funcionó. Verifica que el archivo esté subido correctamente.`;
-                    playPauseBtn.textContent = '❌ Error';
-                    playPauseBtn.disabled = true;
-                }
+                wavesurferStatus.className = 'status error';
+                wavesurferStatus.textContent = `❌ Error WaveSurfer: ${err}`;
+                log(`❌ Error WaveSurfer: ${err}`, 'error');
             });
 
-            wavesurfer.on('play', () => { playPauseBtn.textContent = '⏸️ Pause'; });
-            wavesurfer.on('pause', () => { playPauseBtn.textContent = '▶️ Play'; });
-            wavesurfer.on('finish', () => { 
-                playPauseBtn.textContent = '▶️ Play';
-                statusDiv.textContent = '✅ Reproducción finalizada';
-            });
-        }
+            wavesurfer.on('play', () => playPauseBtn.textContent = '⏸️ Pause');
+            wavesurfer.on('pause', () => playPauseBtn.textContent = '▶️ Play');
 
-        // Probar siguiente URL
-        function tryNextUrl() {
-            if (currentUrlIndex >= audioUrls.length) {
-                statusDiv.textContent = '❌ No hay más URLs para probar';
-                return;
-            }
-
-            const currentUrl = audioUrls[currentUrlIndex];
-            statusDiv.textContent = `🔍 Probando URL ${currentUrlIndex + 1}/${audioUrls.length}: ${currentUrl.name}`;
-            
-            // Marcar URL actual
-            document.getElementById(`url-${currentUrlIndex}`).classList.add('trying');
-            
-            console.log(`Intentando cargar: ${currentUrl.url}`);
-            
-            initWaveSurfer();
-            wavesurfer.load(currentUrl.url);
-        }
-
-        // Botón para probar todas las URLs
-        testAllBtn.addEventListener('click', () => {
-            currentUrlIndex = 0;
-            
-            // Resetear estilos
-            document.querySelectorAll('.url-item').forEach(item => {
-                item.classList.remove('trying', 'success', 'failed');
-            });
-            
-            playPauseBtn.disabled = true;
-            playPauseBtn.textContent = '⏳ Probando...';
-            
-            tryNextUrl();
+            wavesurfer.load(workingUrl);
         });
 
-        // Botón play/pause
         playPauseBtn.addEventListener('click', () => {
-            if (wavesurfer) {
-                wavesurfer.playPause();
+            if (wavesurfer) wavesurfer.playPause();
+        });
+
+        // Botón Test 1
+        document.getElementById('testExistenceBtn').addEventListener('click', async () => {
+            existenceResults.innerHTML = '';
+            existenceStatus.className = 'status info';
+            existenceStatus.textContent = '🔍 Verificando archivos...';
+            workingUrl = null;
+            audioUrlSelect.innerHTML = '<option value="">Selecciona una URL para probar...</option>';
+            
+            log('=== Iniciando Test 1: Verificación de existencia ===', 'info');
+
+            let foundAny = false;
+            for (let i = 0; i < audioUrls.length; i++) {
+                const exists = await checkFileExistence(audioUrls[i], i);
+                if (exists) foundAny = true;
+                await new Promise(resolve => setTimeout(resolve, 300));
+            }
+
+            if (foundAny) {
+                existenceStatus.className = 'status success';
+                existenceStatus.textContent = '✅ Se encontró al menos una URL válida. Prueba el Test 2 (Audio HTML5).';
+                log('=== Test 1 completado: URLs válidas encontradas ===', 'success');
+            } else {
+                existenceStatus.className = 'status error';
+                existenceStatus.textContent = '❌ Ningún archivo fue encontrado. Verifica que el archivo esté subido a GitHub y que GitHub Pages esté activo.';
+                log('=== Test 1 completado: No se encontraron URLs válidas ===', 'error');
             }
         });
 
-        // Mostrar URLs al cargar
-        displayUrls();
-
-        // Iniciar automáticamente al cargar la página
-        setTimeout(() => {
-            testAllBtn.click();
-        }, 500);
+        // Auto-start Test 1
+        log('Página cargada - Lista para tests', 'info');
     </script>
 </body>
 </html>
