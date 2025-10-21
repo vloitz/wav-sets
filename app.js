@@ -33,6 +33,17 @@ if (ENABLE_WAVEFORM_TUNER) {
     barWidthSlider = document.getElementById('barWidthSlider');
     barGapSlider = document.getElementById('barGapSlider');
     barHeightSlider = document.getElementById('barHeightSlider');
+
+// Listeners para nuevos sliders
+heightSlider.addEventListener('input', updateWaveformAppearance);
+barRadiusSlider.addEventListener('input', updateWaveformAppearance);
+cursorWidthSlider.addEventListener('input', updateWaveformAppearance);
+// Listeners para nuevos color pickers (usan 'input' también)
+waveColorPicker.addEventListener('input', updateWaveformAppearance);
+progressColorPicker.addEventListener('input', updateWaveformAppearance);
+cursorColorPicker.addEventListener('input', updateWaveformAppearance);
+
+
     barWidthValueSpan = document.getElementById('barWidthValue');
     barGapValueSpan = document.getElementById('barGapValue');
     barHeightValueSpan = document.getElementById('barHeightValue');
