@@ -276,164 +276,119 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
 
-
-    // --- NUEVO v4: Lógica Drag-to-Seek (Depuración Táctil Exhaustiva) ---
+// --- NUEVO v5: Lógica Drag-to-Seek (Depuración Inicio Táctil) ---
 const waveformInteractionElement = document.getElementById('waveform');
 
 if (waveformInteractionElement && wavesurfer) {
-    console.log("[Drag V4] Añadiendo listeners TÁCTILES v4."); // LOG
+    console.log("[Drag V5] Añadiendo listeners TÁCTILES v5 (Solo Start/Click)."); // LOG
 
-    let isDraggingWaveformTouch = false; // Bandera específica
+    let isTouchDown = false; // Bandera simple para saber si el dedo está abajo
 
-    // --- Funciones Handler ---
+    // Listener para INICIO TÁCTIL (touchstart)
+    waveformInteractionElement.addEventListener('touchstart', (event) => {
+        console.log("[Drag V5] Evento: touchstart INICIO."); // LOG INICIO
+        console.log("[Drag V5] Evento touchstart object:", event); // LOG Evento
+        console.log("[Drag V5] Estado de wavesurfer ANTES del check:", wavesurfer); // LOG Objeto WS
 
-    // Función para calcular progreso y buscar
-    const seekWaveform = (clientX, rect, eventType) => {
-        console.log(`[Drag V4] seekWaveform llamado desde: ${eventType}`); // LOG
-        if (!wavesurfer) {
-             console.warn("[Drag V4] SeekWaveform abortado: wavesurfer es null.");
-             return false;
+        // Comprobación MÍNIMA: solo si fue en un botón, ignorar.
+        if (event.target.closest('button')) {
+             console.warn("[Drag V5] Touch Start ignorado: Clic en botón.");
+             console.log("[Drag V5] touchstart FIN (ignorado botón)."); // LOG FIN
+             return;
         }
-         // Quitamos la comprobación isReady aquí temporalmente para ver si es el problema
-        // if (!wavesurfer.isReady) {
-        //      console.warn("[Drag V4] SeekWaveform abortado: WS no listo.");
-        //      return false;
+
+        // *** TEMPORALMENTE QUITAMOS EL CHECK isReady para ver si el resto se ejecuta ***
+        // if (!wavesurfer || !wavesurfer.isReady) {
+        //      console.warn(`[Drag V5] Touch Start ignorado: WS no listo. wavesurfer: ${!!wavesurfer}, isReady: ${wavesurfer ? wavesurfer.isReady : 'N/A'}`);
+        //      console.log(`[Drag V5] touchstart FIN (ignorado WS no listo).`);
+        //      return;
         // }
 
+        // Si pasa el check mínimo, marcamos que el dedo está abajo
+        isTouchDown = true;
+        console.log("[Drag V5] Touch Start ACEPTADO. Bandera isTouchDown = true."); // LOG Aceptado
+
+        // IMPORTANTE: Por ahora, NO añadimos listeners de touchmove/touchend
+        // Solo queremos ver si este evento se detecta bien.
+
+        // Opcional: Podríamos llamar a seekWaveform aquí si queremos que salte al tocar
+        // const wavesurferElement = wavesurfer.getWrapper();
+        // const rect = wavesurferElement.getBoundingClientRect();
+        // if (event.touches && event.touches.length > 0) {
+        //     // seekWaveform(event.touches[0].clientX, rect, "touchstart-direct");
+        // }
+
+        console.log(`[Drag V5] touchstart FIN.`); // LOG FIN
+    } /* Quitamos { passive: true } para poder usar preventDefault si fuera necesario después */);
+
+    // Listener simple para CLIC de RATÓN (PC) - Sin cambios por ahora
+    waveformInteractionElement.addEventListener('click', (event) => {
+        // Solo si NO es un toque (isTouchDown es false) y WS está listo
+        if (!isTouchDown && wavesurfer && wavesurfer.isReady && !event.target.closest('button')) {
+            console.log("[Drag V5] Clic simple (Mouse) detectado."); // LOG Click
+            const wavesurferElement = wavesurfer.getWrapper();
+            const rect = wavesurferElement.getBoundingClientRect();
+            // Reutilizamos la función seekWaveform (asegúrate de que esté definida)
+            seekWaveform(event.clientX, rect, "click");
+        } else {
+             console.log(`[Drag V5] Clic de ratón ignorado. isTouchDown: ${isTouchDown}`); // LOG Ignorado
+        }
+         // Resetear bandera por si acaso (aunque touchend debería hacerlo)
+         isTouchDown = false;
+    });
+
+    // Listener para FIN de toque (SOLO para resetear bandera)
+     const handleWaveformTouchEndSimple = (event) => {
+         if (!isTouchDown) return; // Si ya se reseteó, no hacer nada
+         isTouchDown = false;
+         console.log(`[Drag V5] Evento: ${event.type}. Bandera isTouchDown reseteada a false.`); // LOG
+     };
+     // Añadimos touchend y touchcancel al elemento, no a window por ahora
+     waveformInteractionElement.addEventListener('touchend', handleWaveformTouchEndSimple);
+     waveformInteractionElement.addEventListener('touchcancel', handleWaveformTouchEndSimple);
+
+
+    // --- Asegúrate de que la función seekWaveform exista (copiada de la versión anterior) ---
+    const seekWaveform = (clientX, rect, eventType) => {
+        console.log(`[Drag V5] seekWaveform llamado desde: ${eventType}`);
+        if (!wavesurfer || !wavesurfer.isReady) { // Mantenemos el check aquí por seguridad
+             console.warn("[Drag V5] SeekWaveform ignorado: WS no listo.");
+             return false;
+        }
         const x = Math.max(0, clientX - rect.left);
         const width = rect.width;
-        // Asegurarse de que width no sea 0 para evitar división por cero
          if (width === 0) {
-             console.warn("[Drag V4] SeekWaveform abortado: Ancho del waveform es 0.");
+             console.warn("[Drag V5] SeekWaveform abortado: Ancho del waveform es 0.");
              return false;
          }
         const progress = Math.max(0, Math.min(1, x / width));
-
         try {
              wavesurfer.seekTo(progress);
              const duration = wavesurfer.getDuration();
              if (duration > 0 && currentTimeEl) {
                   currentTimeEl.textContent = formatTime(progress * duration);
              }
-             console.log(`[Drag V4] Seek executed: progress=${progress.toFixed(4)}`);
+             console.log(`[Drag V5] Seek executed: progress=${progress.toFixed(4)}`);
              return true;
         } catch (error) {
-             console.error(`[Drag V4] Error en wavesurfer.seekTo(${progress.toFixed(4)}):`, error);
+             console.error(`[Drag V5] Error en wavesurfer.seekTo(${progress.toFixed(4)}):`, error);
              return false;
         }
     };
+    // --- Asegúrate de que la función formatTime exista ---
+    function formatTime(seconds) {
+         seconds = Number(seconds);
+         if (isNaN(seconds) || seconds < 0) { seconds = 0; }
+         const minutes = Math.floor(seconds / 60);
+         const secs = Math.floor(seconds % 60);
+         return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
+     }
 
-    // Función para manejar el MOVIMIENTO táctil
-    const handleWaveformTouchMove = (event) => {
-        console.log(`[Drag V4] handleWaveformTouchMove INICIO. isDragging: ${isDraggingWaveformTouch}`); // LOG INICIO
-        if (!isDraggingWaveformTouch) {
-             console.log("[Drag V4] Touch Move ignorado: Bandera 'isDragging' es false.");
-             console.log(`[Drag V4] handleWaveformTouchMove FIN (ignorado).`); // LOG FIN
-             return;
-        }
-
-        // ¡MUY IMPORTANTE! Prevenir scroll
-        event.preventDefault();
-
-        if (event.touches && event.touches.length > 0) {
-            const wavesurferElement = wavesurfer.getWrapper();
-            const rect = wavesurferElement.getBoundingClientRect();
-            seekWaveform(event.touches[0].clientX, rect, "touchmove"); // Calcular y buscar
-        } else {
-             console.warn("[Drag V4] Touch Move: No se encontraron 'touches'.");
-        }
-        console.log(`[Drag V4] handleWaveformTouchMove FIN.`); // LOG FIN
-    };
-
-    // Función para manejar el FIN del toque (touchend y touchcancel)
-    const handleWaveformTouchEnd = (event) => {
-         console.log(`[Drag V4] handleWaveformTouchEnd INICIO. isDragging: ${isDraggingWaveformTouch}. Tipo: ${event.type}`); // LOG INICIO
-         // Solo actuar si estábamos arrastrando
-        if (!isDraggingWaveformTouch) {
-             console.log("[Drag V4] Touch End ignorado: Bandera 'isDragging' ya era false.");
-             console.log(`[Drag V4] handleWaveformTouchEnd FIN (ignorado).`); // LOG FIN
-             return;
-         }
-
-        isDraggingWaveformTouch = false; // <-- Resetear bandera PRIMERO
-        console.log(`[Drag V4] Bandera isDragging reseteada a false.`); // LOG
-
-        // Limpiar listeners globales
-        console.log("[Drag V4] Removiendo listeners de window: touchmove, touchend, touchcancel"); // LOG
-        window.removeEventListener('touchmove', handleWaveformTouchMove);
-        window.removeEventListener('touchend', handleWaveformTouchEnd);
-        window.removeEventListener('touchcancel', handleWaveformTouchEnd);
-
-        console.log(`[Drag V4] handleWaveformTouchEnd FIN.`); // LOG FIN
-    };
-
-    // Listener para el INICIO del arrastre táctil
-    const handleWaveformTouchStart = (event) => {
-        console.log(`[Drag V4] handleWaveformTouchStart INICIO. isDragging: ${isDraggingWaveformTouch}`); // LOG INICIO
-
-         // Comprobación de seguridad básica (no botones)
-        if (event.target.closest('button')) {
-             console.warn("[Drag V4] Touch Start ignorado: Clic en botón.");
-             console.log(`[Drag V4] handleWaveformTouchStart FIN (ignorado botón).`); // LOG FIN
-             return;
-        }
-        // Comprobación si ya está arrastrando (evitar dobles inicios)
-         if (isDraggingWaveformTouch) {
-             console.warn("[Drag V4] Touch Start ignorado: Ya estaba en proceso.");
-             console.log(`[Drag V4] handleWaveformTouchStart FIN (ignorado ya en proceso).`); // LOG FIN
-             return;
-         }
-
-         // Comprobación de si WaveSurfer está listo ANTES de hacer nada
-        if (!wavesurfer || !wavesurfer.isReady) {
-             console.warn(`[Drag V4] Touch Start ignorado: WS no listo. wavesurfer: ${!!wavesurfer}, isReady: ${wavesurfer ? wavesurfer.isReady : 'N/A'}`);
-             console.log(`[Drag V4] handleWaveformTouchStart FIN (ignorado WS no listo).`); // LOG FIN
-             return;
-        }
-
-        console.log("[Drag V4] Touch Start en Waveform ACEPTADO."); // LOG Aceptado
-        isDraggingWaveformTouch = true; // <-- Activar bandera
-        console.log(`[Drag V4] Bandera isDragging establecida a true.`); // LOG
-
-        // Intentar prevenir comportamiento conflictivo (scroll, etc.)
-        // event.preventDefault(); // ¡Ojo! No podemos usar preventDefault si el listener es pasivo
-
-        // Calcular y buscar posición inicial
-        if (event.touches && event.touches.length > 0) {
-            const wavesurferElement = wavesurfer.getWrapper();
-            const rect = wavesurferElement.getBoundingClientRect();
-            seekWaveform(event.touches[0].clientX, rect, "touchstart");
-        } else {
-             console.warn("[Drag V4] Touch Start: No se encontraron 'touches'.");
-        }
-
-        // Añadir listeners GLOBALES para movimiento y fin
-        // ¡IMPORTANTE! passive: false para que preventDefault funcione en touchmove
-        console.log("[Drag V4] Añadiendo listeners a window: touchmove, touchend, touchcancel"); // LOG
-        window.addEventListener('touchmove', handleWaveformTouchMove, { passive: false });
-        window.addEventListener('touchend', handleWaveformTouchEnd);
-        window.addEventListener('touchcancel', handleWaveformTouchEnd);
-
-         console.log(`[Drag V4] handleWaveformTouchStart FIN.`); // LOG FIN
-    };
-
-    // ASIGNAR LISTENER TOUCHSTART - Quitamos passive:true para poder experimentar con preventDefault si es necesario
-    waveformInteractionElement.addEventListener('touchstart', handleWaveformTouchStart /*, { passive: true } */ ); // Ya no es pasivo
-
-    // Listener simple para CLIC de RATÓN (PC) - Sin cambios
-    waveformInteractionElement.addEventListener('click', (event) => {
-        if (!isDraggingWaveformTouch && wavesurfer && wavesurfer.isReady && !event.target.closest('button')) {
-            console.log("[Drag V4] Clic simple (Mouse) detectado."); // LOG Click
-            const wavesurferElement = wavesurfer.getWrapper();
-            const rect = wavesurferElement.getBoundingClientRect();
-            seekWaveform(event.clientX, rect, "click");
-        }
-    });
 
 } else {
-     console.error("[Drag V4] No se pudo añadir lógica de interacción: #waveform o wavesurfer no encontrados."); // LOG ERROR
+     console.error("[Drag V5] No se pudo añadir lógica de interacción: #waveform o wavesurfer no encontrados."); // LOG ERROR
 }
-// --- FIN NUEVO BLOQUE v4 ---
+// --- FIN NUEVO BLOQUE v5 ---
 
 
     // --- Manejar clics en el tracklist actual ---
