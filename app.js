@@ -323,105 +323,180 @@ const seekWaveform = (clientX, rect, eventType) => {
 
 
 
-
-    // --- NUEVO v5 Stable: Lógica Drag-to-Seek (Depuración Inicio Táctil) ---
+// --- NUEVO v6 Stable: Lógica Drag-to-Seek Completa (Móvil) ---
 const waveformInteractionElement = document.getElementById('waveform'); // Referencia al div de la onda
 
 if (waveformInteractionElement && wavesurfer) {
-    console.log("[Drag V5 Stable] Añadiendo listeners TÁCTILES v5 (Solo Start/Click)."); // LOG
+    console.log("[Drag V6 Stable] Añadiendo listeners TÁCTILES v6."); // LOG
 
-    // Variables isDraggingWaveformTouch, longTouchTimer, LONG_TOUCH_THRESHOLD ya definidas arriba
+    let isDraggingWaveformTouch = false; // Bandera específica para arrastre táctil (activada por toque largo)
+    let longTouchTimer = null; // Variable para el temporizador de toque largo
+    const LONG_TOUCH_THRESHOLD = 200; // Umbral en milisegundos
 
-    // Listener para INICIO TÁCTIL (touchstart)
-    waveformInteractionElement.addEventListener('touchstart', (event) => {
-        console.log("[Drag V5 Stable] Evento: touchstart INICIO."); // LOG INICIO
-        // Log del objeto event y wavesurfer para depuración detallada
-        console.log("[Drag V5 Stable] Evento touchstart object:", event); // LOG Evento
-        console.log("[Drag V5 Stable] Estado de wavesurfer ANTES del check:", wavesurfer); // LOG Objeto WS
+    // --- Funciones Handler (Definidas fuera para poder removerlas) ---
 
-        // Comprobación MÍNIMA: solo si fue en un botón, ignorar.
-        if (event.target.closest('button')) {
-             console.warn("[Drag V5 Stable] Touch Start ignorado: Clic en botón."); // LOG ADVERTENCIA
-             console.log("[Drag V5 Stable] touchstart FIN (ignorado botón)."); // LOG FIN
+    // Función para calcular progreso y buscar (usada por touch y click)
+    const seekWaveform = (clientX, rect, eventType) => {
+        console.log(`[Drag V6 Stable] seekWaveform llamado desde: ${eventType}`); // LOG
+        if (!wavesurfer /*|| !wavesurfer.isReady*/) { // isReady check temporalmente quitado
+             console.warn("[Drag V6 Stable] SeekWaveform ignorado: WS no inicializado.");
+             return false;
+        }
+        const x = Math.max(0, clientX - rect.left);
+        const width = rect.width;
+         if (width === 0) {
+             console.warn("[Drag V6 Stable] SeekWaveform abortado: Ancho del waveform es 0.");
+             return false;
+         }
+        const progress = Math.max(0, Math.min(1, x / width));
+        try {
+             // Protección extra isReady dentro del try
+             if(wavesurfer.isReady) {
+                 wavesurfer.seekTo(progress);
+                 const duration = wavesurfer.getDuration();
+                 if (duration > 0 && currentTimeEl) {
+                      currentTimeEl.textContent = formatTime(progress * duration);
+                 }
+                 console.log(`[Drag V6 Stable] Seek executed: progress=${progress.toFixed(4)}`);
+                 return true;
+             } else {
+                  console.warn("[Drag V6 Stable] SeekWaveform abortado DENTRO de try: WS no listo.");
+                  return false;
+             }
+        } catch (error) {
+             console.error(`[Drag V6 Stable] Error en wavesurfer.seekTo(${progress.toFixed(4)}):`, error);
+             return false;
+        }
+    };
+
+    // Función para manejar el MOVIMIENTO táctil (Listener Global)
+    const handleWaveformTouchMove = (event) => {
+        console.log("[Drag V6 Stable] handleWaveformTouchMove INICIO."); // LOG Move Start
+        // Solo actuar si estamos arrastrando
+        if (!isDraggingWaveformTouch) {
+             console.log("[Drag V6 Stable] Touch Move ignorado: Bandera 'isDragging' es false.");
              return;
         }
 
-        // *** TEMPORALMENTE QUITAMOS EL CHECK isReady basado en depuración anterior ***
-        // if (!wavesurfer || !wavesurfer.isReady) {
-        //      console.warn(`[Drag V5 Stable] Touch Start ignorado: WS no listo. wavesurfer: ${!!wavesurfer}, isReady: ${wavesurfer ? wavesurfer.isReady : 'N/A'}`);
-        //      console.log(`[Drag V5 Stable] touchstart FIN (ignorado WS no listo).`);
-        //      return;
-        // }
+        event.preventDefault(); // ¡Prevenir scroll!
 
-        // Si pasa el check mínimo...
-        console.log("[Drag V5 Stable] Touch Start ACEPTADO (Check isReady temporalmente quitado)."); // LOG Aceptado
-
-        // --- INICIO: Lógica de Detección Toque Largo ---
-        clearTimeout(longTouchTimer); // Limpiar timer anterior por si acaso
-
-        let touchStartTime = 0; // Guardar tiempo inicial del toque
-        // Intentar obtener tiempo actual, incluso si 'isReady' es temporalmente ignorado
-        if (wavesurfer && typeof wavesurfer.getCurrentTime === 'function') {
-             try {
-                 touchStartTime = wavesurfer.getCurrentTime();
-             } catch (e) { /* Ignorar error si no está listo */ }
+        if (event.touches && event.touches.length > 0) {
+            const wavesurferElement = wavesurfer.getWrapper();
+            const rect = wavesurferElement.getBoundingClientRect();
+            seekWaveform(event.touches[0].clientX, rect, "touchmove"); // Calcular y buscar
+        } else {
+             console.warn("[Drag V6 Stable] Touch Move: No se encontraron 'touches'.");
         }
-        if (touchStartTime === 0 && wavesurfer && wavesurfer.getMediaElement()) {
-             touchStartTime = wavesurfer.getMediaElement().currentTime || 0; // Fallback al media element
-        }
-        const formattedTouchStartTime = formatTime(touchStartTime); // Usar función existente
+        console.log("[Drag V6 Stable] handleWaveformTouchMove FIN."); // LOG Move End
+    };
 
-        console.log(`[Drag V5 Stable] Tiempo de audio al inicio del toque: ${formattedTouchStartTime} (${touchStartTime.toFixed(3)}s)`); // LOG TIEMPO
+    // Función para manejar el FIN del toque (Listener Global)
+    const handleWaveformTouchEnd = (event) => {
+        console.log(`[Drag V6 Stable] handleWaveformTouchEnd (Global) INICIO. isDragging: ${isDraggingWaveformTouch}. Tipo: ${event.type}`); // LOG End Start
+        // Solo actuar si estábamos arrastrando
+        if (!isDraggingWaveformTouch) {
+             console.log("[Drag V6 Stable] Touch End (Global) ignorado: Bandera 'isDragging' ya era false.");
+             return; // No hacer nada si no estábamos arrastrando
+        }
+
+        isDraggingWaveformTouch = false; // Resetear bandera PRIMERO
+        console.log("[Drag V6 Stable] Bandera isDragging reseteada a false (Global)."); // LOG Reset
+
+        // Limpiar listeners GLOBALES
+        console.log("[Drag V6 Stable] Removiendo listeners GLOBALES de window: touchmove, touchend, touchcancel"); // LOG Remove
+        window.removeEventListener('touchmove', handleWaveformTouchMove);
+        window.removeEventListener('touchend', handleWaveformTouchEnd);
+        window.removeEventListener('touchcancel', handleWaveformTouchEnd); // Asegurar limpieza de touchcancel también
+        console.log("[Drag V6 Stable] handleWaveformTouchEnd (Global) FIN."); // LOG End End
+    };
+
+
+    // Listener para INICIO TÁCTIL (touchstart en el elemento waveform)
+    waveformInteractionElement.addEventListener('touchstart', (event) => {
+        console.log("[Drag V6 Stable] Evento: touchstart INICIO."); // LOG INICIO
+        console.log("[Drag V6 Stable] Estado de wavesurfer ANTES:", wavesurfer); // LOG Objeto WS
+
+        if (event.target.closest('button')) {
+             console.warn("[Drag V6 Stable] Touch Start ignorado: Clic en botón.");
+             return;
+        }
+        // *** TEMPORALMENTE QUITAMOS EL CHECK isReady ***
+        // if (!wavesurfer || !wavesurfer.isReady) { ... return; }
+
+        console.log("[Drag V6 Stable] Touch Start ACEPTADO."); // LOG Aceptado
+
+        // --- Lógica de Detección Toque Largo ---
+        clearTimeout(longTouchTimer); // Limpiar timer
+
+        let touchStartTime = 0; // Guardar tiempo
+        if (wavesurfer && typeof wavesurfer.getCurrentTime === 'function') { try { touchStartTime = wavesurfer.getCurrentTime(); } catch (e) {} }
+        if (touchStartTime === 0 && wavesurfer && wavesurfer.getMediaElement()) { touchStartTime = wavesurfer.getMediaElement().currentTime || 0; }
+        const formattedTouchStartTime = formatTime(touchStartTime);
+        console.log(`[Drag V6 Stable] Tiempo audio inicio toque: ${formattedTouchStartTime} (${touchStartTime.toFixed(3)}s)`); // LOG TIEMPO
 
         // Iniciar temporizador
         longTouchTimer = setTimeout(() => {
-            // Si este código se ejecuta, es un toque largo
-            console.warn(`[Drag V5 Stable] ¡TOQUE LARGO DETECTADO! (>${LONG_TOUCH_THRESHOLD}ms) en ${formattedTouchStartTime}`); // LOG LARGO
-            isDraggingWaveformTouch = true; // Activar bandera de arrastre SOLO si es largo
-            console.log("[Drag V5 Stable] Bandera isDraggingWaveformTouch establecida a TRUE (por toque largo)."); // LOG
-            // En el futuro: Aquí añadiríamos listeners para touchmove/touchend en window
+            console.warn(`[Drag V6 Stable] ¡TOQUE LARGO DETECTADO! (> ${LONG_TOUCH_THRESHOLD}ms) en ${formattedTouchStartTime}`); // LOG LARGO
+            isDraggingWaveformTouch = true; // Activar bandera de arrastre
+            console.log("[Drag V6 Stable] Bandera isDragging=TRUE. Añadiendo listeners GLOBALES."); // LOG Bandera + Add Listeners
+
+            // --- AÑADIR LISTENERS GLOBALES ---
+            // Solo añadimos los listeners de movimiento/fin a window DESPUÉS de detectar toque largo
+            window.addEventListener('touchmove', handleWaveformTouchMove, { passive: false });
+            window.addEventListener('touchend', handleWaveformTouchEnd);
+            window.addEventListener('touchcancel', handleWaveformTouchEnd);
+
+            // Opcional: Podríamos hacer un seek inicial aquí también si queremos
+            // if (event.touches && event.touches.length > 0) {
+            //    const wavesurferElement = wavesurfer.getWrapper();
+            //    const rect = wavesurferElement.getBoundingClientRect();
+            //    seekWaveform(event.touches[0].clientX, rect, "touchstart-long");
+            // }
+
         }, LONG_TOUCH_THRESHOLD);
-        // --- FIN: Lógica de Detección Toque Largo ---
+        // --- FIN Lógica Toque Largo ---
 
-        console.log(`[Drag V5 Stable] touchstart FIN.`); // LOG FIN
-        // No añadimos listeners de window aquí por ahora, solo detectamos el toque largo.
-    } /* Quitamos { passive: true } basado en depuración anterior */);
+        console.log(`[Drag V6 Stable] touchstart FIN (Timer iniciado).`); // LOG FIN touchstart
+    });
 
-    // Listener simple para CLIC de RATÓN (PC)
+    // Listener para CLIC SIMPLE de RATÓN (PC)
     waveformInteractionElement.addEventListener('click', (event) => {
-        // Solo si NO estamos en modo arrastre táctil y WS está listo
+        // Solo si NO es arrastre táctil y WS está listo
         if (!isDraggingWaveformTouch && wavesurfer && wavesurfer.isReady && !event.target.closest('button')) {
-            console.log("[Drag V5 Stable] Clic simple (Mouse) detectado."); // LOG Click
+            console.log("[Drag V6 Stable] Clic simple (Mouse) detectado."); // LOG Click
             const wavesurferElement = wavesurfer.getWrapper();
             const rect = wavesurferElement.getBoundingClientRect();
-            seekWaveform(event.clientX, rect, "click"); // Llamar a la función seekWaveform
+            seekWaveform(event.clientX, rect, "click");
         } else {
-             // Log si el clic es ignorado
-             console.log(`[Drag V5 Stable] Clic de ratón ignorado. isDraggingWaveformTouch: ${isDraggingWaveformTouch}, wavesurfer ready: ${wavesurfer ? wavesurfer.isReady : 'N/A'}`); // LOG Ignorado
+             console.log(`[Drag V6 Stable] Clic de ratón ignorado. isDragging: ${isDraggingWaveformTouch}, WS ready: ${wavesurfer ? wavesurfer.isReady : 'N/A'}`); // LOG Ignorado
         }
     });
 
-    // Listener para FIN de toque (SOLO para resetear bandera y cancelar timer)
-    const handleWaveformTouchEndSimple = (event) => {
-         console.log(`[Drag V5 Stable] Evento: ${event.type} INICIO. isDragging: ${isDraggingWaveformTouch}`); // LOG INICIO touchend/cancel
-         clearTimeout(longTouchTimer); // Cancelar el timer si el dedo se levanta rápido
-         console.log("[Drag V5 Stable] Temporizador de toque largo cancelado (si estaba activo)."); // LOG CANCEL
-
-         // Resetear bandera SOLO si estaba activa (evita logs extra en taps)
+    // Listener LOCAL para FIN de toque (SOLO para cancelar timer en TAP rápido)
+    const handleWaveformTapEnd = (event) => {
+        console.log(`[Drag V6 Stable] Evento LOCAL: ${event.type} detectado.`); // LOG Local End
+        // Si el timer sigue activo (no llegó a ser toque largo), cancélelo.
+        if (longTouchTimer) {
+             clearTimeout(longTouchTimer);
+             console.log("[Drag V6 Stable] Timer cancelado (fue TAP rápido)."); // LOG Cancel Tap
+        }
+         // Asegurarse de resetear la bandera si por alguna razón se activó y el listener global no lo hizo
          if (isDraggingWaveformTouch) {
+             console.warn("[Drag V6 Stable] Reseteando bandera en listener LOCAL (inesperado)."); // LOG Warn
              isDraggingWaveformTouch = false;
-             console.log(`[Drag V5 Stable] Bandera isDraggingWaveformTouch reseteada a false.`); // LOG
+             // Intentar limpiar listeners globales por si acaso
+             window.removeEventListener('touchmove', handleWaveformTouchMove);
+             window.removeEventListener('touchend', handleWaveformTouchEnd);
+             window.removeEventListener('touchcancel', handleWaveformTouchEnd);
          }
-         console.log(`[Drag V5 Stable] Evento: ${event.type} FIN.`); // LOG FIN touchend/cancel
      };
-     // Añadir listeners al elemento waveform para detectar fin de toque
-     waveformInteractionElement.addEventListener('touchend', handleWaveformTouchEndSimple);
-     waveformInteractionElement.addEventListener('touchcancel', handleWaveformTouchEndSimple);
+     waveformInteractionElement.addEventListener('touchend', handleWaveformTapEnd);
+     waveformInteractionElement.addEventListener('touchcancel', handleWaveformTapEnd);
 
 } else {
-     console.error("[Drag V5 Stable] No se pudo añadir lógica de interacción: #waveform o wavesurfer no encontrados."); // LOG ERROR
+     console.error("[Drag V6 Stable] No se pudo añadir lógica de interacción: #waveform o wavesurfer no encontrados."); // LOG ERROR
 }
-// --- FIN NUEVO BLOQUE v5 Stable ---
+// --- FIN NUEVO BLOQUE v6 Stable ---
 
 
 
