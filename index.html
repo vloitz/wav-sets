@@ -3,399 +3,373 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Test Completo - FLAC + WaveSurfer</title>
-    <script src="https://unpkg.com/wavesurfer.js@7.7.5"></script>
+    <title>Vloitz - High Quality Sets</title>
     <style>
-        body { 
-            background-color: #121212; 
-            color: #fff; 
-            font-family: 'Segoe UI', sans-serif; 
-            padding: 20px;
-            max-width: 1000px;
-            margin: 0 auto;
+        /* --- Reseteo Básico y Tema Oscuro --- */
+        :root {
+            --brand-color: #1DB954; /* Un acento verde */
+            --dark-bg: #121212;
+            --light-bg: #1e1e1e;
+            --text-primary: #ffffff;
+            --text-secondary: #b3b3b3;
         }
-        h1 { color: #1DB954; margin-bottom: 5px; }
-        h2 { color: #1DB954; font-size: 1.2em; margin-top: 30px; }
-        .subtitle { color: #888; margin-bottom: 30px; }
-        
-        .test-section {
-            background-color: #1e1e1e;
-            padding: 20px;
-            border-radius: 8px;
-            margin: 20px 0;
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--dark-bg);
+            color: var(--text-primary);
         }
-        
-        #waveform { 
-            border: 1px solid #333; 
-            height: 128px; 
-            margin: 15px 0;
-            background-color: #0a0a0a;
+
+        .app-container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 15px;
         }
-        
-        button { 
-            padding: 12px 24px; 
-            font-size: 1em;
-            background-color: #1DB954;
-            color: white;
-            border: none;
-            border-radius: 25px;
-            cursor: pointer;
-            transition: all 0.2s;
-            margin: 5px;
-            font-weight: 600;
-        }
-        button:hover:not(:disabled) { 
-            opacity: 0.8; 
-            transform: translateY(-2px);
-        }
-        button:disabled {
-            background-color: #555;
-            cursor: not-allowed;
-            opacity: 0.5;
-        }
-        
-        .status { 
-            margin: 10px 0;
-            padding: 12px;
-            background-color: #2a2a2a;
-            border-radius: 5px;
-            font-size: 0.9em;
-            border-left: 3px solid #555;
-        }
-        .status.info { border-left-color: #3b82f6; }
-        .status.success { border-left-color: #1DB954; }
-        .status.error { border-left-color: #ef4444; }
-        .status.warning { border-left-color: #f59e0b; }
-        
-        .url-list {
-            background-color: #0a0a0a;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 15px 0;
-            max-height: 400px;
-            overflow-y: auto;
-        }
-        .url-item {
-            padding: 10px;
-            margin: 8px 0;
-            background-color: #1e1e1e;
-            border-radius: 5px;
-            font-family: 'Courier New', monospace;
-            font-size: 0.85em;
-            border-left: 3px solid #555;
-            transition: all 0.3s;
-        }
-        .url-item.checking { 
-            border-left-color: #3b82f6; 
-            background-color: #1a2332;
-        }
-        .url-item.exists { 
-            border-left-color: #1DB954; 
-            background-color: #1a2e1e;
-        }
-        .url-item.notfound { 
-            border-left-color: #ef4444; 
-            background-color: #2e1a1a;
-        }
-        .url-item.cors-error { 
-            border-left-color: #f59e0b; 
-            background-color: #2e2a1a;
-        }
-        
-        .audio-player {
-            margin: 15px 0;
+
+        /* --- 1. Encabezado de Perfil --- */
+        .profile-header {
             width: 100%;
+            margin-bottom: 20px;
         }
-        
-        code {
-            background-color: #0a0a0a;
-            padding: 2px 6px;
-            border-radius: 3px;
-            color: #1DB954;
+
+        .profile-banner {
+            height: 250px;
+            background-color: var(--light-bg);
+            /* La imagen se carga desde JS */
+            background-size: cover;
+            background-position: center;
         }
-        
-        .log {
-            background-color: #0a0a0a;
+
+        .profile-info {
+            display: flex;
+            align-items: center;
+            padding: 0 30px;
+            margin-top: -50px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .profile-pic {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            border: 4px solid var(--dark-bg);
+            object-fit: cover;
+            background-color: var(--dark-bg);
+        }
+
+        .profile-name {
+            font-size: 2.5em;
+            margin: 0 0 0 20px;
+        }
+
+        .profile-location {
+            font-size: 1.2em;
+            color: var(--text-secondary);
+            margin: 10px 0 0 10px;
+        }
+
+        /* --- 2a. Reproductor Principal --- */
+        .player-card {
+            display: flex;
+            background-color: var(--light-bg);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+            gap: 20px;
+        }
+
+        .player-cover-art {
+            width: 200px;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 6px;
+            background-color: var(--dark-bg);
+            flex-shrink: 0;
+        }
+
+        .player-details {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            flex-grow: 1;
+            min-width: 0;
+        }
+
+        #current-track-title {
+            margin: 0 0 5px 0;
+            font-size: 1.8em;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        #current-track-artist {
+            margin: 0 0 20px 0; /* Aumentado margen inferior */
+            font-size: 1.2em;
+            color: var(--text-secondary);
+        }
+
+        /* ESTILOS PARA EL REPRODUCTOR <audio> NATIVO */
+        audio {
+            width: 100%;
+            /* Puedes añadir más estilos si quieres personalizarlo un poco más */
+            /* filter: invert(1) sepia(1) saturate(5) hue-rotate(100deg); /* Ejemplo para cambiar color */
+        }
+
+        /* --- 2b. Lista de Sets --- */
+        .tracklist-container {
+            background-color: var(--light-bg);
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .tracklist {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .track-item {
+            display: flex;
+            align-items: center;
             padding: 10px;
-            border-radius: 5px;
-            font-family: 'Courier New', monospace;
-            font-size: 0.8em;
-            max-height: 200px;
-            overflow-y: auto;
-            margin-top: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
         }
-        .log-entry {
-            padding: 2px 0;
-            color: #aaa;
+
+        .track-item:hover, .track-item.playing {
+            background-color: rgba(255, 255, 255, 0.1);
         }
-        .log-entry.error { color: #ef4444; }
-        .log-entry.success { color: #1DB954; }
-        .log-entry.info { color: #3b82f6; }
+
+        .track-item-cover {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 4px;
+            margin-right: 15px;
+            background-color: var(--dark-bg);
+        }
+
+        .track-item-title {
+            font-size: 1.1em;
+            font-weight: 500;
+        }
+
+        .track-item-date {
+            font-size: 0.9em;
+            color: var(--text-secondary);
+            margin-left: auto;
+        }
+
+        /* --- 3. Responsive para Móvil --- */
+        @media (max-width: 768px) {
+            .profile-info {
+                flex-direction: column;
+                align-items: center;
+                margin-top: -75px;
+                text-align: center;
+                padding: 0 15px;
+            }
+
+            .profile-name {
+                font-size: 2em;
+                margin: 10px 0 0 0;
+            }
+
+            .profile-location {
+                margin: 5px 0 0 0;
+            }
+
+            .player-card {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .player-cover-art {
+                width: 100%;
+                height: auto;
+                max-width: 300px;
+            }
+
+            .player-details {
+                align-items: center;
+                width: 100%;
+            }
+
+            #current-track-title {
+                text-align: center;
+                font-size: 1.5em;
+            }
+
+            .track-item-title {
+                font-size: 1em;
+            }
+
+            .track-item-date {
+                font-size: 0.8em;
+            }
+        }
     </style>
-</head>
+    </head>
 <body>
-    <h1>🔬 Test Completo - FLAC + WaveSurfer</h1>
-    <p class="subtitle">Diagnóstico completo para encontrar por qué no carga el audio</p>
 
-    <!-- TEST 1: Verificar existencia del archivo -->
-    <div class="test-section">
-        <h2>📋 Test 1: Verificar si el archivo existe</h2>
-        <p>Comprobando si el archivo FLAC está accesible sin reproducirlo...</p>
-        <button id="testExistenceBtn">🔍 Verificar existencia de archivos</button>
-        <div class="url-list" id="existenceResults"></div>
-        <div id="existenceStatus" class="status info">
-            Haz clic en el botón para verificar si los archivos existen
+    <header class="profile-header">
+        <div class="profile-banner"></div>
+        <div class="profile-info">
+            <img src="" alt="Vloitz Profile" class="profile-pic" id="profile-pic-img">
+            <h1 class="profile-name">Vloitz</h1>
+            <p class="profile-location">Lima, Peru</p>
         </div>
-    </div>
+    </header>
 
-    <!-- TEST 2: Audio HTML5 nativo -->
-    <div class="test-section">
-        <h2>🎵 Test 2: Reproductor HTML5 nativo</h2>
-        <p>Probando con <code>&lt;audio&gt;</code> tag de HTML5 (sin WaveSurfer):</p>
-        <select id="audioUrlSelect" style="width: 100%; padding: 10px; background: #2a2a2a; color: white; border: 1px solid #444; border-radius: 5px; margin: 10px 0;">
-            <option value="">Selecciona una URL para probar...</option>
-        </select>
-        <audio id="nativeAudio" controls class="audio-player"></audio>
-        <div id="nativeStatus" class="status info">
-            Selecciona una URL del menú desplegable
-        </div>
-    </div>
+    <main class="app-container">
+        <section class="player-card">
+            <img src="" alt="Cover Art" class="player-cover-art" id="current-cover-art">
+            <div class="player-details">
+                <h2 id="current-track-title">Cargando...</h2>
+                <h3 id="current-track-artist">Vloitz</h3>
 
-    <!-- TEST 3: WaveSurfer -->
-    <div class="test-section">
-        <h2>🌊 Test 3: WaveSurfer.js</h2>
-        <p>Probando con la librería WaveSurfer:</p>
-        <button id="testWavesurferBtn">🌊 Probar con WaveSurfer</button>
-        <div id="waveform"></div>
-        <button id="playPauseBtn" disabled>⏸️ Pausa</button>
-        <div id="wavesurferStatus" class="status info">
-            Primero verifica que el archivo exista (Test 1)
-        </div>
-    </div>
+                <audio id="audio-player" controls preload="metadata">
+                    Tu navegador no soporta este audio.
+                </audio>
 
-    <!-- LOG -->
-    <div class="test-section">
-        <h2>📝 Log de eventos</h2>
-        <div id="logContainer" class="log"></div>
-    </div>
+            </div>
+        </section>
+
+        <section class="tracklist-container">
+            <h3>Todos los Sets (FLAC/WAV)</h3>
+            <ul id="tracklist" class="tracklist"></ul>
+        </section>
+    </main>
 
     <script>
-        const existenceResults = document.getElementById('existenceResults');
-        const existenceStatus = document.getElementById('existenceStatus');
-        const nativeAudio = document.getElementById('nativeAudio');
-        const audioUrlSelect = document.getElementById('audioUrlSelect');
-        const nativeStatus = document.getElementById('nativeStatus');
-        const playPauseBtn = document.getElementById('playPauseBtn');
-        const wavesurferStatus = document.getElementById('wavesurferStatus');
-        const logContainer = document.getElementById('logContainer');
-        
-        let wavesurfer = null;
-        let workingUrl = null;
+        document.addEventListener('DOMContentLoaded', () => {
 
-        // URLs a probar
-        const audioUrls = [
-            {
-                name: "GitHub Pages - Espacios normales",
-                url: "https://vloitz.github.io/wav-sets/audio/Jungle Rhythmic Grooves 004.flac"
-            },
-            {
-                name: "GitHub Pages - %20",
-                url: "https://vloitz.github.io/wav-sets/audio/Jungle%20Rhythmic%20Grooves%20004.flac"
-            },
-            {
-                name: "GitHub Pages - Plus (+)",
-                url: "https://vloitz.github.io/wav-sets/audio/Jungle+Rhythmic+Grooves+004.flac"
-            },
-            {
-                name: "GitHub Raw - main",
-                url: "https://raw.githubusercontent.com/vloitz/wav-sets/main/audio/Jungle Rhythmic Grooves 004.flac"
-            },
-            {
-                name: "GitHub Raw - %20",
-                url: "https://raw.githubusercontent.com/vloitz/wav-sets/main/audio/Jungle%20Rhythmic%20Grooves%20004.flac"
+            // --- Referencias a elementos del DOM ---
+            const audioPlayer = document.getElementById('audio-player'); // Referencia al <audio>
+            const currentCoverArt = document.getElementById('current-cover-art');
+            const currentTrackTitle = document.getElementById('current-track-title');
+            const tracklistElement = document.getElementById('tracklist');
+            const profilePicImg = document.getElementById('profile-pic-img');
+            const profileBanner = document.querySelector('.profile-banner');
+
+            let allSets = [];
+            let currentSetIndex = 0;
+
+            // --- 1. Cargar la base de datos de sets ---
+            fetch('sets.json')
+                .then(response => response.json())
+                .then(data => {
+                    // Cargar perfil
+                    if (data.profile) {
+                        profilePicImg.src = data.profile.profile_pic_url;
+                        profileBanner.style.backgroundImage = `url('${data.profile.banner_url}')`;
+                    }
+                    // Cargar sets
+                    allSets = data.sets;
+                    allSets.sort((a, b) => new Date(b.date) - new Date(a.date)); // Ordenar
+                    populateTracklist(allSets);
+                    if (allSets.length > 0) {
+                        loadTrack(allSets[0], 0);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error al cargar sets.json:', error);
+                    currentTrackTitle.textContent = "Error al cargar sets.";
+                });
+
+            // --- 2. Poblar la lista de reproducción ---
+            function populateTracklist(sets) {
+                tracklistElement.innerHTML = '';
+                sets.forEach((set, index) => {
+                    const li = document.createElement('li');
+                    li.className = 'track-item';
+                    li.dataset.index = index;
+                    li.innerHTML = `
+                        <img src="${set.cover_art_url}" alt="${set.title} cover" class="track-item-cover">
+                        <span class="track-item-title">${set.title}</span>
+                        <span class="track-item-date">${set.date}</span>
+                    `;
+                    tracklistElement.appendChild(li);
+                });
             }
-        ];
 
-        // Función de logging
-        function log(message, type = 'info') {
-            const entry = document.createElement('div');
-            entry.className = `log-entry ${type}`;
-            const timestamp = new Date().toLocaleTimeString();
-            entry.textContent = `[${timestamp}] ${message}`;
-            logContainer.insertBefore(entry, logContainer.firstChild);
-        }
+            // --- 3. Cargar un set en el reproductor (ADAPTADO) ---
+            function loadTrack(set, index) {
+                currentCoverArt.src = set.cover_art_url;
+                currentTrackTitle.textContent = set.title;
+                // Asignamos directamente la URL al 'src' del <audio>
+                audioPlayer.src = set.audio_url;
+                // Le decimos al navegador que cargue la metadata (duración, etc.)
+                // No es estrictamente necesario con preload="metadata", pero asegura
+                audioPlayer.load();
 
-        // TEST 1: Verificar existencia
-        async function checkFileExistence(urlObj, index) {
-            const itemDiv = document.createElement('div');
-            itemDiv.className = 'url-item checking';
-            itemDiv.id = `url-${index}`;
-            itemDiv.innerHTML = `
-                <strong>${index + 1}. ${urlObj.name}</strong><br>
-                <small>${urlObj.url}</small><br>
-                <em style="color: #3b82f6;">🔍 Verificando...</em>
-            `;
-            existenceResults.appendChild(itemDiv);
+                currentSetIndex = index;
+                updatePlayingHighlight();
+            }
 
-            log(`Verificando: ${urlObj.name}`, 'info');
-
-            try {
-                const response = await fetch(urlObj.url, { method: 'HEAD' });
-                
-                if (response.ok) {
-                    itemDiv.className = 'url-item exists';
-                    itemDiv.innerHTML = `
-                        <strong>${index + 1}. ${urlObj.name}</strong><br>
-                        <small>${urlObj.url}</small><br>
-                        <em style="color: #1DB954;">✅ Archivo existe (${response.status}) - Tamaño: ${response.headers.get('content-length') ? (response.headers.get('content-length') / 1024 / 1024).toFixed(2) + ' MB' : 'desconocido'}</em>
-                    `;
-                    log(`✅ ${urlObj.name} - Archivo existe`, 'success');
-                    
-                    // Agregar al select
-                    const option = document.createElement('option');
-                    option.value = urlObj.url;
-                    option.textContent = `${urlObj.name} ✅`;
-                    audioUrlSelect.appendChild(option);
-                    
-                    if (!workingUrl) workingUrl = urlObj.url;
-                    return true;
-                } else {
-                    itemDiv.className = 'url-item notfound';
-                    itemDiv.innerHTML = `
-                        <strong>${index + 1}. ${urlObj.name}</strong><br>
-                        <small>${urlObj.url}</small><br>
-                        <em style="color: #ef4444;">❌ Error ${response.status}: ${response.statusText}</em>
-                    `;
-                    log(`❌ ${urlObj.name} - Error ${response.status}`, 'error');
-                    return false;
+            // --- 4. Resaltar el set activo en la lista ---
+            function updatePlayingHighlight() {
+                tracklistElement.querySelectorAll('.track-item').forEach(item => {
+                    item.classList.remove('playing');
+                });
+                const activeItem = tracklistElement.querySelector(`.track-item[data-index="${currentSetIndex}"]`);
+                if (activeItem) {
+                    // Añadimos 'playing' solo si el audio está realmente reproduciéndose
+                    if (!audioPlayer.paused) {
+                        activeItem.classList.add('playing');
+                    }
                 }
-            } catch (error) {
-                itemDiv.className = 'url-item cors-error';
-                itemDiv.innerHTML = `
-                    <strong>${index + 1}. ${urlObj.name}</strong><br>
-                    <small>${urlObj.url}</small><br>
-                    <em style="color: #f59e0b;">⚠️ Error: ${error.message}</em>
-                `;
-                log(`⚠️ ${urlObj.name} - ${error.message}`, 'error');
-                return false;
-            }
-        }
-
-        // TEST 2: Audio nativo
-        audioUrlSelect.addEventListener('change', () => {
-            const url = audioUrlSelect.value;
-            if (!url) return;
-            
-            nativeAudio.src = url;
-            nativeStatus.className = 'status info';
-            nativeStatus.textContent = `⏳ Cargando desde: ${audioUrls.find(u => u.url === url)?.name}`;
-            log(`Cargando en audio nativo: ${url}`, 'info');
-            
-            nativeAudio.load();
-        });
-
-        nativeAudio.addEventListener('loadeddata', () => {
-            nativeStatus.className = 'status success';
-            nativeStatus.textContent = `✅ ¡Audio cargado! Duración: ${Math.floor(nativeAudio.duration / 60)}:${Math.floor(nativeAudio.duration % 60).toString().padStart(2, '0')}`;
-            log('✅ Audio HTML5 cargado correctamente', 'success');
-        });
-
-        nativeAudio.addEventListener('error', (e) => {
-            nativeStatus.className = 'status error';
-            nativeStatus.textContent = `❌ Error al cargar audio: ${nativeAudio.error?.message || 'desconocido'}`;
-            log(`❌ Error en audio nativo: ${nativeAudio.error?.message}`, 'error');
-        });
-
-        // TEST 3: WaveSurfer
-        document.getElementById('testWavesurferBtn').addEventListener('click', () => {
-            if (!workingUrl) {
-                wavesurferStatus.className = 'status error';
-                wavesurferStatus.textContent = '❌ Primero verifica que al menos una URL funcione (Test 1)';
-                return;
             }
 
-            log(`Iniciando WaveSurfer con: ${workingUrl}`, 'info');
-            wavesurferStatus.className = 'status info';
-            wavesurferStatus.textContent = '⏳ Inicializando WaveSurfer...';
+            // --- 5. Manejar clics en la lista de reproducción (ADAPTADO) ---
+            tracklistElement.addEventListener('click', e => {
+                const clickedItem = e.target.closest('.track-item');
+                if (!clickedItem) return;
 
-            if (wavesurfer) wavesurfer.destroy();
-
-            wavesurfer = WaveSurfer.create({
-                container: '#waveform',
-                waveColor: '#555',
-                progressColor: '#1DB954',
-                height: 128,
-                cursorWidth: 2,
-                cursorColor: '#fff',
-                barWidth: 3,
-                barGap: 2,
-                responsive: true,
-                normalize: true
+                const trackIndex = parseInt(clickedItem.dataset.index);
+                // Solo cargamos si es un set diferente
+                if (trackIndex !== currentSetIndex) {
+                    loadTrack(allSets[trackIndex], trackIndex);
+                    // Intentamos reproducir después de cargar
+                    // Usamos una promesa para asegurarnos de que el navegador esté listo
+                    const playPromise = audioPlayer.play();
+                    if (playPromise !== undefined) {
+                        playPromise.catch(error => {
+                            console.error("Error al intentar reproducir:", error);
+                            // A veces los navegadores bloquean la reproducción automática
+                            // El usuario tendrá que hacer clic en Play en los controles
+                        });
+                    }
+                } else {
+                    // Si se hace clic en el mismo, solo play/pause
+                     if (audioPlayer.paused) {
+                        audioPlayer.play();
+                    } else {
+                        audioPlayer.pause();
+                    }
+                }
             });
 
-            wavesurfer.on('loading', (percent) => {
-                wavesurferStatus.className = 'status info';
-                wavesurferStatus.textContent = `⏳ Cargando waveform: ${percent}%`;
-                log(`Cargando waveform: ${percent}%`, 'info');
+            // --- 6. Evento para resaltar al empezar/pausar reproducción (ADAPTADO) ---
+            audioPlayer.addEventListener('play', updatePlayingHighlight);
+            audioPlayer.addEventListener('pause', updatePlayingHighlight); // Quitar resaltado al pausar
+
+            // --- 7. Reproducir el siguiente set al terminar (ADAPTADO) ---
+            audioPlayer.addEventListener('ended', () => {
+                const nextIndex = (currentSetIndex + 1) % allSets.length;
+                loadTrack(allSets[nextIndex], nextIndex);
+                 const playPromise = audioPlayer.play();
+                 if (playPromise !== undefined) {
+                    playPromise.catch(error => console.error("Error al reproducir siguiente:", error));
+                 }
             });
 
-            wavesurfer.on('ready', () => {
-                const duration = wavesurfer.getDuration();
-                const minutes = Math.floor(duration / 60);
-                const seconds = Math.floor(duration % 60);
-                wavesurferStatus.className = 'status success';
-                wavesurferStatus.textContent = `✅ ¡WaveSurfer listo! Duración: ${minutes}:${seconds.toString().padStart(2, '0')}`;
-                playPauseBtn.disabled = false;
-                playPauseBtn.textContent = '▶️ Play';
-                log('✅ WaveSurfer cargado exitosamente', 'success');
-            });
-
-            wavesurfer.on('error', (err) => {
-                wavesurferStatus.className = 'status error';
-                wavesurferStatus.textContent = `❌ Error WaveSurfer: ${err}`;
-                log(`❌ Error WaveSurfer: ${err}`, 'error');
-            });
-
-            wavesurfer.on('play', () => playPauseBtn.textContent = '⏸️ Pause');
-            wavesurfer.on('pause', () => playPauseBtn.textContent = '▶️ Play');
-
-            wavesurfer.load(workingUrl);
         });
-
-        playPauseBtn.addEventListener('click', () => {
-            if (wavesurfer) wavesurfer.playPause();
-        });
-
-        // Botón Test 1
-        document.getElementById('testExistenceBtn').addEventListener('click', async () => {
-            existenceResults.innerHTML = '';
-            existenceStatus.className = 'status info';
-            existenceStatus.textContent = '🔍 Verificando archivos...';
-            workingUrl = null;
-            audioUrlSelect.innerHTML = '<option value="">Selecciona una URL para probar...</option>';
-            
-            log('=== Iniciando Test 1: Verificación de existencia ===', 'info');
-
-            let foundAny = false;
-            for (let i = 0; i < audioUrls.length; i++) {
-                const exists = await checkFileExistence(audioUrls[i], i);
-                if (exists) foundAny = true;
-                await new Promise(resolve => setTimeout(resolve, 300));
-            }
-
-            if (foundAny) {
-                existenceStatus.className = 'status success';
-                existenceStatus.textContent = '✅ Se encontró al menos una URL válida. Prueba el Test 2 (Audio HTML5).';
-                log('=== Test 1 completado: URLs válidas encontradas ===', 'success');
-            } else {
-                existenceStatus.className = 'status error';
-                existenceStatus.textContent = '❌ Ningún archivo fue encontrado. Verifica que el archivo esté subido a GitHub y que GitHub Pages esté activo.';
-                log('=== Test 1 completado: No se encontraron URLs válidas ===', 'error');
-            }
-        });
-
-        // Auto-start Test 1
-        log('Página cargada - Lista para tests', 'info');
     </script>
-</body>
+    </body>
 </html>
