@@ -65,6 +65,9 @@ body, html {
 .social-icon.soundcloud::before { content: '☁️'; }
 .social-icon.youtube::before { content: '▶️'; }
 .social-icon.instagram::before { content: '📸'; }
+.social-icon.tiktok::before {
+    content: '🎵'; /* Placeholder de nota musical */
+}
 
 /* Contenedor para Espacio Extra (Desktop) */
 .profile-extra-content {
