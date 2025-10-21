@@ -10,6 +10,8 @@
             "audio_url": "https://media.githubusercontent.com/media/vloitz/wav-sets/2e0373928d8d3d764c9c1db1a90647ff067541fe/audio/Jungle%20Rhythmic%20Grooves%20004.flac",
             "cover_art_url": "https://i1.sndcdn.com/artworks-mS3G3teAbdAutPAq-7e5HeA-t500x500.png",
 
+            "peaks_url": "https://raw.githubusercontent.com/vloitz/wav-sets/refs/heads/main/peaks/Jungle%20Rhythmic%20Grooves%20004_peaks.json",
+
             "tracklist": [
                 {"time": "0:00", "emoji": "🌅", "title": "ID1"},
                 {"time": "1:51", "emoji": "🌴", "title": "ID2"},
