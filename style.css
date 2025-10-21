@@ -16,7 +16,7 @@ body, html {
 }
 .app-container { max-width: 1200px; margin: 20px auto; padding: 0 15px; }
 
-/* --- 1. Encabezado de Perfil (Revisado v4) --- */
+/* --- 1. Encabezado de Perfil (Corregido v4 Layout) --- */
 .profile-header { width: 100%; margin-bottom: 30px; }
 .profile-banner { height: 250px; background-color: var(--light-bg); background-size: cover; background-position: center; /* background-image cargado desde JS */ }
 .profile-info {
@@ -31,16 +31,16 @@ body, html {
 }
 .profile-pic {
     width: 150px; height: 150px; border-radius: 50%; border: 4px solid var(--dark-bg);
-    object-fit: cover; background-color: var(--dark-bg); flex-shrink: 0; margin-right: 0; /* Quitamos margen derecho, usamos gap */
-    margin-top: 10px; /* Bajar ligeramente la foto para mejor alineación vertical */
+    object-fit: cover; background-color: var(--dark-bg); flex-shrink: 0; margin-right: 0; /* Usamos gap */
+    margin-top: 10px; /* Bajar ligeramente la foto */
 }
 
 /* Contenedor para Nombre, Loc, Bio, Sociales */
 .profile-details-container {
     display: flex; flex-direction: column;
     padding-top: 20px; /* Espacio arriba para alinear mejor con la foto */
-    flex-grow: 1; /* Permite que ocupe espacio, pero limitado por max-width */
-    max-width: 650px; /* Limitar ancho del texto */
+    flex-grow: 1; /* Ocupa espacio */
+    max-width: 650px; /* Limitar ancho */
 }
 .profile-name { font-size: 2.8em; margin: 0 0 5px 0; line-height: 1.1; }
 .profile-location { font-size: 1.1em; color: var(--text-secondary); margin: 0 0 20px 0; }
@@ -48,44 +48,33 @@ body, html {
 /* Bio y Sociales (Debajo) */
 .profile-bio {
     font-size: 0.95em; color: var(--text-secondary); margin-bottom: 15px;
-    line-height: 1.5;
-    /* Lógica colapsable (Simulación CSS) */
-    max-height: 5.4em; /* Aprox 3 líneas */ overflow: hidden; position: relative;
-    padding-bottom: 1.8em; /* Espacio para botón */ box-sizing: border-box;
+    line-height: 1.5; max-height: 5.4em; /* Aprox 3 líneas */ overflow: hidden; position: relative;
+    padding-bottom: 1.8em; box-sizing: border-box;
 }
-.profile-bio::after { /* Botón "Ver más" refinado */
-    content: '... Ver más'; position: absolute; bottom: 0; right: 0; height: 1.8em; /* Altura igual al padding-bottom */
+.profile-bio::after { /* Botón "Ver más" */
+    content: '... Ver más'; position: absolute; bottom: 0; right: 0; height: 1.8em;
     background: linear-gradient(to right, transparent, var(--dark-bg) 50%, var(--dark-bg) 100%);
-    padding: 0.3em 0 0.3em 1.5em; /* Ajustar padding */ line-height: 1.5; /* Igual que el texto */
+    padding: 0.3em 0 0.3em 1.5em; line-height: 1.5;
     color: var(--brand-color); cursor: pointer; font-weight: bold; font-size: 0.9em;
 }
-/* Clase simulada para expansión (JS la manejaría) */
-/* .profile-bio.expanded { max-height: none; padding-bottom: 0; } */
-/* .profile-bio.expanded::after { display: none; } */
 
 .profile-socials { display: flex; gap: 15px; }
 .social-icon { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; background-color: var(--light-bg); border-radius: 50%; color: var(--text-primary); font-size: 1.1em; text-decoration: none; transition: background-color 0.2s; }
 .social-icon:hover { background-color: var(--brand-color); }
-.social-icon svg { width: 16px; height: 16px; fill: currentColor; }
-/* Placeholder Iconos */
+/* Iconos Sociales Placeholder */
 .social-icon.soundcloud::before { content: '☁️'; }
 .social-icon.youtube::before { content: '▶️'; }
 .social-icon.instagram::before { content: '📸'; }
 
 /* Contenedor para Espacio Extra (Desktop) */
 .profile-extra-content {
-    padding-top: 20px; /* Alinear verticalmente con detalles */
+    padding-top: 20px; /* Alinear verticalmente */
     width: 250px; /* Ancho fijo */
     flex-shrink: 0; /* No encoger */
     display: block; /* Mostrar por defecto */
 }
 /* Placeholder para "Latest Set" */
-.latest-set-highlight {
-    background-color: var(--light-bg);
-    border-radius: 6px;
-    padding: 15px;
-    font-size: 0.9em;
-}
+.latest-set-highlight { background-color: var(--light-bg); border-radius: 6px; padding: 15px; font-size: 0.9em; }
 .latest-set-highlight h5 { margin: 0 0 8px 0; color: var(--text-secondary); font-size: 0.8em; text-transform: uppercase; }
 .latest-set-highlight p { margin: 0; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .latest-set-highlight span { display: block; font-size: 0.85em; color: var(--text-secondary); margin-top: 3px; }
@@ -117,9 +106,6 @@ body, html {
 .favorites-filter input[type="checkbox"] { display: none; }
 .favorites-filter .star-icon { color: #ffc107; font-size: 1.3em; line-height: 1; transition: transform 0.2s; }
 .favorites-filter:hover .star-icon { transform: scale(1.1); }
-/* Estilo cuando el filtro está activo (checkbox checked) - JS manejará la clase 'active' o similar si se desea */
-/* .favorites-filter input:checked + .star-icon {} */
-/* .favorites-filter input:checked ~ span {} */
 
 .current-tracklist { list-style: none; padding: 0; margin: 0; max-height: 400px; overflow-y: auto; }
 .current-tracklist-item { display: flex; align-items: center; padding: 8px 5px; border-bottom: 1px solid #333; cursor: pointer; transition: background-color 0.2s; user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; }
@@ -147,12 +133,8 @@ body, html {
 
 /* Ocultar Contenido Extra en pantallas medianas/pequeñas */
 @media (max-width: 992px) {
-    .profile-extra-content {
-        display: none;
-    }
-    .profile-info {
-        justify-content: flex-start; /* Evitar que el texto se expanda */
-    }
+    .profile-extra-content { display: none; }
+    .profile-info { justify-content: flex-start; /* Evitar que el texto se expanda */ }
 }
 
 /* Ajustes para Móvil */
