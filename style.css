@@ -1,12 +1,12 @@
-/* --- Reseteo Básico y Tema Oscuro --- */
+/* --- Reseteo B�sico y Tema Oscuro --- */
 :root {
     --brand-color: #1DB954; /* Un acento verde */
     --dark-bg: #121212;
     --light-bg: #1e1e1e;
     --text-primary: #ffffff;
     --text-secondary: #b3b3b3;
-    --waveform-wave-color: #cccccc; /* Color base onda (gris claro) */
-    --waveform-progress-color: #ff7f00; /* Color progreso onda (naranja) */
+    --waveform-wave-color: #555; /* Color de la onda */
+    --waveform-progress-color: var(--brand-color); /* Color del progreso */
 }
 
 body, html {
@@ -73,8 +73,6 @@ body, html {
     padding: 20px;
     margin-bottom: 30px;
     gap: 20px;
-    overflow: hidden; /* Necesario para que la imagen absoluta respete el border-radius */
-    position: relative; /* Contexto para la imagen absoluta en móvil */
 }
 
 .player-cover-art {
@@ -83,11 +81,7 @@ body, html {
     object-fit: cover;
     border-radius: 6px;
     background-color: var(--dark-bg);
-    flex-shrink: 0;
-    /* Por defecto, está en el flujo normal */
-    position: static;
-    opacity: 1;
-    z-index: auto;
+    flex-shrink: 0; /* Evita que la imagen se encoja */
 }
 
 .player-details {
@@ -95,11 +89,7 @@ body, html {
     flex-direction: column;
     justify-content: center;
     flex-grow: 1;
-    min-width: 0;
-    /* Por defecto, está sobre el fondo normal */
-    position: relative;
-    z-index: 1;
-    background-color: transparent; /* Fondo transparente por defecto */
+    min-width: 0; /* Permite que el contenedor se encoja si es necesario */
 }
 
 #current-track-title {
@@ -107,17 +97,13 @@ body, html {
     font-size: 1.8em;
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis;
-    /* Sin sombra por defecto */
-    text-shadow: none;
+    text-overflow: ellipsis; /* A�ade puntos suspensivos si el t�tulo es largo */
 }
 
 #current-track-artist {
-    margin: 0 0 15px 0;
+    margin: 0 0 15px 0; /* Reducido el margen inferior */
     font-size: 1.2em;
     color: var(--text-secondary);
-    /* Sin sombra por defecto */
-    text-shadow: none;
 }
 
 /* Contenedor para la forma de onda y controles */
@@ -126,8 +112,8 @@ body, html {
     margin-bottom: 10px;
 }
 #waveform {
-    cursor: pointer;
-    height: 100px;
+    cursor: pointer; /* Indica que se puede hacer clic */
+    height: 100px; /* Altura de la forma de onda */
 }
 
 /* Controles personalizados */
@@ -154,7 +140,7 @@ body, html {
 #playPauseBtn:hover {
     opacity: 0.8;
 }
-#playPauseBtn:disabled {
+#playPauseBtn:disabled { /* Estilo para bot�n deshabilitado */
      background-color: #555;
      cursor: not-allowed;
      opacity: 0.6;
@@ -162,12 +148,10 @@ body, html {
 #currentTime, #totalDuration {
     font-size: 0.9em;
     color: var(--text-secondary);
-    min-width: 45px;
-    /* Añadir sombra para legibilidad en móvil */
-    text-shadow: 1px 1px 2px rgba(0,0,0,0.6);
+    min-width: 45px; /* Espacio para el tiempo */
 }
 #totalDuration {
-     margin-left: auto;
+     margin-left: auto; /* Empuja la duraci�n total a la derecha */
      text-align: right;
 }
 
@@ -254,6 +238,13 @@ body, html {
     border-bottom: 1px solid #333; /* Separador sutil */
     cursor: pointer;
     transition: background-color 0.2s;
+
+    /* --- AÑADIR ESTA LÍNEA --- */
+    user-select: none; /* Evita la selección de texto */
+    -webkit-user-select: none; /* Para navegadores basados en WebKit (Safari, Chrome antiguo) */
+    -moz-user-select: none; /* Para Firefox */
+    -ms-user-select: none; /* Para Internet Explorer/Edge antiguo */
+
 }
 .current-tracklist-item:last-child {
     border-bottom: none;
@@ -299,8 +290,10 @@ body, html {
     color: #ffc107; /* Amarillo cuando es favorito */
     transform: scale(1.1);
 }
+/*  2025-10-21_011846_ */
 
-/* --- 3. Responsive para Móvil --- */
+
+/* --- 3. Responsive para M�vil --- */
 @media (max-width: 768px) {
     .profile-info {
         flex-direction: column;
@@ -319,52 +312,28 @@ body, html {
         margin: 5px 0 0 0;
     }
 
-    /* --- CAMBIOS PARA PLAYER EN MÓVIL --- */
     .player-card {
-        flex-direction: column; /* Mantiene la dirección columna */
-        padding: 0; /* Quitar padding para que la imagen ocupe todo */
-        /* position: relative; ya está definido arriba */
+        flex-direction: column;
+        align-items: center;
     }
 
     .player-cover-art {
-        position: absolute; /* Posicionamiento absoluto */
-        top: 0;
-        left: 0;
-        width: 100%;       /* Ocupa todo el ancho del card */
-        height: 100%;      /* Ocupa toda la altura del card */
-        object-fit: cover; /* Cubre el espacio */
-        z-index: 0;        /* Detrás de los detalles */
-        opacity: 0.3;      /* Atenuar la imagen (ajustable) */
-        border-radius: 8px;/* Mantener bordes redondeados del card */
+        width: 100%;
+        height: auto;
+        max-width: 300px;
     }
 
     .player-details {
-        position: relative; /* Para estar sobre la imagen */
-        z-index: 1;        /* Encima del z-index: 0 de la imagen */
-        width: 100%;
-        background-color: transparent; /* Asegura transparencia sobre la imagen */
-        padding: 20px;     /* Añadir padding interno */
-        box-sizing: border-box; /* Incluir padding en el width: 100% */
-        align-items: center; /* Centrar contenido como antes */
+        align-items: center;
+        width: 100%; /* Asegura que ocupe todo el ancho */
     }
 
     #current-track-title {
         text-align: center;
         font-size: 1.5em;
-        text-shadow: 1px 1px 3px rgba(0,0,0,0.7); /* Sombra para legibilidad */
     }
-
-    #current-track-artist { /* Regla añadida */
-        text-shadow: 1px 1px 3px rgba(0,0,0,0.7); /* Sombra para legibilidad */
-        text-align: center; /* Centrar también el artista */
-    }
-    /* --- FIN CAMBIOS PLAYER --- */
-
      #waveform {
-         height: 80px; /* Un poco más pequeña en móvil */
-         /* Opcional: Añadir un ligero fondo semi-transparente si la onda no contrasta bien */
-         /* background-color: rgba(0, 0, 0, 0.2); */
-         /* border-radius: 4px; */
+         height: 80px; /* Un poco m�s peque�a en m�vil */
      }
 
     .track-item-title {
@@ -396,4 +365,5 @@ body, html {
     .favorite-btn {
         font-size: 1.2em;
     }
+
 }
