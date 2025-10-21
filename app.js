@@ -268,8 +268,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (wavesurfer && wavesurfer.isReady) {
                 // Usar seekTo (porcentaje) o setTime (segundos)
-                // setTime es más directo si ya tenemos los segundos
-                wavesurfer.setTime(timeInSeconds);
+
+                // Calcular el progreso (0 a 1)
+                const duration = wavesurfer.getDuration();
+                if (duration > 0) {
+                    const progress = timeInSeconds / duration;
+                    console.log(`Calculando progreso: ${timeInSeconds}s / ${duration.toFixed(2)}s = ${progress.toFixed(4)}`); // LOG
+                    wavesurfer.seekTo(progress);
+                    console.log(`Ejecutado wavesurfer.seekTo(${progress.toFixed(4)})`); // LOG
+                } else {
+                    console.warn("La duración es 0, no se puede calcular el progreso para seekTo."); // LOG ADVERTENCIA
+                }
+
                 // Asegurarse de que se reproduzca si estaba pausado
                 if (!wavesurfer.isPlaying()) {
                     wavesurfer.play();
