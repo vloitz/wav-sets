@@ -223,22 +223,27 @@ const LONG_TOUCH_THRESHOLD = 200;
 
 // --- Función SeekWaveform (Requerida por Drag Logic) ---
 const seekWaveform = (clientX, rect, eventType) => {
-    console.log(`[Drag v6 Final Merged] seekWaveform llamado desde: ${eventType}`); 
-    if (!wavesurfer) { console.warn("[Drag v6 Final Merged] Seek ignorado: WS no inicializado."); return false; }
+    console.log(`[Drag v6 Final Corrected] seekWaveform llamado desde: ${eventType}`); // LOG (Prefijo actualizado)
+    if (!wavesurfer) { console.warn("[Drag v6 Final Corrected] Seek ignorado: WS no inicializado."); return false; }
     const x = Math.max(0, clientX - rect.left); const width = rect.width;
-    if (width === 0) { console.warn("[Drag v6 Final Merged] Seek abortado: Ancho 0."); return false; }
+    if (width === 0) { console.warn("[Drag v6 Final Corrected] Seek abortado: Ancho 0."); return false; }
     const progress = Math.max(0, Math.min(1, x / width));
     try {
-        // Check isReady DENTRO del try para llamadas repetidas (touchmove)
-        if (wavesurfer.isReady) { 
+        // --- INICIO CORRECCIÓN ---
+        // Eliminamos check isReady aquí para permitir seek durante drag
+        // if (wavesurfer.isReady) { 
             wavesurfer.seekTo(progress);
             const duration = wavesurfer.getDuration();
             if (duration > 0 && currentTimeEl) { currentTimeEl.textContent = formatTime(progress * duration); }
-            console.log(`[Drag v6 Final Merged] Seek executed: progress=${progress.toFixed(4)}`); return true;
-        } else { console.warn("[Drag v6 Final Merged] Seek abortado DENTRO: WS no listo."); return false; }
-    } catch (error) { console.error(`[Drag v6 Final Merged] Error en seekTo(${progress.toFixed(4)}):`, error); return false; }
+            console.log(`[Drag v6 Final Corrected] Seek executed: progress=${progress.toFixed(4)}`); return true;
+        // } else { 
+        //      console.warn("[Drag v6 Final Corrected] Seek abortado DENTRO: WS no listo."); return false; 
+        // }
+        // --- FIN CORRECCIÓN ---
+    } catch (error) { 
+        console.error(`[Drag v6 Final Corrected] Error en seekTo(${progress.toFixed(4)}):`, error); return false; 
+    }
 };
-
     // --- Eventos de WaveSurfer ---
     wavesurfer.on('ready', () => {
         const duration = wavesurfer.getDuration();
