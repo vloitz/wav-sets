@@ -1,5 +1,3 @@
-const ENABLE_WAVEFORM_TUNER = true; // Poner en false para ocultar los controles
-
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DOM listo. Iniciando aplicación..."); // LOG INICIAL
 
@@ -21,46 +19,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentLoadedSet = null; // Para saber qué set está cargado
     let wavesurfer = null; // Declarar wavesurfer aquí
 
-
-
-
-// Referencias para el Tuner (si está habilitado)
-let tunerContainer = null, barWidthSlider = null, barGapSlider = null, barHeightSlider = null;
-let barWidthValueSpan = null, barGapValueSpan = null, barHeightValueSpan = null;
-
-if (ENABLE_WAVEFORM_TUNER) {
-    tunerContainer = document.getElementById('waveform-tuner');
-    barWidthSlider = document.getElementById('barWidthSlider');
-    barGapSlider = document.getElementById('barGapSlider');
-    barHeightSlider = document.getElementById('barHeightSlider');
-
-
-
-
-    barWidthValueSpan = document.getElementById('barWidthValue');
-    barGapValueSpan = document.getElementById('barGapValue');
-    barHeightValueSpan = document.getElementById('barHeightValue');
-
-
-// Nuevas referencias
-    heightSlider = document.getElementById('heightSlider');
-    barRadiusSlider = document.getElementById('barRadiusSlider');
-    cursorWidthSlider = document.getElementById('cursorWidthSlider');
-    heightValueSpan = document.getElementById('heightValue');
-    barRadiusValueSpan = document.getElementById('barRadiusValue');
-    cursorWidthValueSpan = document.getElementById('cursorWidthValue');
-    waveColorPicker = document.getElementById('waveColorPicker');
-    progressColorPicker = document.getElementById('progressColorPicker');
-    cursorColorPicker = document.getElementById('cursorColorPicker');
-
-
-    if (tunerContainer) tunerContainer.style.display = 'block'; // Mostrar el contenedor
-    console.log("Waveform Tuner habilitado."); // LOG
-}
-
-
-
-
     console.log("Variables globales inicializadas. Favoritos cargados:", favorites); // LOG
 
     // --- Inicializar WaveSurfer ---
@@ -68,17 +26,14 @@ if (ENABLE_WAVEFORM_TUNER) {
         console.log("Inicializando WaveSurfer..."); // LOG
         wavesurfer = WaveSurfer.create({
             container: '#waveform',
-            // Leer colores iniciales del Tuner o usar defaults CSS
-            waveColor: ENABLE_WAVEFORM_TUNER && waveColorPicker ? waveColorPicker.value : getComputedStyle(document.documentElement).getPropertyValue('--waveform-wave-color').trim(),
-            progressColor: ENABLE_WAVEFORM_TUNER && progressColorPicker ? progressColorPicker.value : getComputedStyle(document.documentElement).getPropertyValue('--waveform-progress-color').trim(),
-            cursorColor: ENABLE_WAVEFORM_TUNER && cursorColorPicker ? cursorColorPicker.value : '#fff',
-            // Leer valores numéricos iniciales del Tuner o usar defaults
-            height: ENABLE_WAVEFORM_TUNER && heightSlider ? parseInt(heightSlider.value) : 100,
-            cursorWidth: ENABLE_WAVEFORM_TUNER && cursorWidthSlider ? parseInt(cursorWidthSlider.value) : 2,
-            barWidth: ENABLE_WAVEFORM_TUNER && barWidthSlider ? parseInt(barWidthSlider.value) : 1,
-            barGap: ENABLE_WAVEFORM_TUNER && barGapSlider ? parseInt(barGapSlider.value) : 0,
-            barHeight: ENABLE_WAVEFORM_TUNER && barHeightSlider ? parseFloat(barHeightSlider.value) : 1,
-            barRadius: ENABLE_WAVEFORM_TUNER && barRadiusSlider ? parseInt(barRadiusSlider.value) : 0,
+            waveColor: getComputedStyle(document.documentElement).getPropertyValue('--waveform-wave-color').trim(),
+            progressColor: getComputedStyle(document.documentElement).getPropertyValue('--waveform-progress-color').trim(),
+            height: 100,
+            cursorWidth: 2,
+            cursorColor: '#fff',
+            barWidth: 1,
+            barGap: 0,
+            barHeight: 1, // <-- AÑADIR ESTA LÍNEA (Valor entre 0 y 1, 1 = altura completa)
             responsive: true,
             backend: 'MediaElement',
             media: document.getElementById('audio-player')
@@ -441,56 +396,6 @@ if (ENABLE_WAVEFORM_TUNER) {
             console.warn("Intento de Play/Pause pero WaveSurfer no está listo o no tiene el método.");
         }
     });
-
-
-    // --- Lógica del Waveform Tuner (si está habilitado) ---
-    if (ENABLE_WAVEFORM_TUNER && wavesurfer && barWidthSlider && barGapSlider && barHeightSlider) {
-        const updateWaveformAppearance = () => {
-            const newOptions = {
-                // Valores numéricos
-                barWidth: parseInt(barWidthSlider.value),
-                barGap: parseInt(barGapSlider.value),
-                barHeight: parseFloat(barHeightSlider.value),
-                height: parseInt(heightSlider.value),
-                barRadius: parseInt(barRadiusSlider.value),
-                cursorWidth: parseInt(cursorWidthSlider.value),
-                // Colores
-                waveColor: waveColorPicker.value,
-                progressColor: progressColorPicker.value,
-                cursorColor: cursorColorPicker.value
-            };
-            // Actualizar spans de valores
-            if(barWidthValueSpan) barWidthValueSpan.textContent = newOptions.barWidth;
-            if(barGapValueSpan) barGapValueSpan.textContent = newOptions.barGap;
-            if(barHeightValueSpan) barHeightValueSpan.textContent = newOptions.barHeight.toFixed(1);
-            if(heightValueSpan) heightValueSpan.textContent = newOptions.height;
-            if(barRadiusValueSpan) barRadiusValueSpan.textContent = newOptions.barRadius;
-            if(cursorWidthValueSpan) cursorWidthValueSpan.textContent = newOptions.cursorWidth;
-
-            console.log("Aplicando nuevas opciones de renderizado:", newOptions); // LOG
-            try {
-                wavesurfer.setOptions(newOptions);
-            } catch (error) {
-                console.error("Error al aplicar setOptions:", error); // LOG ERROR
-            }
-        };
-
-        barWidthSlider.addEventListener('input', updateWaveformAppearance);
-        barGapSlider.addEventListener('input', updateWaveformAppearance);
-        barHeightSlider.addEventListener('input', updateWaveformAppearance);
-
-
-        heightSlider.addEventListener('input', updateWaveformAppearance);
-        barRadiusSlider.addEventListener('input', updateWaveformAppearance);
-        cursorWidthSlider.addEventListener('input', updateWaveformAppearance);
-        waveColorPicker.addEventListener('input', updateWaveformAppearance);
-        progressColorPicker.addEventListener('input', updateWaveformAppearance);
-        cursorColorPicker.addEventListener('input', updateWaveformAppearance);
-
-        console.log("Listeners del Waveform Tuner añadidos."); // LOG
-    }
-
-
 
     console.log("Aplicación inicializada y listeners configurados."); // LOG FINAL INIT
 });
