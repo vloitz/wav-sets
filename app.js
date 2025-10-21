@@ -11,17 +11,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const tracklistElement = document.getElementById('tracklist');
     const profilePicImg = document.getElementById('profile-pic-img');
     const profileBanner = document.querySelector('.profile-banner');
+    const currentTracklistElement = document.getElementById('current-tracklist'); // Referencia al nuevo <ul>
 
     let allSets = [];
     let currentSetIndex = 0;
-
-    const currentTracklistElement = document.getElementById('current-tracklist'); // Referencia al nuevo <ul>
     let favorites = new Set(JSON.parse(localStorage.getItem('vloitz_favorites') || '[]')); // Cargar favoritos guardados
     let currentLoadedSet = null; // Para saber qué set está cargado
+    let wavesurfer = null; // Declarar wavesurfer aquí para que sea accesible en todo el scope
+
     console.log("Variables globales inicializadas. Favoritos cargados:", favorites); // LOG
-
-
-    let wavesurfer = null;
 
     // --- Inicializar WaveSurfer ---
     try {
@@ -40,7 +38,8 @@ document.addEventListener('DOMContentLoaded', () => {
             media: document.getElementById('audio-player') // Conectarlo al <audio>
         });
         console.log("WaveSurfer inicializado correctamente."); // LOG
-        window.wavesurfer = wavesurfer; // <-- AÑADIR ESTA LÍNEA
+        // Hacer accesible globalmente para depuración desde la consola
+        window.wavesurfer = wavesurfer;
         console.log("Instancia de WaveSurfer asignada a window.wavesurfer para depuración."); // LOG
     } catch (error) {
          console.error("Error CRÍTICO al inicializar WaveSurfer:", error); // LOG ERROR
@@ -115,14 +114,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         console.log(`WaveSurfer intentará cargar: ${set.audio_url}`); // LOG
 
-        currentTracklistElement.classList.add('disabled'); // <-- AÑADIR ESTA LÍNEA
+        currentTracklistElement.classList.add('disabled'); // Deshabilitar tracklist
         console.log("Tracklist deshabilitado durante la carga."); // LOG
 
         wavesurfer.load(set.audio_url);
 
         currentLoadedSet = set; // Guardar referencia al set cargado
-        // Llamar a la nueva función para mostrar el tracklist
-        displayTracklist(set.tracklist || []); // Pasar el tracklist del set o un array vacío si no existe
+        displayTracklist(set.tracklist || []); // Mostrar tracklist
 
         updatePlayingHighlight();
     }
@@ -133,6 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
             item.classList.remove('playing');
         });
         const activeItem = tracklistElement.querySelector(`.track-item[data-index="${currentSetIndex}"]`);
+        // Asegurarse de que wavesurfer esté inicializado antes de llamar a isPlaying()
         if (activeItem && wavesurfer && wavesurfer.isPlaying()) {
             activeItem.classList.add('playing');
             console.log(`Resaltando track ${currentSetIndex} como activo.`); // LOG
@@ -141,12 +140,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Formatear tiempo
     function formatTime(seconds) {
+        // Asegurarse de que seconds sea un número válido
+        seconds = Number(seconds);
+        if (isNaN(seconds) || seconds < 0) {
+            seconds = 0;
+        }
         const minutes = Math.floor(seconds / 60);
         const secs = Math.floor(seconds % 60);
         return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
     }
 
-        // --- NUEVA FUNCIÓN: Mostrar el tracklist del set actual ---
+    // --- Mostrar el tracklist del set actual ---
     function displayTracklist(tracklistData) {
         console.log("Mostrando tracklist para el set actual..."); // LOG
         currentTracklistElement.innerHTML = ''; // Limpiar lista anterior
@@ -160,13 +164,19 @@ document.addEventListener('DOMContentLoaded', () => {
         tracklistData.forEach((track, index) => {
             const li = document.createElement('li');
             li.className = 'current-tracklist-item';
-            li.dataset.time = track.time; // Guardar el timestamp MM:SS
-            li.dataset.index = index; // Guardar índice por si acaso
+            li.dataset.time = track.time;
+            li.dataset.index = index;
 
-            // Convertir MM:SS a segundos para el botón de favorito
             const timeParts = track.time.split(':');
-            const totalSeconds = parseInt(timeParts[0], 10) * 60 + parseInt(timeParts[1], 10);
-            const isFavorited = favorites.has(totalSeconds); // Comprobar si está en favoritos
+            let totalSeconds = 0;
+             // Validar que timeParts tenga 2 elementos numéricos
+            if (timeParts.length === 2 && !isNaN(parseInt(timeParts[0], 10)) && !isNaN(parseInt(timeParts[1], 10))) {
+                 totalSeconds = parseInt(timeParts[0], 10) * 60 + parseInt(timeParts[1], 10);
+            } else {
+                 console.warn(`Timestamp inválido en tracklist: ${track.time}`); // LOG ADVERTENCIA
+            }
+
+            const isFavorited = favorites.has(totalSeconds);
 
             li.innerHTML = `
                 <span class="track-time">${track.time}</span>
@@ -188,17 +198,18 @@ document.addEventListener('DOMContentLoaded', () => {
         currentTimeEl.textContent = formatTime(0);
         playPauseBtn.disabled = false;
         playPauseBtn.textContent = '▶️';
-        currentTrackTitle.textContent = allSets[currentSetIndex].title;
-        console.log("WaveSurfer listo para track:", allSets[currentSetIndex].title); // LOG ÉXITO
+        // Asegurarse de que allSets[currentSetIndex] exista antes de acceder a title
+        currentTrackTitle.textContent = allSets[currentSetIndex]?.title || "Set Listo";
+        console.log("WaveSurfer listo para track:", allSets[currentSetIndex]?.title); // LOG ÉXITO
 
-        currentTracklistElement.classList.remove('disabled'); // <-- AÑADIR ESTA LÍNEA
+        currentTracklistElement.classList.remove('disabled'); // Habilitar tracklist
         console.log("Tracklist habilitado."); // LOG
-
     });
 
      wavesurfer.on('loading', (percent) => {
          console.log(`WaveSurfer cargando: ${percent}%`); // LOG PROGRESO
-         currentTrackTitle.textContent = `Cargando: ${allSets[currentSetIndex].title} (${percent}%)`;
+         // Asegurarse de que allSets[currentSetIndex] exista
+         currentTrackTitle.textContent = `Cargando: ${allSets[currentSetIndex]?.title || 'Set'} (${percent}%)`;
     });
 
     wavesurfer.on('error', (err) => {
@@ -206,10 +217,8 @@ document.addEventListener('DOMContentLoaded', () => {
         currentTrackTitle.textContent = `Error: ${err.message || err}`;
         playPauseBtn.textContent = '❌';
         playPauseBtn.disabled = true;
-
-        currentTracklistElement.classList.add('disabled'); // <-- AÑADIR ESTA LÍNEA (Asegura deshabilitado)
+        currentTracklistElement.classList.add('disabled'); // Mantener deshabilitado
         console.log("Tracklist permanece deshabilitado debido a error.");// LOG
-
     });
 
     wavesurfer.on('timeupdate', (currentTime) => {
@@ -237,15 +246,17 @@ document.addEventListener('DOMContentLoaded', () => {
         playPauseBtn.textContent = '▶️';
         const nextIndex = (currentSetIndex + 1) % allSets.length;
         console.log(`Cargando siguiente track: ${nextIndex}`); // LOG
-        loadTrack(allSets[nextIndex], nextIndex);
-        // Reproducir automáticamente cuando esté listo
-        wavesurfer.once('ready', () => {
-            console.log("Siguiente track listo, reproduciendo..."); // LOG
-            wavesurfer.play();
-        });
+        if (allSets.length > 0) { // Asegurarse de que hay sets
+            loadTrack(allSets[nextIndex], nextIndex);
+            // Reproducir automáticamente cuando esté listo
+            wavesurfer.once('ready', () => {
+                console.log("Siguiente track listo, reproduciendo..."); // LOG
+                wavesurfer.play();
+            });
+        }
     });
 
-        // --- NUEVO: Manejar clics en el tracklist actual ---
+    // --- Manejar clics en el tracklist actual ---
     currentTracklistElement.addEventListener('click', (e) => {
         const target = e.target;
 
@@ -264,20 +275,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const timeString = listItem.dataset.time;
             const timeParts = timeString.split(':');
-            const timeInSeconds = parseInt(timeParts[0], 10) * 60 + parseInt(timeParts[1], 10);
+            let timeInSeconds = 0;
+            if (timeParts.length === 2 && !isNaN(parseInt(timeParts[0], 10)) && !isNaN(parseInt(timeParts[1], 10))) {
+                 timeInSeconds = parseInt(timeParts[0], 10) * 60 + parseInt(timeParts[1], 10);
+            } else {
+                 console.warn(`Timestamp inválido al hacer clic: ${timeString}`); // LOG ADVERTENCIA
+                 return; // No intentar buscar si el tiempo es inválido
+            }
 
             console.log(`Clic en tracklist item: ${timeString} (${timeInSeconds}s). Intentando buscar...`); // LOG
+            // LOG DE DEPURACIÓN ESPECÍFICO:
+            console.log("Estado de wavesurfer.isReady al hacer clic:", wavesurfer ? wavesurfer.isReady : 'wavesurfer no definido');
 
             if (wavesurfer && wavesurfer.isReady) {
-                // Usar seekTo (porcentaje) o setTime (segundos)
-
                 // Calcular el progreso (0 a 1)
                 const duration = wavesurfer.getDuration();
                 if (duration > 0) {
                     const progress = timeInSeconds / duration;
-                    console.log(`Calculando progreso: ${timeInSeconds}s / ${duration.toFixed(2)}s = ${progress.toFixed(4)}`); // LOG
-                    wavesurfer.seekTo(progress);
-                    console.log(`Ejecutado wavesurfer.seekTo(${progress.toFixed(4)})`); // LOG
+                    // Asegurarse de que el progreso esté entre 0 y 1
+                    const clampedProgress = Math.max(0, Math.min(1, progress));
+                    console.log(`Calculando progreso: ${timeInSeconds}s / ${duration.toFixed(2)}s = ${clampedProgress.toFixed(4)}`); // LOG
+                    wavesurfer.seekTo(clampedProgress);
+                    console.log(`Ejecutado wavesurfer.seekTo(${clampedProgress.toFixed(4)})`); // LOG
                 } else {
                     console.warn("La duración es 0, no se puede calcular el progreso para seekTo."); // LOG ADVERTENCIA
                 }
@@ -292,7 +311,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- NUEVA FUNCIÓN: Añadir/Quitar Favorito ---
+    // --- Añadir/Quitar Favorito ---
     function toggleFavorite(seconds, buttonElement) {
         if (favorites.has(seconds)) {
             favorites.delete(seconds);
@@ -314,31 +333,35 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Clic en lista ---
+    // --- Clic en lista general de sets ---
     tracklistElement.addEventListener('click', e => {
         const clickedItem = e.target.closest('.track-item');
         if (!clickedItem) return;
 
         const trackIndex = parseInt(clickedItem.dataset.index);
-        console.log(`Clic en tracklist item: ${trackIndex}`); // LOG
-        if (trackIndex !== currentSetIndex) {
+        console.log(`Clic en lista general de sets, item: ${trackIndex}`); // LOG
+        if (trackIndex !== currentSetIndex && allSets[trackIndex]) { // Asegurarse de que el índice es válido
             loadTrack(allSets[trackIndex], trackIndex);
             // Reproducir automáticamente cuando esté listo
             wavesurfer.once('ready', () => {
-                console.log("Track seleccionado listo, reproduciendo..."); // LOG
+                console.log("Track seleccionado de lista general listo, reproduciendo..."); // LOG
                 wavesurfer.play();
             });
-        } else {
+        } else if (trackIndex === currentSetIndex) {
             // Si se hace clic en el mismo, solo play/pause
-            console.log("Clic en track actual, ejecutando playPause..."); // LOG
+            console.log("Clic en track actual de lista general, ejecutando playPause..."); // LOG
             wavesurfer.playPause();
         }
     });
 
-    // --- Botón Play/Pause ---
+    // --- Botón Play/Pause Principal ---
     playPauseBtn.addEventListener('click', () => {
-        console.log("Clic en botón Play/Pause"); // LOG
-        wavesurfer.playPause();
+        console.log("Clic en botón Play/Pause principal"); // LOG
+        if (wavesurfer && wavesurfer.isReady) { // Asegurarse de que esté listo
+            wavesurfer.playPause();
+        } else {
+            console.warn("Intento de Play/Pause pero WaveSurfer no está listo."); // LOG ADVERTENCIA
+        }
     });
 
     console.log("Aplicación inicializada y listeners configurados."); // LOG FINAL INIT
