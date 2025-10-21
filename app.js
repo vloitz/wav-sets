@@ -29,10 +29,11 @@ document.addEventListener('DOMContentLoaded', () => {
             waveColor: getComputedStyle(document.documentElement).getPropertyValue('--waveform-wave-color').trim(),
             progressColor: getComputedStyle(document.documentElement).getPropertyValue('--waveform-progress-color').trim(),
             height: 100,
-            cursorWidth: 2, // Mantenemos cursor visible
+            cursorWidth: 2,
             cursorColor: '#fff',
-            barWidth: 1, // <-- CAMBIAR A 1 (Barras más finas)
-            barGap: 0,   // <-- CAMBIAR A 0 (Sin espacio entre barras)
+            barWidth: 1,
+            barGap: 0,
+            barHeight: 1, // <-- AÑADIR ESTA LÍNEA (Valor entre 0 y 1, 1 = altura completa)
             responsive: true,
             backend: 'MediaElement',
             media: document.getElementById('audio-player')
