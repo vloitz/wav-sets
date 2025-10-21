@@ -112,6 +112,10 @@ document.addEventListener('DOMContentLoaded', () => {
         playPauseBtn.textContent = '🔄';
 
         console.log(`WaveSurfer intentará cargar: ${set.audio_url}`); // LOG
+
+        currentTracklistElement.classList.add('disabled'); // <-- AÑADIR ESTA LÍNEA
+        console.log("Tracklist deshabilitado durante la carga."); // LOG
+
         wavesurfer.load(set.audio_url);
 
         currentLoadedSet = set; // Guardar referencia al set cargado
@@ -184,6 +188,10 @@ document.addEventListener('DOMContentLoaded', () => {
         playPauseBtn.textContent = '▶️';
         currentTrackTitle.textContent = allSets[currentSetIndex].title;
         console.log("WaveSurfer listo para track:", allSets[currentSetIndex].title); // LOG ÉXITO
+
+        currentTracklistElement.classList.remove('disabled'); // <-- AÑADIR ESTA LÍNEA
+        console.log("Tracklist habilitado."); // LOG
+
     });
 
      wavesurfer.on('loading', (percent) => {
@@ -196,6 +204,10 @@ document.addEventListener('DOMContentLoaded', () => {
         currentTrackTitle.textContent = `Error: ${err.message || err}`;
         playPauseBtn.textContent = '❌';
         playPauseBtn.disabled = true;
+
+        currentTracklistElement.classList.add('disabled'); // <-- AÑADIR ESTA LÍNEA (Asegura deshabilitado)
+        console.log("Tracklist permanece deshabilitado debido a error.");// LOG
+
     });
 
     wavesurfer.on('timeupdate', (currentTime) => {
