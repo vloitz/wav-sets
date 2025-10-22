@@ -445,7 +445,7 @@ const handleWaveformTouchEnd = (endEvent) => {
         }
         // --- FIN: Lógica Media Session ---
 
-    // --- INICIO: Lógica Auto-Bucle Favoritos (Fase 4 - CORREGIDA v5 - Usando Estado Anterior) ---
+// --- INICIO: Lógica Auto-Bucle Favoritos (Fase 4 - CORREGIDA v5 - Usando Estado Anterior) ---
         const isFavoritesModeActive = favToggleCheckbox && favToggleCheckbox.checked;
 
         // Solo actuar si AMBOS botones están activos, Nav está listo Y no estamos ya saltando
@@ -472,7 +472,7 @@ const handleWaveformTouchEnd = (endEvent) => {
                         console.log(`Next Fav Found    : ${nextFavTimestamp !== null ? nextFavTimestamp.toFixed(2)+'s' : 'null'}`);
 
                         if (nextFavTimestamp !== null && nextFavTimestamp !== currentFavStartTime) {
-                            isSeekingViaAutoLoop = true;
+                            isSeekingViaAutoLoop = true; // Activar bandera ANTES de saltar
                             console.log(`---> Saltando a ${nextFavTimestamp.toFixed(2)}s <---`);
                             TrackNavigator.seekToTimestamp(nextFavTimestamp);
                         } else {
