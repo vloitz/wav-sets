@@ -444,66 +444,55 @@ const handleWaveformTouchEnd = (endEvent) => {
         }
         // --- FIN: Lógica Media Session ---
 
-        // --- INICIO: Lógica Auto-Bucle Favoritos (Fase 4 - CORREGIDA v4) ---
+// --- INICIO: Lógica Auto-Bucle Favoritos (Fase 4 - CORREGIDA v4 - Logs Refinados) ---
         const isFavoritesModeActive = favToggleCheckbox && favToggleCheckbox.checked;
 
-        // Log 1: Verificar estado inicial (Opcional, descomentar si es necesario)
-        // console.log(`[AutoLoop Debug] Check - AutoLoop: ${isAutoLoopActive}, FavFilter: ${isFavoritesModeActive}, NavReady: ${TrackNavigator.isReady()}, Seeking: ${isSeekingViaAutoLoop}`);
-
-        // Solo actuar si AMBOS botones están activos, Nav está listo Y no estamos ya en medio de un salto
+        // Actuar solo si AMBOS botones están activos, Nav está listo Y no estamos ya saltando
         if (isAutoLoopActive && isFavoritesModeActive && TrackNavigator.isReady() && !isSeekingViaAutoLoop) {
 
             // 1. Encontrar el inicio del favorito actual
             const currentFavStartTime = TrackNavigator.getCurrentTrackStartTime(currentTime, true);
 
-            // Log 2: Verificar tiempo de inicio del favorito actual (Solo si se encuentra)
-             if (currentFavStartTime !== null) { console.log(`[AutoLoop Debug] Current Fav Start Time: ${currentFavStartTime.toFixed(2)}s`); }
-
             if (currentFavStartTime !== null) {
                 // 2. Encontrar cuándo termina la "sección" de este track (usando la lista COMPLETA)
                 const trackEndTime = TrackNavigator.getTrackEndTime(currentFavStartTime, wavesurfer.getDuration());
 
-                // Log 3: Verificar tiempo de fin de la sección
-                 if (trackEndTime !== null) { console.log(`[AutoLoop Debug] Track End Time (based on full list): ${trackEndTime.toFixed(2)}s`); } else { console.log(`[AutoLoop Debug] Track End Time (based on full list): null`);}
-
                 if (trackEndTime !== null) {
-                    // 3. Calcular el punto de salto teórico (para logs)
-                    const calculatedJumpTime = trackEndTime - TrackNavigator.AUTOLOOP_JUMP_SECONDS_BEFORE_END; // Renombrado para claridad
+                    // 3. Calcular el punto de salto
+                    const calculatedJumpTime = trackEndTime - TrackNavigator.AUTOLOOP_JUMP_SECONDS_BEFORE_END;
 
-                    // Log 4: Verificar punto de salto y comparación (Opcional)
-                    // console.log(`[AutoLoop Debug] Calculated Jump Time (End - Threshold): ${calculatedJumpTime.toFixed(2)}s. Is CurrentTime (${currentTime.toFixed(2)}) >= Jump Time? ${currentTime >= calculatedJumpTime}`); // Log 4 ajustado (comentado por defecto)
+                    // 4. Si estamos DENTRO de la ventana de salto...
+                    if (currentTime >= calculatedJumpTime) {
+                        // --- Log CRÍTICO: Se cumplió la condición ---
+                        console.groupCollapsed(`%c[AutoLoop Trigger!] Time: ${currentTime.toFixed(2)}s >= JumpAt: ${calculatedJumpTime.toFixed(2)}s`, "color: lightgreen; font-weight: bold;"); // Agrupado para menos ruido
 
-                    // 4. Si estamos dentro de los últimos X segundos de la sección
-                    if (currentTime >= (trackEndTime - TrackNavigator.AUTOLOOP_JUMP_SECONDS_BEFORE_END)) { // <-- CONDICIÓN MODIFICADA
-
-                         console.log(`%c[AutoLoop Trigger] CONDICIÓN CUMPLIDA! currentTime: ${currentTime.toFixed(2)} >= calculatedJumpTime: ${calculatedJumpTime.toFixed(2)}. TrackEndTime: ${trackEndTime.toFixed(2)}`, "color: lightgreen; font-weight: bold;");
-
-                        // 5. Buscar el SIGUIENTE favorito (la función ya maneja el loop)
+                        // Buscar el SIGUIENTE favorito
                         const nextFavTimestamp = TrackNavigator.findNextTimestamp(currentFavStartTime, true);
 
-                        // Log 5: Verificar timestamp del siguiente favorito
-                         if (nextFavTimestamp !== null) { console.log(`[AutoLoop Debug] Next Fav Timestamp Found: ${nextFavTimestamp.toFixed(2)}s`); } else { console.log(`[AutoLoop Debug] Next Fav Timestamp Found: null`);}
+                        // Mostrar datos relevantes DENTRO del grupo
+                        console.log(`Current Fav Start : ${currentFavStartTime.toFixed(2)}s`);
+                        console.log(`Section End Time  : ${trackEndTime.toFixed(2)}s`);
+                        console.log(`Next Fav Found    : ${nextFavTimestamp !== null ? nextFavTimestamp.toFixed(2)+'s' : 'null'}`);
 
-
-                        // 6. Si hay un siguiente y NO es el mismo (evitar loop infinito con 1 favorito o umbral grande)
+                        // Si hay un siguiente y NO es el mismo
                         if (nextFavTimestamp !== null && nextFavTimestamp !== currentFavStartTime) {
                             isSeekingViaAutoLoop = true; // Activar bandera ANTES de saltar
-                            console.log(`[AutoLoop] ---> Saltando a ${nextFavTimestamp.toFixed(2)}s <---`);
+                            console.log(`---> Saltando a ${nextFavTimestamp.toFixed(2)}s <---`);
+                            console.groupEnd(); // Cerrar grupo antes de saltar
                             TrackNavigator.seekToTimestamp(nextFavTimestamp);
-                        } else if (nextFavTimestamp === currentFavStartTime) {
-                            console.log("[AutoLoop] Solo hay un favorito o el siguiente es el mismo, no saltando.");
                         } else {
-                            console.warn("[AutoLoop] No se encontró el siguiente timestamp favorito después del umbral (esto no debería pasar con el loop).");
+                            // Si no hay siguiente o es el mismo, loguear por qué no saltamos
+                            if(nextFavTimestamp === currentFavStartTime) {
+                                console.log("NO SALTA: Siguiente favorito es el mismo (loop de 1?).");
+                            } else {
+                                console.warn("NO SALTA: No se encontró siguiente favorito (¿error en loop?).");
+                            }
+                            console.groupEnd(); // Cerrar grupo
                         }
-                    } else {
-                        // Log CUANDO NO SE CUMPLE la condición (opcional)
-                        if (calculatedJumpTime - currentTime < 1.5) { // Muestra si falta menos de 1.5s
-                           console.log(`[AutoLoop Check] Cerca del salto... currentTime: ${currentTime.toFixed(2)}, calculatedJumpTime: ${calculatedJumpTime.toFixed(2)}`);
-                        }
-                    }
-                } else {
-                     console.warn("[AutoLoop] trackEndTime es null.");
-                }
+                    } // Fin if (currentTime >= calculatedJumpTime)
+                    // (Quitamos el log "Cerca del salto" para reducir ruido)
+
+                } // Fin if (trackEndTime !== null)
             } // Fin if(currentFavStartTime !== null)
         }
         // --- FIN: Lógica Auto-Bucle ---
