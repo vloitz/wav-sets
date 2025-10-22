@@ -42,8 +42,6 @@ let longTouchTimer = null;
 const LONG_TOUCH_THRESHOLD = 200;
 let wasPlayingBeforeDrag = false; // Para saber si pausar/reanudar
 
-console.log("Variables globales inicializadas. Favoritos cargados:", favorites); // LOG
-
     // --- Inicializar WaveSurfer ---
     try {
         console.log("Inicializando WaveSurfer..."); // LOG
@@ -594,6 +592,7 @@ function toggleFavorite(seconds, buttonElement) {
 
     // 3. Guardar el objeto 'allFavorites' completo en Local Storage
     try {
+        console.log("[Fav PorSet] VERIFICANDO: Objeto a punto de guardar:", JSON.stringify(allFavorites));
         localStorage.setItem('vloitz_favorites', JSON.stringify(allFavorites));
         filterFavoritesDisplay(); // Re-aplicar filtro al cambiar un favorito
         console.log("[Fav PorSet] Base de datos de favoritos guardada en Local Storage:", allFavorites); // LOG
