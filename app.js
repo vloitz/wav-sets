@@ -1050,7 +1050,8 @@ function toggleFavorite(seconds, buttonElement) {
             isReady: isReady, // <-- AÑADIR
             getCurrentTrackStartTime: getCurrentTrackStartTime, // <-- AÑADIR
             getTrackEndTime: getTrackEndTime, // <-- AÑADIR
-            AUTOLOOP_JUMP_SECONDS_BEFORE_END: AUTOLOOP_JUMP_SECONDS_BEFORE_END // <-- AÑADIR (Exponer umbral)
+            AUTOLOOP_JUMP_SECONDS_BEFORE_END: AUTOLOOP_JUMP_SECONDS_BEFORE_END, // <-- AÑADIR (Exponer umbral)
+            seekToTimestamp: seekToTimestamp // <-- LÍNEA AÑADIDA
         };
     })();
 
