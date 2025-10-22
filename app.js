@@ -24,9 +24,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const bioExtended = document.getElementById('bio-extended');
     const bioToggle = document.getElementById('bio-toggle');
 
+
     let allSets = [];
     let currentSetIndex = 0;
-    let favorites = new Set(JSON.parse(localStorage.getItem('vloitz_favorites') || '[]')); // Cargar favoritos guardados
+
+    // Cargar un OBJETO de favoritos (v2)
+    let allFavorites = JSON.parse(localStorage.getItem('vloitz_favorites') || '{}'); // Reusamos la clave original
+    let currentSetFavorites = new Set(); // Este 'Set' guardará los favoritos SÓLO del set actual
+    console.log("[Fav PorSet] Datos maestros de favoritos cargados:", allFavorites); // LOG
+
     let currentLoadedSet = null; // Para saber qué set está cargado
     let wavesurfer = null; // Declarar wavesurfer aquí
 
@@ -174,6 +180,18 @@ let wasPlayingBeforeDrag = false; // Para saber si pausar/reanudar
         }
 
         currentLoadedSet = set;
+
+        // --- Cargar favoritos para ESTE set (v2) ---
+        const setKey = currentLoadedSet.title; // Usar el título del set como clave
+        if (!allFavorites[setKey]) {
+            allFavorites[setKey] = []; // Inicializar si no existe
+            console.log(`[Fav v2] Creando nueva entrada de favoritos para: ${setKey}`); // LOG
+        }
+        // Cargar los favoritos de este set en el 'Set' de memoria actual
+        currentSetFavorites = new Set(allFavorites[setKey]);
+        console.log(`[Fav v2] Favoritos cargados para "${setKey}":`, currentSetFavorites); // LOG
+        // --- Fin carga favoritos v2 ---
+
         displayTracklist(set.tracklist || []);
         updatePlayingHighlight();
     }
@@ -226,7 +244,7 @@ let wasPlayingBeforeDrag = false; // Para saber si pausar/reanudar
                  console.warn(`Timestamp inválido en tracklist: ${track.time}`); // LOG ADVERTENCIA
             }
 
-            const isFavorited = favorites.has(totalSeconds);
+            const isFavorited = currentSetFavorites.has(totalSeconds); // v2: Comprobar contra el Set del set actual
 
             li.innerHTML = `
                 <span class="track-time">${track.time}</span>
@@ -548,28 +566,41 @@ if (favToggleCheckbox) {
 
 
 
-    // --- Añadir/Quitar Favorito ---
-    function toggleFavorite(seconds, buttonElement) {
-        if (favorites.has(seconds)) {
-            favorites.delete(seconds);
-            buttonElement.classList.remove('favorited');
-            buttonElement.innerHTML = '☆';
-            console.log(`Favorito eliminado: ${seconds}s`); // LOG
-        } else {
-            favorites.add(seconds);
-            buttonElement.classList.add('favorited');
-            buttonElement.innerHTML = '★';
-            console.log(`Favorito añadido: ${seconds}s`); // LOG
-        }
-        // Guardar en Local Storage
-        try {
-            localStorage.setItem('vloitz_favorites', JSON.stringify(Array.from(favorites)));
-            filterFavoritesDisplay(); // Re-aplicar filtro al cambiar un favorito
-            console.log("Favoritos guardados en Local Storage."); // LOG
-        } catch (error) {
-            console.error("Error al guardar favoritos en Local Storage:", error); // LOG ERROR
-        }
+// --- Añadir/Quitar Favorito (v2: por set) ---
+function toggleFavorite(seconds, buttonElement) {
+    if (!currentLoadedSet) {
+        console.error("[Fav v2] Error: No hay 'currentLoadedSet' para guardar el favorito.");
+        return;
     }
+
+    const setKey = currentLoadedSet.title;
+    console.log(`[Fav v2] Toggle favorito para set: "${setKey}", tiempo: ${seconds}s`); // LOG
+
+    // 1. Actualizar el 'Set' en memoria (currentSetFavorites)
+    if (currentSetFavorites.has(seconds)) {
+        currentSetFavorites.delete(seconds);
+        buttonElement.classList.remove('favorited');
+        buttonElement.innerHTML = '☆';
+        console.log(`[Fav v2] Favorito eliminado de la memoria.`); // LOG
+    } else {
+        currentSetFavorites.add(seconds);
+        buttonElement.classList.add('favorited');
+        buttonElement.innerHTML = '★';
+        console.log(`[Fav v2] Favorito añadido a la memoria.`); // LOG
+    }
+
+    // 2. Actualizar el objeto 'allFavorites' con el array convertido del Set
+    allFavorites[setKey] = Array.from(currentSetFavorites);
+
+    // 3. Guardar el objeto 'allFavorites' completo en Local Storage
+    try {
+        localStorage.setItem('vloitz_favorites', JSON.stringify(allFavorites));
+        filterFavoritesDisplay(); // Re-aplicar filtro al cambiar un favorito
+        console.log("[Fav PorSet] Base de datos de favoritos guardada en Local Storage:", allFavorites); // LOG
+    } catch (error) {
+        console.error("[Fav v2] Error al guardar favoritos en Local Storage:", error); // LOG ERROR
+    }
+}
 
     // --- Clic en lista general de sets ---
     tracklistElement.addEventListener('click', e => {
