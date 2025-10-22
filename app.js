@@ -541,6 +541,8 @@ if (favToggleCheckbox) {
 }
 // --- Fin Lógica Filtro (prototipo v4) ---
 
+
+
     // --- Añadir/Quitar Favorito ---
     function toggleFavorite(seconds, buttonElement) {
         if (favorites.has(seconds)) {
@@ -594,5 +596,60 @@ if (favToggleCheckbox) {
         }
     });
 
+
+    // --- Lógica de Biografía Expandible (prototipo v5) ---
+    if (profileBioContainer && bioExtended && bioToggle) {
+        console.log("Biografía expandible inicializada."); // LOG
+
+        // Función para colapsar la biografía
+        const collapseBio = () => {
+            // Solo colapsar si está expandida
+            if (bioExtended.style.display !== 'none') {
+                console.log("[Bio] Colapsando biografía."); // LOG
+                bioExtended.style.display = 'none';
+                bioToggle.textContent = '... Ver más';
+            }
+        };
+
+        // Función para expandir la biografía
+        const expandBio = () => {
+            console.log("[Bio] Expandiendo biografía."); // LOG
+            bioExtended.style.display = 'inline'; // 'inline' funciona bien con <span>
+            bioToggle.textContent = 'Ver menos';
+        };
+
+        // 1. Listener para el botón "Ver más / Ver menos"
+        bioToggle.addEventListener('click', (e) => {
+            e.stopPropagation(); // ¡Importante! Evita que el clic se propague al 'window'
+
+            const isExpanded = bioExtended.style.display !== 'none';
+            console.log(`[Bio] Clic en Toggle. ¿Estaba expandido? ${isExpanded}`); // LOG
+
+            if (isExpanded) {
+                collapseBio();
+            } else {
+                expandBio();
+            }
+        });
+
+        // 2. Listener para cerrar al hacer clic "fuera"
+        window.addEventListener('click', (e) => {
+            // Comprobar si la bio está expandida Y si el clic NO fue dentro del contenedor
+            if (bioExtended.style.display !== 'none' && !profileBioContainer.contains(e.target)) {
+                console.log("[Bio] Clic detectado fuera del contenedor. Colapsando."); // LOG
+                collapseBio();
+            }
+        });
+
+    } else {
+        console.warn("No se encontraron los elementos de la biografía expandible (prototipo v5)."); // LOG
+    }
+    // --- Fin Lógica Biografía ---
+
+
+
     console.log("Aplicación inicializada y listeners configurados."); // LOG FINAL INIT
+
+
+
 });
