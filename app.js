@@ -692,6 +692,14 @@ function toggleFavorite(seconds, buttonElement) {
         localStorage.setItem('vloitz_favorites', JSON.stringify(allFavorites));
         filterFavoritesDisplay(); // Re-aplicar filtro al cambiar un favorito
         console.log("[Fav PorSet] Base de datos de favoritos guardada en Local Storage:", allFavorites); // LOG
+
+        // --- INICIO: Actualizar Navegador (Corrección Loop Favoritos) ---
+        if (currentLoadedSet) { // Asegurarse de que el set está cargado
+             TrackNavigator.prepareTimestamps(currentLoadedSet.tracklist || [], currentSetFavorites);
+             console.log("[Nav Sync] Timestamps del Navegador actualizados tras cambio de favorito."); // LOG
+        }
+        // --- FIN: Actualizar Navegador ---
+
     } catch (error) {
         console.error("[Fav v2] Error al guardar favoritos en Local Storage:", error); // LOG ERROR
     }
