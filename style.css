@@ -68,12 +68,16 @@ INICIO REEMPLAZO 2.1: Encabezado de Perfil
 }
 .profile-socials { display: flex; gap: 15px; }
 .social-icon { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; background-color: var(--light-bg); border-radius: 50%; color: var(--text-primary); font-size: 1.1em; text-decoration: none; transition: background-color 0.2s; }
-.social-icon:hover { background-color: var(--brand-color); }
-.social-icon svg { width: 16px; height: 16px; fill: currentColor; }
-/* Íconos de placeholder simples (puedes reemplazarlos con SVGs reales si los tienes) */
-.social-icon.soundcloud::before { content: '☁️'; }
-.social-icon.youtube::before { content: '▶️'; }
-.social-icon.instagram::before { content: '📸'; }
+
+.social-icon:hover {
+    background-color: var(--brand-color);
+    color: var(--dark-bg); /* El SVG tomará este color (fill: currentColor) */
+}
+.social-icon svg {
+    width: 16px;
+    height: 16px;
+    fill: currentColor; /* Hereda el color del <a> (var(--text-primary) o var(--dark-bg) en hover) */
+}
 
 /* --- NUEVO: Contenedor para Espacio Extra (Desktop) --- */
 .profile-extra-content {
