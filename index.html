@@ -13,8 +13,27 @@
         <div class="profile-banner"></div>
         <div class="profile-info">
             <img src="" alt="Vloitz Profile" class="profile-pic" id="profile-pic-img">
-            <h1 class="profile-name">Vloitz</h1>
-            <p class="profile-location">Lima, Peru</p>
+
+            <div class="profile-details-container">
+                <h1 class="profile-name">Vloitz</h1>
+                <p class="profile-location">Lima, Peru</p>
+                 <div class="profile-bio" id="profile-bio-text">
+                    Curador de música electrónica y DJ (ÉLITE House/Grooves PRO). 🚀 Mi código es simple: o vibra en la piel, o no es real. No busco refugio en el pasado, sino en los sonidos que conectan con el presente y proyectan al futuro. ¡Future HITS!
+                </div>
+                <div class="profile-socials">
+                    <a href="#" class="social-icon soundcloud" title="SoundCloud"></a>
+                    <a href="#" class="social-icon youtube" title="YouTube"></a>
+                    <a href="#" class="social-icon instagram" title="Instagram"></a>
+                </div>
+            </div>
+
+            <div class="profile-extra-content">
+                <div class="latest-set-highlight">
+                    <h5>Último Set</h5>
+                    <p id="latest-set-title">Cargando...</p>
+                    <span id="latest-set-date"></span>
+                </div>
+            </div>
         </div>
     </header>
 
@@ -38,7 +57,14 @@
         </section>
 
         <section class="current-tracklist-container">
-            <h4>Tracklist del Set</h4>
+            <div class="current-tracklist-header">
+                <h4>Tracklist del Set</h4>
+                <label class="favorites-filter" for="fav-toggle">
+                    <input type="checkbox" id="fav-toggle">
+                    <span class="star-icon">★</span>
+                    <span>Mostrar Favoritos</span>
+                </label>
+            </div>
             <ul id="current-tracklist" class="current-tracklist">
                 <li>Cargando tracklist...</li>
             </ul>
