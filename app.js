@@ -448,9 +448,6 @@ const handleWaveformTouchEnd = (endEvent) => {
 // --- INICIO: Lógica Auto-Bucle Favoritos (PRUEBA FINAL v6 - Logs Extremos) ---
         const isFavoritesModeActive = favToggleCheckbox && favToggleCheckbox.checked;
 
-        // Log 0: Estado ANTES del IF principal
-        // console.log(`[AL PreCheck] Loop:${isAutoLoopActive}, Fav:${isFavoritesModeActive}, Ready:${TrackNavigator.isReady()}, Seeking:${isSeekingViaAutoLoop}, Time:${currentTime.toFixed(4)}`);
-
         // Solo actuar si AMBOS botones están activos, Nav está listo Y no estamos ya saltando
         if (isAutoLoopActive && isFavoritesModeActive && TrackNavigator.isReady() && !isSeekingViaAutoLoop) {
 
@@ -512,7 +509,7 @@ const handleWaveformTouchEnd = (endEvent) => {
 
         if (isSeekingViaAutoLoop) {
             console.log("[Event SEEK - AutoLoop] Era un salto automático. Reseteando bandera isSeekingViaAutoLoop a FALSE.");
-            isSeekingViaAutoLoop = false; // Resetear bandera DESPUÉS del salto
+            isSeekingViaAutoLoop = false; // <-- Resetear bandera DESPUÉS del salto
             // Verificamos el tiempo otra vez por si acaso cambió mínimamente
             const timeAfterReset = wavesurfer.getCurrentTime();
             console.log(`[Event SEEK - AutoLoop] Bandera reseteada. Tiempo actual DESPUÉS del reseteo: ${timeAfterReset.toFixed(4)}s`);
@@ -1004,6 +1001,14 @@ function toggleFavorite(seconds, buttonElement) {
                     const progress = targetSeconds / duration;
                     console.log(`[Nav] Saltando a ${targetSeconds}s (Progreso: ${progress.toFixed(4)})`); // LOG
                     wavesurfer.seekTo(progress);
+
+            // --- INICIO: Resetear Bandera INMEDIATAMENTE ---
+            if (isSeekingViaAutoLoop) {
+                console.log(`[Nav seekToTimestamp] Reseteando isSeekingViaAutoLoop a FALSE inmediatamente después de llamar a seekTo.`);
+                isSeekingViaAutoLoop = false;
+            }
+            // --- FIN: Resetear Bandera ---
+
                     // Asegurarse de reproducir si estaba pausado por el salto
                     if (!wavesurfer.isPlaying()) {
                         wavesurfer.play();
