@@ -23,11 +23,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const profileBioContainer = document.getElementById('profile-bio-container');
     const bioExtended = document.getElementById('bio-extended');
     const bioToggle = document.getElementById('bio-toggle');
+    const autoLoopBtn = document.getElementById('autoLoopBtn');
     let currentTrackNameForNotification = null;
 
 
     let allSets = [];
     let currentSetIndex = 0;
+    let isAutoLoopActive = false;
 
     // Cargar un OBJETO de favoritos (v2)
     let allFavorites = JSON.parse(localStorage.getItem('vloitz_favorites') || '{}'); // Reusamos la clave original
@@ -440,7 +442,49 @@ const handleWaveformTouchEnd = (endEvent) => {
             }
         }
         // --- FIN: Lógica Media Session ---
-    });
+
+        // --- INICIO: Lógica Auto-Bucle Favoritos (Fase 4) ---
+            const isFavoritesModeActive = favToggleCheckbox && favToggleCheckbox.checked;
+            // Solo actuar si AMBOS botones están activos y el navegador está listo
+            if (isAutoLoopActive && isFavoritesModeActive && TrackNavigator.isReady()) {
+
+                // 1. Encontrar el inicio del favorito actual
+                const currentFavStartTime = TrackNavigator.getCurrentTrackStartTime(currentTime, true);
+
+                if (currentFavStartTime !== null) {
+                    // 2. Encontrar cuándo termina la "sección" de este track (usando la lista completa)
+                    const trackEndTime = TrackNavigator.getTrackEndTime(currentFavStartTime, wavesurfer.getDuration());
+
+                    if (trackEndTime !== null) {
+                        // 3. Calcular el punto de salto
+                        const jumpTime = trackEndTime - TrackNavigator.AUTOLOOP_JUMP_SECONDS_BEFORE_END;
+
+                        // 4. Si hemos pasado el punto de salto...
+                        if (currentTime >= jumpTime) {
+                            console.log(`[AutoLoop] Umbral de salto alcanzado (Fin Track: ${trackEndTime.toFixed(2)}s, Umbral: ${TrackNavigator.AUTOLOOP_JUMP_SECONDS_BEFORE_END}s). Buscando siguiente favorito.`); // LOG
+
+                            // 5. Buscar el SIGUIENTE favorito (la función ya maneja el loop)
+                            // Usamos currentFavStartTime en lugar de currentTime para asegurar que encuentre el siguiente distinto
+                            const nextFavTimestamp = TrackNavigator.findNextTimestamp(currentFavStartTime, true);
+
+                            // 6. Si hay un siguiente y NO es el mismo (evitar loop infinito con 1 favorito o umbral grande)
+                            if (nextFavTimestamp !== null && nextFavTimestamp !== currentFavStartTime) {
+                                console.log(`[AutoLoop] Saltando a siguiente favorito: ${nextFavTimestamp}s`); // LOG
+                                TrackNavigator.seekToTimestamp(nextFavTimestamp);
+                                // El 'timeupdate' se volverá a disparar y actualizará la Media Session
+                            } else if (nextFavTimestamp === currentFavStartTime) {
+                                console.log("[AutoLoop] Siguiente favorito es el mismo, no saltando para evitar loop rápido."); // LOG
+                            } else {
+                                // Esto no debería pasar si findNextTimestamp loopea correctamente
+                                console.warn("[AutoLoop] No se encontró el siguiente timestamp favorito después del umbral."); // LOG
+                            }
+                        }
+                    }
+                }
+            }
+            // --- FIN: Lógica Auto-Bucle ---
+
+    }); // Fin de timeupdate
 
     wavesurfer.on('seeking', (currentTime) => {
          currentTimeEl.textContent = formatTime(currentTime);
@@ -788,8 +832,14 @@ function toggleFavorite(seconds, buttonElement) {
     // --- INICIO: Módulo de Navegación por Tracks (v1) ---
     const TrackNavigator = (() => {
         const RESTART_THRESHOLD = 3; // Segundos para decidir si reiniciar o ir al anterior
+        const AUTOLOOP_JUMP_SECONDS_BEFORE_END = 5;
         let sortedTrackTimestamps = [];
         let sortedFavoriteTimestamps = [];
+
+        // Verifica si los timestamps han sido preparados
+        function isReady() {
+            return sortedTrackTimestamps.length > 0;
+        }
 
         // Prepara las listas de timestamps (en segundos) cuando se carga un set
         function prepareTimestamps(tracklistData, currentFavoritesSet) {
@@ -812,7 +862,20 @@ function toggleFavorite(seconds, buttonElement) {
             console.log("[Nav] Timestamps de favoritos:", sortedFavoriteTimestamps); // LOG
         }
 
-                // Encuentra el siguiente timestamp válido
+        // Encuentra el timestamp de inicio del track (favorito o no) que contiene currentTime
+        function getCurrentTrackStartTime(currentTime, useFavorites) {
+            const timestamps = useFavorites ? sortedFavoriteTimestamps : sortedTrackTimestamps;
+            if (!timestamps || timestamps.length === 0) return null;
+
+            for (let i = timestamps.length - 1; i >= 0; i--) {
+                if (timestamps[i] <= currentTime) {
+                    return timestamps[i];
+                }
+            }
+            return null; // Antes del primer track?
+        }
+
+        // Encuentra el siguiente timestamp válido
         function findNextTimestamp(currentTime, useFavorites) {
             const timestamps = useFavorites ? sortedFavoriteTimestamps : sortedTrackTimestamps;
             if (!timestamps || timestamps.length === 0) return null;
@@ -842,6 +905,23 @@ function toggleFavorite(seconds, buttonElement) {
                 }
                 // --- FIN: Lógica de Loop ---
 
+        }
+
+        // Encuentra el timestamp de fin para un track que empieza en 'trackStartTime'
+        // El fin es el inicio del SIGUIENTE track en la lista COMPLETA, o la duración total
+        function getTrackEndTime(trackStartTime, totalDuration) {
+            if (!sortedTrackTimestamps || sortedTrackTimestamps.length === 0 || trackStartTime === null) return null;
+
+            const currentIndex = sortedTrackTimestamps.indexOf(trackStartTime);
+            if (currentIndex === -1) return null; // No debería pasar si trackStartTime vino de getCurrentTrackStartTime
+
+            if (currentIndex < sortedTrackTimestamps.length - 1) {
+                // Si NO es el último track, el fin es el inicio del siguiente
+                return sortedTrackTimestamps[currentIndex + 1];
+            } else {
+                // Si ES el último track, el fin es la duración total
+                return totalDuration;
+            }
         }
 
         // Encuentra el timestamp anterior válido (o reinicia el actual)
@@ -930,11 +1010,37 @@ function toggleFavorite(seconds, buttonElement) {
             prepareTimestamps: prepareTimestamps,
             goToNext: goToNext,
             goToPrevious: goToPrevious,
+            isReady: isReady, // <-- AÑADIR
+            getCurrentTrackStartTime: getCurrentTrackStartTime, // <-- AÑADIR
+            getTrackEndTime: getTrackEndTime, // <-- AÑADIR
+            AUTOLOOP_JUMP_SECONDS_BEFORE_END: AUTOLOOP_JUMP_SECONDS_BEFORE_END // <-- AÑADIR (Exponer umbral)
         };
     })();
 
     window.TrackNavigator = TrackNavigator; // <-- ADD THIS LINE TO EXPOSE GLOBALLY
     // --- FIN: Módulo de Navegación ---
+
+    // --- INICIO: Lógica Botón Auto-Bucle (Fase 2) ---
+    if (autoLoopBtn) {
+        autoLoopBtn.addEventListener('click', () => {
+            isAutoLoopActive = !isAutoLoopActive; // Alternar estado
+            autoLoopBtn.classList.toggle('active', isAutoLoopActive); // Alternar clase CSS
+            console.log(`[AutoLoop] Modo Auto-Bucle ${isAutoLoopActive ? 'ACTIVADO' : 'DESACTIVADO'}.`); // LOG
+
+            // Opcional: Podríamos guardar este estado en localStorage también si quisiéramos que se recuerde
+             localStorage.setItem('vloitz_auto_loop', isAutoLoopActive);
+            // Y cargarlo al inicio:
+             isAutoLoopActive = localStorage.getItem('vloitz_auto_loop') === 'true'; autoLoopBtn.classList.toggle('active', isAutoLoopActive);
+        });
+
+        // Cargar estado inicial (si decidimos guardarlo en localStorage)
+         isAutoLoopActive = localStorage.getItem('vloitz_auto_loop') === 'true';
+        autoLoopBtn.classList.toggle('active', isAutoLoopActive);
+
+    } else {
+        console.warn("[AutoLoop] Botón Auto-Bucle no encontrado."); // LOG
+    }
+    // --- FIN: Lógica Botón ---
 
     console.log("Aplicación inicializada y listeners configurados."); // LOG FINAL INIT
 
