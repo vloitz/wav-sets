@@ -815,8 +815,19 @@ function toggleFavorite(seconds, buttonElement) {
                     return timestamps[i];
                 }
             }
-            console.log(`[Nav] No se encontró siguiente timestamp (${useFavorites ? 'Fav' : 'All'}).`); // LOG
-            return null; // No hay siguiente
+
+                // --- INICIO: Lógica de Loop para Favoritos ---
+                if (useFavorites && timestamps.length > 0) {
+                    // Si estamos en modo favoritos y llegamos al final, volvemos al primero
+                    console.log("[Nav] Fin de favoritos alcanzado, loopeando al primero."); // LOG
+                    return timestamps[0]; // Devuelve el primer favorito
+                } else {
+                    // Si no estamos en modo favoritos, o no hay favoritos, no hay siguiente
+                    console.log(`[Nav] No se encontró siguiente timestamp (${useFavorites ? 'Fav' : 'All'}).`); // LOG
+                    return null; // Comportamiento original: no hay siguiente
+                }
+                // --- FIN: Lógica de Loop ---
+
         }
 
         // Encuentra el timestamp anterior válido (o reinicia el actual)
