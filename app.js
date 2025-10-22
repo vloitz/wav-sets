@@ -13,6 +13,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const profileBanner = document.querySelector('.profile-banner');
     const currentTracklistElement = document.getElementById('current-tracklist'); // Referencia al nuevo <ul>
 
+    // Referencias para el "Latest Set" (prototipo v4)
+    const latestSetTitle = document.getElementById('latest-set-title');
+    const latestSetDate = document.getElementById('latest-set-date');
+    // Referencia para el filtro de favoritos (prototipo v4)
+    const favToggleCheckbox = document.getElementById('fav-toggle');
+
     let allSets = [];
     let currentSetIndex = 0;
     let favorites = new Set(JSON.parse(localStorage.getItem('vloitz_favorites') || '[]')); // Cargar favoritos guardados
@@ -81,6 +87,14 @@ let wasPlayingBeforeDrag = false; // Para saber si pausar/reanudar
             populateTracklist(allSets);
             if (allSets.length > 0) {
                 loadTrack(allSets[0], 0);
+
+                // --- Poblar "Latest Set" (prototipo v4) ---
+                if (latestSetTitle && latestSetDate) {
+                    console.log("Poblando 'Latest Set' box..."); // LOG
+                    latestSetTitle.textContent = allSets[0].title;
+                    latestSetDate.textContent = allSets[0].date;
+                }
+
             } else {
                 currentTrackTitle.textContent = "No hay sets para mostrar.";
                 console.warn("No se encontraron sets en sets.json"); // LOG ADVERTENCIA
@@ -220,6 +234,9 @@ let wasPlayingBeforeDrag = false; // Para saber si pausar/reanudar
             currentTracklistElement.appendChild(li);
         });
         console.log(`Tracklist mostrado con ${tracklistData.length} items.`); // LOG
+
+        filterFavoritesDisplay(); // Aplicar filtro al mostrar el tracklist
+
     }
 
 // --- Función SeekWaveform (Requerida por Drag Logic) ---
@@ -488,6 +505,42 @@ if (waveformInteractionElement && wavesurfer) {
         }
     });
 
+// --- Lógica Filtro Favoritos (prototipo v4) ---
+function filterFavoritesDisplay() {
+    if (!favToggleCheckbox || !currentTracklistElement) return; // Salir si no existen
+
+    const showOnlyFavorites = favToggleCheckbox.checked;
+    console.log(`[Filter] Cambiando filtro. Mostrar solo favoritos: ${showOnlyFavorites}`); // LOG
+
+    const items = currentTracklistElement.querySelectorAll('.current-tracklist-item');
+    let visibleCount = 0;
+
+    items.forEach(item => {
+        const favButton = item.querySelector('.favorite-btn');
+        const isFavorited = favButton && favButton.classList.contains('favorited');
+
+        if (showOnlyFavorites) {
+            if (isFavorited) {
+                item.style.display = 'flex'; // Mostrar
+                visibleCount++;
+            } else {
+                item.style.display = 'none'; // Ocultar
+            }
+        } else {
+            item.style.display = 'flex'; // Mostrar todos
+            visibleCount++;
+        }
+    });
+    console.log(`[Filter] Filtro aplicado. Items visibles: ${visibleCount} de ${items.length}`); // LOG
+}
+
+// Listener para el checkbox
+if (favToggleCheckbox) {
+    favToggleCheckbox.addEventListener('change', filterFavoritesDisplay);
+    console.log("Listener para el filtro de favoritos añadido."); // LOG
+}
+// --- Fin Lógica Filtro (prototipo v4) ---
+
     // --- Añadir/Quitar Favorito ---
     function toggleFavorite(seconds, buttonElement) {
         if (favorites.has(seconds)) {
@@ -504,6 +557,7 @@ if (waveformInteractionElement && wavesurfer) {
         // Guardar en Local Storage
         try {
             localStorage.setItem('vloitz_favorites', JSON.stringify(Array.from(favorites)));
+            filterFavoritesDisplay(); // Re-aplicar filtro al cambiar un favorito
             console.log("Favoritos guardados en Local Storage."); // LOG
         } catch (error) {
             console.error("Error al guardar favoritos en Local Storage:", error); // LOG ERROR
