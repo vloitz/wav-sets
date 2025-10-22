@@ -178,6 +178,7 @@ let wasPlayingBeforeDrag = false; // Para saber si pausar/reanudar
         }
 
         currentLoadedSet = set;
+        updateMediaSessionMetadata(set);
 
         // --- Cargar favoritos para ESTE set (v2) ---
         const setKey = currentLoadedSet.title; // Usar el título del set como clave
@@ -193,6 +194,28 @@ let wasPlayingBeforeDrag = false; // Para saber si pausar/reanudar
         displayTracklist(set.tracklist || []);
         updatePlayingHighlight();
     }
+
+    // --- INICIO: Media Session API (Fase 3) ---
+    function updateMediaSessionMetadata(set) {
+        if ('mediaSession' in navigator && set) {
+            console.log("[MediaSession] Actualizando metadatos para:", set.title); // LOG
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: set.title,
+                artist: 'Vloitz', // Puedes cambiar esto si tienes artistas invitados
+                album: 'Vloitz - High Quality Sets', // Opcional, puedes poner el título del set aquí también
+                artwork: [
+                    // Es importante proporcionar varios tamaños si es posible,
+                    // pero con la URL directa suele ser suficiente.
+                    // El tipo 'image/png' es una suposición, ajusta si usas jpg.
+                    { src: set.cover_art_url, sizes: '500x500', type: 'image/png' },
+                ]
+            });
+            console.log("[MediaSession] Metadatos aplicados."); // LOG
+        } else {
+            console.log("[MediaSession] API no soportada o 'set' no válido."); // LOG
+        }
+    }
+    // --- FIN: Media Session API (Fase 3) ---
 
     // --- Resaltar activo ---
     function updatePlayingHighlight() {
@@ -319,7 +342,28 @@ const handleWaveformTouchEnd = (endEvent) => {
 };
 // --- Fin Handlers Globales ---
 
+
+    // --- INICIO: Configuración de Acciones Media Session (Fase 3) ---
+    if ('mediaSession' in navigator) {
+        console.log("[MediaSession] Configurando manejadores de acciones (play/pause)."); // LOG
+        try {
+            navigator.mediaSession.setActionHandler('play', () => {
+                console.log("[MediaSession] Acción 'play' recibida."); // LOG
+                if(wavesurfer) wavesurfer.play();
+            });
+            navigator.mediaSession.setActionHandler('pause', () => {
+                console.log("[MediaSession] Acción 'pause' recibida."); // LOG
+                if(wavesurfer) wavesurfer.pause();
+            });
+            // Puedes añadir 'seekbackward', 'seekforward', 'previoustrack', 'nexttrack' si los implementas
+        } catch (error) {
+            console.error("[MediaSession] Error al configurar manejadores:", error); //LOG ERROR
+        }
+    }
+    // --- FIN: Configuración de Acciones Media Session ---
+
     // --- Eventos de WaveSurfer ---
+
     wavesurfer.on('ready', () => {
         const duration = wavesurfer.getDuration();
         totalDurationEl.textContent = formatTime(duration);
