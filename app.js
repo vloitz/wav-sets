@@ -894,6 +894,10 @@ function toggleFavorite(seconds, buttonElement) {
             const timestamps = useFavorites ? sortedFavoriteTimestamps : sortedTrackTimestamps;
             if (!timestamps || timestamps.length === 0) return null;
 
+            // --- INICIO: Log Interno ---
+            console.log(`[Nav Internal] getCurrentTrackStartTime called. Time: ${currentTime.toFixed(4)}, UseFavs: ${useFavorites}`);
+            // --- FIN: Log ---
+
             for (let i = timestamps.length - 1; i >= 0; i--) {
                 if (timestamps[i] <= currentTime) {
                     return timestamps[i];
