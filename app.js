@@ -443,46 +443,62 @@ const handleWaveformTouchEnd = (endEvent) => {
         }
         // --- FIN: Lógica Media Session ---
 
-        // --- INICIO: Lógica Auto-Bucle Favoritos (Fase 4) ---
-            const isFavoritesModeActive = favToggleCheckbox && favToggleCheckbox.checked;
-            // Solo actuar si AMBOS botones están activos y el navegador está listo
-            if (isAutoLoopActive && isFavoritesModeActive && TrackNavigator.isReady()) {
+// --- INICIO: Lógica Auto-Bucle Favoritos (Fase 4) ---
+        const isFavoritesModeActive = favToggleCheckbox && favToggleCheckbox.checked;
 
-                // 1. Encontrar el inicio del favorito actual
-                const currentFavStartTime = TrackNavigator.getCurrentTrackStartTime(currentTime, true);
+        // --- Log 1: Verificar estado de los botones ---
+        console.log(`[AutoLoop Debug] Check - AutoLoop: ${isAutoLoopActive}, FavFilter: ${isFavoritesModeActive}, NavReady: ${TrackNavigator.isReady()}`);
 
-                if (currentFavStartTime !== null) {
-                    // 2. Encontrar cuándo termina la "sección" de este track (usando la lista completa)
-                    const trackEndTime = TrackNavigator.getTrackEndTime(currentFavStartTime, wavesurfer.getDuration());
+        // Solo actuar si AMBOS botones están activos y el navegador está listo
+        if (isAutoLoopActive && isFavoritesModeActive && TrackNavigator.isReady()) {
 
-                    if (trackEndTime !== null) {
-                        // 3. Calcular el punto de salto
-                        const jumpTime = trackEndTime - TrackNavigator.AUTOLOOP_JUMP_SECONDS_BEFORE_END;
+            // 1. Encontrar el inicio del favorito actual
+            const currentFavStartTime = TrackNavigator.getCurrentTrackStartTime(currentTime, true);
 
-                        // 4. Si hemos pasado el punto de salto...
-                        if (currentTime >= jumpTime) {
-                            console.log(`[AutoLoop] Umbral de salto alcanzado (Fin Track: ${trackEndTime.toFixed(2)}s, Umbral: ${TrackNavigator.AUTOLOOP_JUMP_SECONDS_BEFORE_END}s). Buscando siguiente favorito.`); // LOG
+            // --- Log 2: Verificar tiempo de inicio del favorito actual ---
+            console.log(`[AutoLoop Debug] Current Fav Start Time: ${currentFavStartTime !== null ? currentFavStartTime.toFixed(2)+'s' : 'null'}`);
 
-                            // 5. Buscar el SIGUIENTE favorito (la función ya maneja el loop)
-                            // Usamos currentFavStartTime en lugar de currentTime para asegurar que encuentre el siguiente distinto
-                            const nextFavTimestamp = TrackNavigator.findNextTimestamp(currentFavStartTime, true);
+            if (currentFavStartTime !== null) {
+                // 2. Encontrar cuándo termina la "sección" de este track (usando la lista completa)
+                const trackEndTime = TrackNavigator.getTrackEndTime(currentFavStartTime, wavesurfer.getDuration());
 
-                            // 6. Si hay un siguiente y NO es el mismo (evitar loop infinito con 1 favorito o umbral grande)
-                            if (nextFavTimestamp !== null && nextFavTimestamp !== currentFavStartTime) {
-                                console.log(`[AutoLoop] Saltando a siguiente favorito: ${nextFavTimestamp}s`); // LOG
-                                TrackNavigator.seekToTimestamp(nextFavTimestamp);
-                                // El 'timeupdate' se volverá a disparar y actualizará la Media Session
-                            } else if (nextFavTimestamp === currentFavStartTime) {
-                                console.log("[AutoLoop] Siguiente favorito es el mismo, no saltando para evitar loop rápido."); // LOG
-                            } else {
-                                // Esto no debería pasar si findNextTimestamp loopea correctamente
-                                console.warn("[AutoLoop] No se encontró el siguiente timestamp favorito después del umbral."); // LOG
-                            }
+                // --- Log 3: Verificar tiempo de fin de la sección ---
+                console.log(`[AutoLoop Debug] Track End Time: ${trackEndTime !== null ? trackEndTime.toFixed(2)+'s' : 'null'}`);
+
+                if (trackEndTime !== null) {
+                    // 3. Calcular el punto de salto
+                    const jumpTime = trackEndTime - TrackNavigator.AUTOLOOP_JUMP_SECONDS_BEFORE_END;
+
+                    // --- Log 4: Verificar punto de salto y comparación ---
+                    console.log(`[AutoLoop Debug] Calculated Jump Time: ${jumpTime.toFixed(2)}s. Current Time >= Jump Time? ${currentTime >= jumpTime}`);
+
+                    // 4. Si hemos pasado el punto de salto...
+                    if (currentTime >= jumpTime) {
+                        console.log(`[AutoLoop] Umbral de salto alcanzado (Fin Track: ${trackEndTime.toFixed(2)}s, Umbral: ${TrackNavigator.AUTOLOOP_JUMP_SECONDS_BEFORE_END}s). Buscando siguiente favorito.`); // LOG (Ya estaba)
+
+                        // 5. Buscar el SIGUIENTE favorito (la función ya maneja el loop)
+                        const nextFavTimestamp = TrackNavigator.findNextTimestamp(currentFavStartTime, true);
+
+                        // --- Log 5: Verificar timestamp del siguiente favorito ---
+                        console.log(`[AutoLoop Debug] Next Fav Timestamp Found: ${nextFavTimestamp !== null ? nextFavTimestamp.toFixed(2)+'s' : 'null'}`);
+
+                        // 6. Si hay un siguiente y NO es el mismo (evitar loop infinito con 1 favorito o umbral grande)
+                         // --- Log 6: Verificar condición final antes del salto ---
+                        console.log(`[AutoLoop Debug] Condition before jump: nextFavTimestamp !== null (${nextFavTimestamp !== null}) && nextFavTimestamp !== currentFavStartTime (${nextFavTimestamp !== currentFavStartTime})`);
+
+                        if (nextFavTimestamp !== null && nextFavTimestamp !== currentFavStartTime) {
+                            console.log(`[AutoLoop] Saltando a siguiente favorito: ${nextFavTimestamp}s`); // LOG (Ya estaba)
+                            TrackNavigator.seekToTimestamp(nextFavTimestamp);
+                        } else if (nextFavTimestamp === currentFavStartTime) {
+                            console.log("[AutoLoop] Siguiente favorito es el mismo, no saltando para evitar loop rápido."); // LOG (Ya estaba)
+                        } else {
+                            console.warn("[AutoLoop] No se encontró el siguiente timestamp favorito después del umbral."); // LOG (Ya estaba)
                         }
                     }
                 }
             }
-            // --- FIN: Lógica Auto-Bucle ---
+        }
+        // --- FIN: Lógica Auto-Bucle ---
 
     }); // Fin de timeupdate
 
