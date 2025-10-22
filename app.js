@@ -31,6 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentSetIndex = 0;
     let isAutoLoopActive = false;
     let isSeekingViaAutoLoop = false;
+    let previousTimeForAutoLoop = -1; // <-- AÑADIR: Guarda el tiempo anterior
 
     // Cargar un OBJETO de favoritos (v2)
     let allFavorites = JSON.parse(localStorage.getItem('vloitz_favorites') || '{}'); // Reusamos la clave original
@@ -444,57 +445,48 @@ const handleWaveformTouchEnd = (endEvent) => {
         }
         // --- FIN: Lógica Media Session ---
 
-// --- INICIO: Lógica Auto-Bucle Favoritos (Fase 4 - CORREGIDA v4 - Logs Refinados) ---
+    // --- INICIO: Lógica Auto-Bucle Favoritos (Fase 4 - CORREGIDA v5 - Usando Estado Anterior) ---
         const isFavoritesModeActive = favToggleCheckbox && favToggleCheckbox.checked;
 
-        // Actuar solo si AMBOS botones están activos, Nav está listo Y no estamos ya saltando
+        // Solo actuar si AMBOS botones están activos, Nav está listo Y no estamos ya saltando
         if (isAutoLoopActive && isFavoritesModeActive && TrackNavigator.isReady() && !isSeekingViaAutoLoop) {
 
-            // 1. Encontrar el inicio del favorito actual
             const currentFavStartTime = TrackNavigator.getCurrentTrackStartTime(currentTime, true);
 
             if (currentFavStartTime !== null) {
-                // 2. Encontrar cuándo termina la "sección" de este track (usando la lista COMPLETA)
                 const trackEndTime = TrackNavigator.getTrackEndTime(currentFavStartTime, wavesurfer.getDuration());
 
                 if (trackEndTime !== null) {
-                    // 3. Calcular el punto de salto
                     const calculatedJumpTime = trackEndTime - TrackNavigator.AUTOLOOP_JUMP_SECONDS_BEFORE_END;
 
-                    // 4. Si estamos DENTRO de la ventana de salto...
-                    if (currentTime >= calculatedJumpTime) {
-                        // --- Log CRÍTICO: Se cumplió la condición ---
-                        console.groupCollapsed(`%c[AutoLoop Trigger!] Time: ${currentTime.toFixed(2)}s >= JumpAt: ${calculatedJumpTime.toFixed(2)}s`, "color: lightgreen; font-weight: bold;"); // Agrupado para menos ruido
+                    // NUEVA CONDICIÓN: Verificar si ACABAMOS de entrar en la ventana de salto
+                    const justEnteredJumpWindow = (currentTime >= calculatedJumpTime) && (previousTimeForAutoLoop < calculatedJumpTime);
 
-                        // Buscar el SIGUIENTE favorito
+                    if (justEnteredJumpWindow) {
+                         console.log(`%c[AutoLoop Trigger v5] Ventana alcanzada! prevTime: ${previousTimeForAutoLoop.toFixed(2)} < JumpAt: ${calculatedJumpTime.toFixed(2)} <= currentTime: ${currentTime.toFixed(2)}`, "color: lightgreen; font-weight: bold;");
+
                         const nextFavTimestamp = TrackNavigator.findNextTimestamp(currentFavStartTime, true);
 
-                        // Mostrar datos relevantes DENTRO del grupo
                         console.log(`Current Fav Start : ${currentFavStartTime.toFixed(2)}s`);
                         console.log(`Section End Time  : ${trackEndTime.toFixed(2)}s`);
                         console.log(`Next Fav Found    : ${nextFavTimestamp !== null ? nextFavTimestamp.toFixed(2)+'s' : 'null'}`);
 
-                        // Si hay un siguiente y NO es el mismo
                         if (nextFavTimestamp !== null && nextFavTimestamp !== currentFavStartTime) {
-                            isSeekingViaAutoLoop = true; // Activar bandera ANTES de saltar
+                            isSeekingViaAutoLoop = true;
                             console.log(`---> Saltando a ${nextFavTimestamp.toFixed(2)}s <---`);
-                            console.groupEnd(); // Cerrar grupo antes de saltar
                             TrackNavigator.seekToTimestamp(nextFavTimestamp);
                         } else {
-                            // Si no hay siguiente o es el mismo, loguear por qué no saltamos
-                            if(nextFavTimestamp === currentFavStartTime) {
-                                console.log("NO SALTA: Siguiente favorito es el mismo (loop de 1?).");
-                            } else {
-                                console.warn("NO SALTA: No se encontró siguiente favorito (¿error en loop?).");
-                            }
-                            console.groupEnd(); // Cerrar grupo
+                            if(nextFavTimestamp === currentFavStartTime) { console.log("NO SALTA v5: Siguiente favorito es el mismo."); }
+                            else { console.warn("NO SALTA v5: No se encontró siguiente favorito."); }
                         }
-                    } // Fin if (currentTime >= calculatedJumpTime)
-                    // (Quitamos el log "Cerca del salto" para reducir ruido)
+                    }
+                    // (Log "Cerca del salto" eliminado para claridad)
+                } // Fin if trackEndTime
+            } // Fin if currentFavStartTime
+        } // Fin if AutoLoop Activo
 
-                } // Fin if (trackEndTime !== null)
-            } // Fin if(currentFavStartTime !== null)
-        }
+        // Actualizar el tiempo anterior SIEMPRE al final del bloque timeupdate (o casi al final)
+        previousTimeForAutoLoop = currentTime;
         // --- FIN: Lógica Auto-Bucle ---
 
 
