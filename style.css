@@ -57,15 +57,20 @@ INICIO REEMPLAZO 2.1: Encabezado de Perfil
 .profile-location { font-size: 1.1em; color: var(--text-secondary); margin: 0 0 20px 0; }
 .profile-bio {
     font-size: 0.95em; color: var(--text-secondary); margin-bottom: 15px;
-    line-height: 1.5; max-height: 5.4em; overflow: hidden; position: relative;
-    padding-bottom: 1.8em; box-sizing: border-box;
+    line-height: 1.5;
+    /* Eliminamos max-height, overflow, position, padding-bottom, box-sizing */
 }
-.profile-bio::after { /* Botón "Ver más" */
-    content: '... Ver más'; position: absolute; bottom: 0; right: 0; height: 1.8em;
-    background: linear-gradient(to right, transparent, var(--dark-bg) 50%, var(--dark-bg) 100%);
-    padding: 0.3em 0 0.3em 1.5em; line-height: 1.5;
-    color: var(--brand-color); cursor: pointer; font-weight: bold; font-size: 0.9em;
+
+/* Estilo para el nuevo enlace "Ver más" */
+.bio-toggle-link {
+    color: var(--brand-color);
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 0.9em;
+    display: inline-block; /* Para asegurar buen área de clic */
+    margin-top: 5px; /* Pequeño espacio superior */
 }
+
 .profile-socials { display: flex; gap: 15px; }
 .social-icon { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; background-color: var(--light-bg); border-radius: 50%; color: var(--text-primary); font-size: 1.1em; text-decoration: none; transition: background-color 0.2s; }
 
@@ -403,8 +408,7 @@ INICIO REEMPLAZO 2.4 (Parte 2): Breakpoint 768px
     .profile-details-container { align-items: center; padding-top: 0; max-width: 100%; /* Ocupar todo el ancho */ }
     .profile-name { font-size: 2em; margin: 0 0 5px 0; }
     .profile-location { margin: 0 0 10px 0; font-size: 1em; }
-    .profile-bio { max-width: 100%; max-height: 4.8em; margin-bottom: 15px; font-size: 0.9em; padding-bottom: 1.8em; }
-    .profile-bio::after { background: linear-gradient(to right, transparent, var(--dark-bg) 80%); padding: 0.8em 0 0.5em 1.5em; }
+    .profile-bio { max-width: 100%; margin-bottom: 15px; font-size: 0.9em; }
     .profile-socials { justify-content: center; }
 
     /* Player Móvil (Portada detrás) */
