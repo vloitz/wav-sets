@@ -19,6 +19,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Referencia para el filtro de favoritos (prototipo v4)
     const favToggleCheckbox = document.getElementById('fav-toggle');
 
+    // Referencias para la biografía (prototipo v5)
+    const profileBioContainer = document.getElementById('profile-bio-container');
+    const bioExtended = document.getElementById('bio-extended');
+    const bioToggle = document.getElementById('bio-toggle');
+
     let allSets = [];
     let currentSetIndex = 0;
     let favorites = new Set(JSON.parse(localStorage.getItem('vloitz_favorites') || '[]')); // Cargar favoritos guardados
