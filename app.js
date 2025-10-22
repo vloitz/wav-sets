@@ -510,6 +510,10 @@ const handleWaveformTouchEnd = (endEvent) => {
         if (isSeekingViaAutoLoop) {
             console.log("[AutoLoop Seek] Salto completado. Reseteando bandera isSeekingViaAutoLoop."); // LOG
             isSeekingViaAutoLoop = false; // <-- AÑADIR: Resetear bandera DESPUÉS del salto
+            // --- INICIO: Log de Tiempo Post-Salto ---
+            const timeAfterSeek = wavesurfer.getCurrentTime();
+            console.log(`[AutoLoop Seek] Tiempo INMEDIATO después del seek y reseteo de bandera: ${timeAfterSeek.toFixed(4)}s`);
+            // --- FIN: Log ---
         }
     });
     // --- FIN: Resetear Bandera ---
