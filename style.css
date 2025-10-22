@@ -302,6 +302,56 @@ INICIO INSERCIÓN 2.3: Filtro de Favoritos
 .favorites-filter:hover .star-icon {
     transform: scale(1.1);
 }
+
+/* --- INICIO: Estilos Botón Auto-Bucle (Fase 1) --- */
+.auto-loop-button {
+    background-color: var(--light-bg); /* Fondo oscuro por defecto */
+    color: var(--text-secondary);     /* Texto gris por defecto */
+    border: 1px solid var(--text-secondary); /* Borde gris */
+    padding: 3px 8px;                 /* Relleno similar al filtro fav */
+    border-radius: 4px;              /* Bordes redondeados */
+    font-size: 0.8em;                /* Tamaño de fuente pequeño */
+    font-weight: 600;                /* Semi-negrita */
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    margin-left: 10px; /* Espacio para separarlo del filtro fav */
+}
+
+.auto-loop-button:hover {
+    background-color: rgba(255, 255, 255, 0.1); /* Ligero brillo al pasar el mouse */
+    color: var(--text-primary);
+    border-color: var(--text-primary);
+}
+
+.auto-loop-button.active {
+    background-color: var(--brand-color); /* Fondo verde cuando activo */
+    color: var(--dark-bg);             /* Texto oscuro cuando activo */
+    border-color: var(--brand-color);  /* Borde verde */
+    box-shadow: 0 0 8px rgba(29, 185, 84, 0.7); /* Sombra verde */
+}
+
+/* --- INICIO: Estilos para SVG dentro del botón Auto-Loop --- */
+.auto-loop-button svg {
+    width: 1em; /* Ajusta el tamaño basado en el font-size del botón */
+    height: 1em;
+    fill: currentColor; /* Hereda el color del texto del botón */
+    vertical-align: middle; /* Ayuda a centrarlo */
+}
+/* --- FIN: Estilos SVG --- */
+
+/* --- FIN: Estilos Botón --- */
+
+/* Ajuste responsivo si es necesario */
+@media (max-width: 768px) {
+    .auto-loop-button {
+         font-size: 0.75em; /* Un poco más pequeño en móvil */
+         margin-left: 5px;
+         padding: 2px 6px;
+    }
+}
+/* ================================================= */
+
+
 /* =================================================
 FIN INSERCIÓN 2.3
 =================================================
