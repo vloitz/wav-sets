@@ -205,7 +205,7 @@ let wasPlayingBeforeDrag = false; // Para saber si pausar/reanudar
 
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: set.title, // El título principal sigue siendo el del Set
-                artist: 'Vloitz',
+                artist: currentTrackName ? '' : 'Vloitz',
                 album: trackTitle, // <-- MODIFICADO: Usamos 'album' para el nombre del track actual
                 artwork: [
                     { src: set.cover_art_url, sizes: '500x500', type: 'image/png' }, // Asume PNG, ajusta si es necesario
