@@ -42,7 +42,7 @@ let longTouchTimer = null;
 const LONG_TOUCH_THRESHOLD = 200;
 let wasPlayingBeforeDrag = false; // Para saber si pausar/reanudar
 
-    console.log("Variables globales inicializadas. Favoritos cargados:", favorites); // LOG
+console.log("Variables globales inicializadas. Favoritos cargados:", favorites); // LOG
 
     // --- Inicializar WaveSurfer ---
     try {
