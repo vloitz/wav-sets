@@ -194,6 +194,7 @@ let wasPlayingBeforeDrag = false; // Para saber si pausar/reanudar
         // --- Fin carga favoritos v2 ---
 
         displayTracklist(set.tracklist || []);
+        TrackNavigator.prepareTimestamps(set.tracklist || [], currentSetFavorites); // <-- AÑADIR ESTA LÍNEA
         updatePlayingHighlight();
     }
 
@@ -357,7 +358,20 @@ const handleWaveformTouchEnd = (endEvent) => {
                 console.log("[MediaSession] Acción 'pause' recibida."); // LOG
                 if(wavesurfer) wavesurfer.pause();
             });
-            // Puedes añadir 'seekbackward', 'seekforward', 'previoustrack', 'nexttrack' si los implementas
+
+            // --- INICIO: NUEVOS HANDLERS (Fase 3 Navegación) ---
+             navigator.mediaSession.setActionHandler('nexttrack', () => {
+                console.log("[MediaSession] Acción 'nexttrack' recibida."); // LOG
+                TrackNavigator.goToNext();
+             });
+             navigator.mediaSession.setActionHandler('previoustrack', () => {
+                console.log("[MediaSession] Acción 'previoustrack' recibida."); // LOG
+                TrackNavigator.goToPrevious();
+             });
+             // --- FIN: NUEVOS HANDLERS ---
+
+            // Puedes añadir 'seekbackward', 'seekforward'...
+
         } catch (error) {
             console.error("[MediaSession] Error al configurar manejadores:", error); //LOG ERROR
         }
@@ -760,7 +774,137 @@ function toggleFavorite(seconds, buttonElement) {
     }
     // --- Fin Lógica Biografía ---
 
+    // --- INICIO: Módulo de Navegación por Tracks (v1) ---
+    const TrackNavigator = (() => {
+        const RESTART_THRESHOLD = 3; // Segundos para decidir si reiniciar o ir al anterior
+        let sortedTrackTimestamps = [];
+        let sortedFavoriteTimestamps = [];
 
+        // Prepara las listas de timestamps (en segundos) cuando se carga un set
+        function prepareTimestamps(tracklistData, currentFavoritesSet) {
+            console.log("[Nav] Preparando timestamps..."); // LOG
+            sortedTrackTimestamps = tracklistData
+                .map(track => {
+                    const parts = track.time.split(':');
+                    if (parts.length === 2) {
+                        return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+                    }
+                    return -1; // Marcar como inválido si el formato es incorrecto
+                })
+                .filter(seconds => seconds >= 0) // Filtrar inválidos
+                .sort((a, b) => a - b);
+
+            sortedFavoriteTimestamps = Array.from(currentFavoritesSet)
+                .sort((a, b) => a - b);
+
+            console.log("[Nav] Timestamps de tracks:", sortedTrackTimestamps); // LOG
+            console.log("[Nav] Timestamps de favoritos:", sortedFavoriteTimestamps); // LOG
+        }
+
+                // Encuentra el siguiente timestamp válido
+        function findNextTimestamp(currentTime, useFavorites) {
+            const timestamps = useFavorites ? sortedFavoriteTimestamps : sortedTrackTimestamps;
+            if (!timestamps || timestamps.length === 0) return null;
+
+            for (let i = 0; i < timestamps.length; i++) {
+                if (timestamps[i] > currentTime + 0.5) { // +0.5s para evitar saltos accidentales inmediatos
+                    console.log(`[Nav] Siguiente timestamp encontrado (${useFavorites ? 'Fav' : 'All'}): ${timestamps[i]}s`); // LOG
+                    return timestamps[i];
+                }
+            }
+            console.log(`[Nav] No se encontró siguiente timestamp (${useFavorites ? 'Fav' : 'All'}).`); // LOG
+            return null; // No hay siguiente
+        }
+
+        // Encuentra el timestamp anterior válido (o reinicia el actual)
+        function findPreviousTimestamp(currentTime, useFavorites) {
+            const timestamps = useFavorites ? sortedFavoriteTimestamps : sortedTrackTimestamps;
+            if (!timestamps || timestamps.length === 0) return null;
+
+            let previousTimestamp = null;
+            let currentTrackStartTimestamp = null;
+
+            // Buscar el inicio del track actual y el inicio del anterior
+            for (let i = timestamps.length - 1; i >= 0; i--) {
+                if (timestamps[i] <= currentTime) {
+                    currentTrackStartTimestamp = timestamps[i];
+                    if (i > 0) {
+                        previousTimestamp = timestamps[i-1];
+                    }
+                    break;
+                }
+            }
+
+            // Si estamos cerca del inicio (menos de RESTART_THRESHOLD segundos), vamos al anterior
+            if (currentTrackStartTimestamp !== null && (currentTime - currentTrackStartTimestamp < RESTART_THRESHOLD)) {
+                if (previousTimestamp !== null) {
+                    console.log(`[Nav] Cerca del inicio, yendo al anterior (${useFavorites ? 'Fav' : 'All'}): ${previousTimestamp}s`); // LOG
+                    return previousTimestamp;
+                } else {
+                    console.log(`[Nav] Cerca del inicio, pero es el primero. Reiniciando a 0s (${useFavorites ? 'Fav' : 'All'}).`); // LOG
+                    return 0; // Si es el primer track, reinicia a 0
+                }
+            }
+            // Si no, reiniciamos el track actual
+            else if (currentTrackStartTimestamp !== null) {
+                console.log(`[Nav] Reiniciando track actual (${useFavorites ? 'Fav' : 'All'}): ${currentTrackStartTimestamp}s`); // LOG
+                return currentTrackStartTimestamp;
+            }
+
+            console.log(`[Nav] No se pudo determinar timestamp anterior/reinicio (${useFavorites ? 'Fav' : 'All'}). Volviendo a 0s.`); // LOG
+            return 0; // Fallback: ir al inicio del audio
+        }
+
+        // Función principal para saltar (llamada desde fuera)
+        function seekToTimestamp(targetSeconds) {
+            if (wavesurfer && typeof wavesurfer.getDuration === 'function') {
+                const duration = wavesurfer.getDuration();
+                if (duration > 0 && targetSeconds !== null && targetSeconds <= duration) {
+                    const progress = targetSeconds / duration;
+                    console.log(`[Nav] Saltando a ${targetSeconds}s (Progreso: ${progress.toFixed(4)})`); // LOG
+                    wavesurfer.seekTo(progress);
+                    // Asegurarse de reproducir si estaba pausado por el salto
+                    if (!wavesurfer.isPlaying()) {
+                        wavesurfer.play();
+                    }
+                } else {
+                    console.warn(`[Nav] No se pudo saltar. Duración: ${duration}, Target: ${targetSeconds}`); // LOG
+                }
+            }
+        }
+
+        // Función PÚBLICA para ir al siguiente
+        function goToNext() {
+            if (!wavesurfer) return;
+            const currentTime = wavesurfer.getCurrentTime();
+            const useFavorites = favToggleCheckbox && favToggleCheckbox.checked;
+            console.log(`[Nav] goToNext llamado. Tiempo actual: ${currentTime.toFixed(2)}s, Usar Favoritos: ${useFavorites}`); // LOG
+            const nextTimestamp = findNextTimestamp(currentTime, useFavorites);
+            if (nextTimestamp !== null) {
+                seekToTimestamp(nextTimestamp);
+            }
+        }
+
+        // Función PÚBLICA para ir al anterior
+        function goToPrevious() {
+            if (!wavesurfer) return;
+            const currentTime = wavesurfer.getCurrentTime();
+            const useFavorites = favToggleCheckbox && favToggleCheckbox.checked;
+            console.log(`[Nav] goToPrevious llamado. Tiempo actual: ${currentTime.toFixed(2)}s, Usar Favoritos: ${useFavorites}`); // LOG
+            const previousTimestamp = findPreviousTimestamp(currentTime, useFavorites);
+            if (previousTimestamp !== null) {
+                seekToTimestamp(previousTimestamp);
+            }
+        }
+
+        // Exponer la función para ser llamada desde fuera
+        return {
+            prepareTimestamps: prepareTimestamps,
+            goToNext: goToNext,
+            goToPrevious: goToPrevious,
+        };
+    })();
+    // --- FIN: Módulo de Navegación ---
 
     console.log("Aplicación inicializada y listeners configurados."); // LOG FINAL INIT
 
