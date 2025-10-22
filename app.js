@@ -23,6 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const profileBioContainer = document.getElementById('profile-bio-container');
     const bioExtended = document.getElementById('bio-extended');
     const bioToggle = document.getElementById('bio-toggle');
+    let currentTrackNameForNotification = null;
 
 
     let allSets = [];
@@ -179,6 +180,7 @@ let wasPlayingBeforeDrag = false; // Para saber si pausar/reanudar
 
         currentLoadedSet = set;
         updateMediaSessionMetadata(set);
+        currentTrackNameForNotification = null;
 
         // --- Cargar favoritos para ESTE set (v2) ---
         const setKey = currentLoadedSet.title; // Usar el título del set como clave
@@ -195,19 +197,18 @@ let wasPlayingBeforeDrag = false; // Para saber si pausar/reanudar
         updatePlayingHighlight();
     }
 
-    // --- INICIO: Media Session API (Fase 3) ---
-    function updateMediaSessionMetadata(set) {
+    // --- INICIO: Media Session API (Fase 3 - Modificada para Track Actual) ---
+    function updateMediaSessionMetadata(set, currentTrackName = null) { // <-- MODIFICADO: Añadir currentTrackName
         if ('mediaSession' in navigator && set) {
-            console.log("[MediaSession] Actualizando metadatos para:", set.title); // LOG
+            const trackTitle = currentTrackName || "Loading Track..."; // <-- AÑADIDO: Título por defecto si no hay track
+            console.log(`[MediaSession] Actualizando metadatos. Set: "${set.title}", Track: "${trackTitle}"`); // LOG MODIFICADO
+
             navigator.mediaSession.metadata = new MediaMetadata({
-                title: set.title,
-                artist: 'Vloitz', // Puedes cambiar esto si tienes artistas invitados
-                album: 'Vloitz - High Quality Sets', // Opcional, puedes poner el título del set aquí también
+                title: set.title, // El título principal sigue siendo el del Set
+                artist: 'Vloitz',
+                album: trackTitle, // <-- MODIFICADO: Usamos 'album' para el nombre del track actual
                 artwork: [
-                    // Es importante proporcionar varios tamaños si es posible,
-                    // pero con la URL directa suele ser suficiente.
-                    // El tipo 'image/png' es una suposición, ajusta si usas jpg.
-                    { src: set.cover_art_url, sizes: '500x500', type: 'image/png' },
+                    { src: set.cover_art_url, sizes: '500x500', type: 'image/png' }, // Asume PNG, ajusta si es necesario
                 ]
             });
             console.log("[MediaSession] Metadatos aplicados."); // LOG
@@ -215,6 +216,7 @@ let wasPlayingBeforeDrag = false; // Para saber si pausar/reanudar
             console.log("[MediaSession] API no soportada o 'set' no válido."); // LOG
         }
     }
+
     // --- FIN: Media Session API (Fase 3) ---
 
     // --- Resaltar activo ---
@@ -388,6 +390,39 @@ const handleWaveformTouchEnd = (endEvent) => {
 
     wavesurfer.on('timeupdate', (currentTime) => {
         currentTimeEl.textContent = formatTime(currentTime);
+
+        // --- INICIO: Lógica para actualizar track en Media Session ---
+        if (currentLoadedSet && currentLoadedSet.tracklist && currentLoadedSet.tracklist.length > 0) {
+            let foundTrackName = null;
+            // Iterar tracklist para encontrar el track actual
+            // Importante: Asumimos que tracklist está ordenado por tiempo
+            for (let i = currentLoadedSet.tracklist.length - 1; i >= 0; i--) {
+                const track = currentLoadedSet.tracklist[i];
+                const timeParts = track.time.split(':');
+                let trackStartTimeSeconds = 0;
+                if (timeParts.length === 2) {
+                    trackStartTimeSeconds = parseInt(timeParts[0], 10) * 60 + parseInt(timeParts[1], 10);
+                }
+
+                if (currentTime >= trackStartTimeSeconds) {
+                    foundTrackName = track.title;
+                    break; // Salir del bucle una vez encontrado
+                }
+            }
+
+            // Si encontramos un track y es diferente al último mostrado, actualizamos
+            if (foundTrackName && foundTrackName !== currentTrackNameForNotification) {
+                console.log(`[MediaSession TimeUpdate] Cambio de track detectado: "${foundTrackName}"`); // LOG
+                currentTrackNameForNotification = foundTrackName; // Guardar el nuevo nombre
+                updateMediaSessionMetadata(currentLoadedSet, currentTrackNameForNotification); // Actualizar notificación
+            } else if (!foundTrackName && currentTrackNameForNotification !== null) {
+                // Caso borde: Si el tiempo es menor al primer track (ej: intro), reseteamos
+                console.log("[MediaSession TimeUpdate] Reseteando nombre de track (intro?)"); // LOG
+                currentTrackNameForNotification = null;
+                updateMediaSessionMetadata(currentLoadedSet, null); // Actualizar notificación
+            }
+        }
+        // --- FIN: Lógica Media Session ---
     });
 
     wavesurfer.on('seeking', (currentTime) => {
