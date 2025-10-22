@@ -30,6 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let allSets = [];
     let currentSetIndex = 0;
     let isAutoLoopActive = false;
+    let isSeekingViaAutoLoop = false;
 
     // Cargar un OBJETO de favoritos (v2)
     let allFavorites = JSON.parse(localStorage.getItem('vloitz_favorites') || '{}'); // Reusamos la clave original
@@ -450,7 +451,7 @@ const handleWaveformTouchEnd = (endEvent) => {
             console.log(`[AutoLoop Debug] Check - AutoLoop: ${isAutoLoopActive}, FavFilter: ${isFavoritesModeActive}, NavReady: ${TrackNavigator.isReady()}`);
 
         // Solo actuar si AMBOS botones están activos y el navegador está listo
-        if (isAutoLoopActive && isFavoritesModeActive && TrackNavigator.isReady()) {
+        if (isAutoLoopActive && isFavoritesModeActive && TrackNavigator.isReady() && !isSeekingViaAutoLoop) { // <-- AÑADIR '!isSeekingViaAutoLoop'
 
             // 1. Encontrar el inicio del favorito actual
             const currentFavStartTime = TrackNavigator.getCurrentTrackStartTime(currentTime, true);
@@ -489,6 +490,7 @@ const handleWaveformTouchEnd = (endEvent) => {
 
                         if (nextFavTimestamp !== null && nextFavTimestamp !== currentFavStartTime) {
                             console.log(`[AutoLoop] ---> Saltando a ${nextFavTimestamp}s <---`); // LOG MODIFICADO para claridad
+                            isSeekingViaAutoLoop = true; // <-- AÑADIR: Activar bandera ANTES de saltar
                             TrackNavigator.seekToTimestamp(nextFavTimestamp);
                         } else if (nextFavTimestamp === currentFavStartTime) {
                             console.log("[AutoLoop] Siguiente favorito es el mismo, no saltando."); // LOG (Ya estaba)
@@ -515,6 +517,15 @@ const handleWaveformTouchEnd = (endEvent) => {
          currentTimeEl.textContent = formatTime(currentTime);
          console.log(`Seeking a: ${formatTime(currentTime)}`); // LOG
     });
+
+    // --- INICIO: Resetear Bandera de AutoLoop (Fase 4 Corrección) ---
+    wavesurfer.on('seek', () => {
+        if (isSeekingViaAutoLoop) {
+            console.log("[AutoLoop Seek] Salto completado. Reseteando bandera isSeekingViaAutoLoop."); // LOG
+            isSeekingViaAutoLoop = false; // <-- AÑADIR: Resetear bandera DESPUÉS del salto
+        }
+    });
+    // --- FIN: Resetear Bandera ---
 
     wavesurfer.on('play', () => {
         playPauseBtn.textContent = '⏸️';
