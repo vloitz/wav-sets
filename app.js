@@ -445,11 +445,17 @@ const handleWaveformTouchEnd = (endEvent) => {
         }
         // --- FIN: Lógica Media Session ---
 
-// --- INICIO: Lógica Auto-Bucle Favoritos (Fase 4 - CORREGIDA v5 - Usando Estado Anterior) ---
+// --- INICIO: Lógica Auto-Bucle Favoritos (PRUEBA FINAL v6 - Logs Extremos) ---
         const isFavoritesModeActive = favToggleCheckbox && favToggleCheckbox.checked;
+
+        // Log 0: Estado ANTES del IF principal
+        // console.log(`[AL PreCheck] Loop:${isAutoLoopActive}, Fav:${isFavoritesModeActive}, Ready:${TrackNavigator.isReady()}, Seeking:${isSeekingViaAutoLoop}, Time:${currentTime.toFixed(4)}`);
 
         // Solo actuar si AMBOS botones están activos, Nav está listo Y no estamos ya saltando
         if (isAutoLoopActive && isFavoritesModeActive && TrackNavigator.isReady() && !isSeekingViaAutoLoop) {
+
+            // Log 1: Entramos al IF principal (Seeking es FALSE)
+            // console.log(`[AL Enter IF] Seeking es FALSE. Time:${currentTime.toFixed(4)}`);
 
             const currentFavStartTime = TrackNavigator.getCurrentTrackStartTime(currentTime, true);
 
@@ -459,33 +465,34 @@ const handleWaveformTouchEnd = (endEvent) => {
                 if (trackEndTime !== null) {
                     const calculatedJumpTime = trackEndTime - TrackNavigator.AUTOLOOP_JUMP_SECONDS_BEFORE_END;
 
-                    // NUEVA CONDICIÓN: Verificar si ACABAMOS de entrar en la ventana de salto
-                    const justEnteredJumpWindow = (currentTime >= calculatedJumpTime) && (previousTimeForAutoLoop < calculatedJumpTime);
+                    // Log 2: Valores calculados
+                    // console.log(`[AL Calc] CurrentFavStart:${currentFavStartTime.toFixed(2)}, EndTime:${trackEndTime.toFixed(2)}, JumpAt:${calculatedJumpTime.toFixed(2)}`);
 
-                    if (justEnteredJumpWindow) {
-                         console.log(`%c[AutoLoop Trigger v5] Ventana alcanzada! prevTime: ${previousTimeForAutoLoop.toFixed(2)} < JumpAt: ${calculatedJumpTime.toFixed(2)} <= currentTime: ${currentTime.toFixed(2)}`, "color: lightgreen; font-weight: bold;");
+                    // CONDICIÓN SIMPLIFICADA TEMPORALMENTE (Volvemos a >= directo)
+                    if (currentTime >= calculatedJumpTime) {
+                         console.log(`%c[AL TRIGGER!] Condición CUMPLIDA! Time:${currentTime.toFixed(4)} >= JumpAt:${calculatedJumpTime.toFixed(4)}`, "color: lightgreen; font-weight: bold;");
 
                         const nextFavTimestamp = TrackNavigator.findNextTimestamp(currentFavStartTime, true);
-
-                        console.log(`Current Fav Start : ${currentFavStartTime.toFixed(2)}s`);
-                        console.log(`Section End Time  : ${trackEndTime.toFixed(2)}s`);
-                        console.log(`Next Fav Found    : ${nextFavTimestamp !== null ? nextFavTimestamp.toFixed(2)+'s' : 'null'}`);
+                         console.log(`[AL FoundNext] NextFav: ${nextFavTimestamp !== null ? nextFavTimestamp.toFixed(2)+'s' : 'null'}`);
 
                         if (nextFavTimestamp !== null && nextFavTimestamp !== currentFavStartTime) {
+                            console.log(`[AL Set Seeking TRUE] Antes de llamar a seekToTimestamp.`);
                             isSeekingViaAutoLoop = true; // Activar bandera ANTES de saltar
-                            console.log(`---> Saltando a ${nextFavTimestamp.toFixed(2)}s <---`);
+                            console.log(`[AL ---> Saltando a ${nextFavTimestamp.toFixed(2)}s <---]`);
                             TrackNavigator.seekToTimestamp(nextFavTimestamp);
                         } else {
-                            if(nextFavTimestamp === currentFavStartTime) { console.log("NO SALTA v5: Siguiente favorito es el mismo."); }
-                            else { console.warn("NO SALTA v5: No se encontró siguiente favorito."); }
+                            console.warn(`[AL No Jump] nextFav es null o igual a currentFav.`);
                         }
-                    }
-                    // (Log "Cerca del salto" eliminado para claridad)
+                    } // Fin if currentTime >= calculatedJumpTime
+                    // else { // Log si no se cumple (Opcional, puede generar mucho ruido)
+                    //     if (calculatedJumpTime - currentTime < 0.5) { console.log(`[AL Near Miss] Time:${currentTime.toFixed(4)}, JumpAt:${calculatedJumpTime.toFixed(4)}`); }
+                    // }
+
                 } // Fin if trackEndTime
             } // Fin if currentFavStartTime
         } // Fin if AutoLoop Activo
 
-        // Actualizar el tiempo anterior SIEMPRE al final del bloque timeupdate (o casi al final)
+        // Actualizar el tiempo anterior (mantenemos por si acaso, aunque no lo usemos en la condición IF principal)
         previousTimeForAutoLoop = currentTime;
         // --- FIN: Lógica Auto-Bucle ---
 
@@ -499,13 +506,16 @@ const handleWaveformTouchEnd = (endEvent) => {
 
     // --- INICIO: Resetear Bandera de AutoLoop (Fase 4 Corrección) ---
     wavesurfer.on('seek', () => {
+        // Log SIEMPRE que ocurra un seek
+        const timeAfterSeek = wavesurfer.getCurrentTime();
+        console.log(`[Event SEEK] Seek completado. Tiempo actual AHORA: ${timeAfterSeek.toFixed(4)}s. Bandera Seeking ERA: ${isSeekingViaAutoLoop}`);
+
         if (isSeekingViaAutoLoop) {
-            console.log("[AutoLoop Seek] Salto completado. Reseteando bandera isSeekingViaAutoLoop."); // LOG
-            isSeekingViaAutoLoop = false; // <-- AÑADIR: Resetear bandera DESPUÉS del salto
-            // --- INICIO: Log de Tiempo Post-Salto ---
-            const timeAfterSeek = wavesurfer.getCurrentTime();
-            console.log(`[AutoLoop Seek] Tiempo INMEDIATO después del seek y reseteo de bandera: ${timeAfterSeek.toFixed(4)}s`);
-            // --- FIN: Log ---
+            console.log("[Event SEEK - AutoLoop] Era un salto automático. Reseteando bandera isSeekingViaAutoLoop a FALSE.");
+            isSeekingViaAutoLoop = false; // Resetear bandera DESPUÉS del salto
+            // Verificamos el tiempo otra vez por si acaso cambió mínimamente
+            const timeAfterReset = wavesurfer.getCurrentTime();
+            console.log(`[Event SEEK - AutoLoop] Bandera reseteada. Tiempo actual DESPUÉS del reseteo: ${timeAfterReset.toFixed(4)}s`);
         }
     });
     // --- FIN: Resetear Bandera ---
