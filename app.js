@@ -345,10 +345,10 @@ const handleWaveformTouchEnd = (endEvent) => {
 };
 // --- Fin Handlers Globales ---
 
-
-    // --- INICIO: Configuración de Acciones Media Session (Fase 3) ---
+    // --- INICIO: Configuración de Acciones Media Session (Repurposed Seek) ---
     if ('mediaSession' in navigator) {
-        console.log("[MediaSession] Configurando manejadores de acciones (play/pause)."); // LOG
+        // LOG MODIFICADO para reflejar los nuevos handlers
+        console.log("[MediaSession] Configurando manejadores de acciones (play/pause y seek como skip).");
         try {
             navigator.mediaSession.setActionHandler('play', () => {
                 console.log("[MediaSession] Acción 'play' recibida."); // LOG
@@ -359,18 +359,21 @@ const handleWaveformTouchEnd = (endEvent) => {
                 if(wavesurfer) wavesurfer.pause();
             });
 
-            // --- INICIO: NUEVOS HANDLERS (Fase 3 Navegación) ---
-             navigator.mediaSession.setActionHandler('nexttrack', () => {
-                console.log("[MediaSession] Acción 'nexttrack' recibida."); // LOG
-                TrackNavigator.goToNext();
-             });
-             navigator.mediaSession.setActionHandler('previoustrack', () => {
-                console.log("[MediaSession] Acción 'previoustrack' recibida."); // LOG
-                TrackNavigator.goToPrevious();
-             });
-             // --- FIN: NUEVOS HANDLERS ---
+            // --- INICIO: REEMPLAZO - Usar Seek para Saltar Pista ---
+            // ELIMINAMOS setActionHandler('nexttrack', ...)
+            // ELIMINAMOS setActionHandler('previoustrack', ...)
 
-            // Puedes añadir 'seekbackward', 'seekforward'...
+            // AÑADIMOS seekforward para llamar a goToNext
+            navigator.mediaSession.setActionHandler('seekforward', () => {
+                console.log("[MediaSession] Acción 'seekforward' (usada como next) recibida."); // LOG MODIFICADO
+                TrackNavigator.goToNext();
+            });
+            // AÑADIMOS seekbackward para llamar a goToPrevious
+            navigator.mediaSession.setActionHandler('seekbackward', () => {
+                console.log("[MediaSession] Acción 'seekbackward' (usada como previous) recibida."); // LOG MODIFICADO
+                TrackNavigator.goToPrevious();
+            });
+            // --- FIN: REEMPLAZO ---
 
         } catch (error) {
             console.error("[MediaSession] Error al configurar manejadores:", error); //LOG ERROR
