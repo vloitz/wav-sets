@@ -444,7 +444,7 @@ const handleWaveformTouchEnd = (endEvent) => {
         }
         // --- FIN: Lógica Media Session ---
 
-// --- INICIO: Lógica Auto-Bucle Favoritos (Fase 4 - CORREGIDA v3) ---
+        // --- INICIO: Lógica Auto-Bucle Favoritos (Fase 4 - CORREGIDA v4) ---
         const isFavoritesModeActive = favToggleCheckbox && favToggleCheckbox.checked;
 
         // Log 1: Verificar estado inicial (Opcional, descomentar si es necesario)
@@ -467,15 +467,16 @@ const handleWaveformTouchEnd = (endEvent) => {
                  if (trackEndTime !== null) { console.log(`[AutoLoop Debug] Track End Time (based on full list): ${trackEndTime.toFixed(2)}s`); } else { console.log(`[AutoLoop Debug] Track End Time (based on full list): null`);}
 
                 if (trackEndTime !== null) {
-                    // 3. Calcular el punto de salto (X segundos ANTES del fin de la sección)
-                    const jumpTime = trackEndTime - TrackNavigator.AUTOLOOP_JUMP_SECONDS_BEFORE_END;
+                    // 3. Calcular el punto de salto teórico (para logs)
+                    const calculatedJumpTime = trackEndTime - TrackNavigator.AUTOLOOP_JUMP_SECONDS_BEFORE_END; // Renombrado para claridad
 
-                    // Log 4: Verificar punto de salto y comparación
-                    // console.log(`[AutoLoop Debug] Calculated Jump Time (End - Threshold): ${jumpTime.toFixed(2)}s. Current Time >= Jump Time? ${currentTime >= jumpTime}`);
+                    // Log 4: Verificar punto de salto y comparación (Opcional)
+                    // console.log(`[AutoLoop Debug] Calculated Jump Time (End - Threshold): ${calculatedJumpTime.toFixed(2)}s. Is CurrentTime (${currentTime.toFixed(2)}) >= Jump Time? ${currentTime >= calculatedJumpTime}`); // Log 4 ajustado (comentado por defecto)
 
-                    // 4. Si hemos pasado el punto de salto...
-                    if (currentTime >= jumpTime) {
-                         console.log(`%c[AutoLoop Trigger] CONDICIÓN CUMPLIDA! currentTime: ${currentTime.toFixed(2)} >= jumpTime: ${jumpTime.toFixed(2)}. TrackEndTime: ${trackEndTime.toFixed(2)}`, "color: lightgreen; font-weight: bold;");
+                    // 4. Si estamos dentro de los últimos X segundos de la sección
+                    if (currentTime >= (trackEndTime - TrackNavigator.AUTOLOOP_JUMP_SECONDS_BEFORE_END)) { // <-- CONDICIÓN MODIFICADA
+
+                         console.log(`%c[AutoLoop Trigger] CONDICIÓN CUMPLIDA! currentTime: ${currentTime.toFixed(2)} >= calculatedJumpTime: ${calculatedJumpTime.toFixed(2)}. TrackEndTime: ${trackEndTime.toFixed(2)}`, "color: lightgreen; font-weight: bold;");
 
                         // 5. Buscar el SIGUIENTE favorito (la función ya maneja el loop)
                         const nextFavTimestamp = TrackNavigator.findNextTimestamp(currentFavStartTime, true);
@@ -488,7 +489,7 @@ const handleWaveformTouchEnd = (endEvent) => {
                         if (nextFavTimestamp !== null && nextFavTimestamp !== currentFavStartTime) {
                             isSeekingViaAutoLoop = true; // Activar bandera ANTES de saltar
                             console.log(`[AutoLoop] ---> Saltando a ${nextFavTimestamp.toFixed(2)}s <---`);
-                            TrackNavigator.seekToTimestamp(nextFavTimestamp); // Llamada corregida
+                            TrackNavigator.seekToTimestamp(nextFavTimestamp);
                         } else if (nextFavTimestamp === currentFavStartTime) {
                             console.log("[AutoLoop] Solo hay un favorito o el siguiente es el mismo, no saltando.");
                         } else {
@@ -496,8 +497,8 @@ const handleWaveformTouchEnd = (endEvent) => {
                         }
                     } else {
                         // Log CUANDO NO SE CUMPLE la condición (opcional)
-                        if (jumpTime - currentTime < 1.5) { // Muestra si falta menos de 1.5s
-                           console.log(`[AutoLoop Check] Cerca del salto... currentTime: ${currentTime.toFixed(2)}, jumpTime: ${jumpTime.toFixed(2)}`);
+                        if (calculatedJumpTime - currentTime < 1.5) { // Muestra si falta menos de 1.5s
+                           console.log(`[AutoLoop Check] Cerca del salto... currentTime: ${currentTime.toFixed(2)}, calculatedJumpTime: ${calculatedJumpTime.toFixed(2)}`);
                         }
                     }
                 } else {
