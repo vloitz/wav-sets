@@ -816,14 +816,20 @@ function toggleFavorite(seconds, buttonElement) {
                 }
             }
 
-                // --- INICIO: Lógica de Loop para Favoritos ---
+            // --- INICIO: Lógica de Loop para Favoritos ---
                 if (useFavorites && timestamps.length > 0) {
                     // Si estamos en modo favoritos y llegamos al final, volvemos al primero
-                    console.log("[Nav] Fin de favoritos alcanzado, loopeando al primero."); // LOG
+                    console.log("[Nav Debug] Fin de favoritos alcanzado, loopeando al primero."); // LOG (Ya estaba)
+                    // --- INICIO: LOGS ADICIONALES ---
+                    console.log(`[Nav Debug] Devolviendo primer favorito: ${timestamps[0]}`);
+                    // --- FIN: LOGS ADICIONALES ---
                     return timestamps[0]; // Devuelve el primer favorito
                 } else {
                     // Si no estamos en modo favoritos, o no hay favoritos, no hay siguiente
-                    console.log(`[Nav] No se encontró siguiente timestamp (${useFavorites ? 'Fav' : 'All'}).`); // LOG
+                    console.log(`[Nav Debug] No se encontró siguiente timestamp (${useFavorites ? 'Fav' : 'All'}).`); // LOG (Modificado)
+                    // --- INICIO: LOGS ADICIONALES ---
+                    console.log("[Nav Debug] Devolviendo null (sin loop o sin siguiente).");
+                    // --- FIN: LOGS ADICIONALES ---
                     return null; // Comportamiento original: no hay siguiente
                 }
                 // --- FIN: Lógica de Loop ---
