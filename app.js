@@ -445,53 +445,50 @@ const handleWaveformTouchEnd = (endEvent) => {
         }
         // --- FIN: Lógica Media Session ---
 
-// --- INICIO: Lógica Auto-Bucle Favoritos (PRUEBA FINAL v6 - Logs Extremos) ---
-        const isFavoritesModeActive = favToggleCheckbox && favToggleCheckbox.checked;
+            // --- INICIO: Nueva Función Auto-Loop (Refactorización v6) ---
+            function handleAutoLoopJump(currentTime) {
+                const isFavoritesModeActive = favToggleCheckbox && favToggleCheckbox.checked;
 
-        // Solo actuar si AMBOS botones están activos, Nav está listo Y no estamos ya saltando
-        if (isAutoLoopActive && isFavoritesModeActive && TrackNavigator.isReady() && !isSeekingViaAutoLoop) {
+                // Solo actuar si AMBOS botones están activos, Nav está listo Y no estamos ya saltando
+                if (isAutoLoopActive && isFavoritesModeActive && TrackNavigator.isReady() && !isSeekingViaAutoLoop) {
 
-            // Log 1: Entramos al IF principal (Seeking es FALSE)
-            // console.log(`[AL Enter IF] Seeking es FALSE. Time:${currentTime.toFixed(4)}`);
+                    const currentFavStartTime = TrackNavigator.getCurrentTrackStartTime(currentTime, true);
 
-            const currentFavStartTime = TrackNavigator.getCurrentTrackStartTime(currentTime, true);
+                    if (currentFavStartTime !== null) {
+                        const trackEndTime = TrackNavigator.getTrackEndTime(currentFavStartTime, wavesurfer.getDuration());
 
-            if (currentFavStartTime !== null) {
-                const trackEndTime = TrackNavigator.getTrackEndTime(currentFavStartTime, wavesurfer.getDuration());
+                        if (trackEndTime !== null) {
+                            const calculatedJumpTime = trackEndTime - TrackNavigator.AUTOLOOP_JUMP_SECONDS_BEFORE_END;
 
-                if (trackEndTime !== null) {
-                    const calculatedJumpTime = trackEndTime - TrackNavigator.AUTOLOOP_JUMP_SECONDS_BEFORE_END;
+                            // CONDICIÓN: Verificar si estamos DENTRO de la ventana de salto
+                            if (currentTime >= calculatedJumpTime) {
+                                console.log(`%c[AutoLoop Trigger v6] Condición Cumplida! Time:${currentTime.toFixed(4)} >= JumpAt:${calculatedJumpTime.toFixed(4)}`, "color: lightgreen; font-weight: bold;"); // Log Mantenido
 
-                    // Log 2: Valores calculados
-                    // console.log(`[AL Calc] CurrentFavStart:${currentFavStartTime.toFixed(2)}, EndTime:${trackEndTime.toFixed(2)}, JumpAt:${calculatedJumpTime.toFixed(2)}`);
+                                const nextFavTimestamp = TrackNavigator.findNextTimestamp(currentFavStartTime, true);
+                                console.log(`[AL FoundNext] NextFav: ${nextFavTimestamp !== null ? nextFavTimestamp.toFixed(2)+'s' : 'null'}`); // Log Mantenido
 
-                    // CONDICIÓN SIMPLIFICADA TEMPORALMENTE (Volvemos a >= directo)
-                    if (currentTime >= calculatedJumpTime) {
-                         console.log(`%c[AL TRIGGER!] Condición CUMPLIDA! Time:${currentTime.toFixed(4)} >= JumpAt:${calculatedJumpTime.toFixed(4)}`, "color: lightgreen; font-weight: bold;");
+                                if (nextFavTimestamp !== null && nextFavTimestamp !== currentFavStartTime) {
+                                    console.log(`[AL Set Seeking TRUE] Antes de llamar a seekToTimestamp.`); // Log Mantenido
+                                    isSeekingViaAutoLoop = true;
+                                    console.log(`[AL ---> Saltando a ${nextFavTimestamp.toFixed(2)}s <---]`); // Log Mantenido
+                                    TrackNavigator.seekToTimestamp(nextFavTimestamp);
+                                } else {
+                                    console.warn(`[AL No Jump] nextFav es null o igual a currentFav.`); // Log Mantenido
+                                }
+                            } // Fin if currentTime >= calculatedJumpTime
+                        } // Fin if trackEndTime
+                    } // Fin if currentFavStartTime
+                } // Fin if AutoLoop Activo
+            }
+            // --- FIN: Nueva Función Auto-Loop ---
 
-                        const nextFavTimestamp = TrackNavigator.findNextTimestamp(currentFavStartTime, true);
-                         console.log(`[AL FoundNext] NextFav: ${nextFavTimestamp !== null ? nextFavTimestamp.toFixed(2)+'s' : 'null'}`);
+            // --- INICIO: Llamada a Lógica Auto-Bucle (Refactorización v6) ---
+            handleAutoLoopJump(currentTime);
+            // --- FIN: Llamada a Lógica Auto-Bucle ---
 
-                        if (nextFavTimestamp !== null && nextFavTimestamp !== currentFavStartTime) {
-                            console.log(`[AL Set Seeking TRUE] Antes de llamar a seekToTimestamp.`);
-                            isSeekingViaAutoLoop = true; // Activar bandera ANTES de saltar
-                            console.log(`[AL ---> Saltando a ${nextFavTimestamp.toFixed(2)}s <---]`);
-                            TrackNavigator.seekToTimestamp(nextFavTimestamp);
-                        } else {
-                            console.warn(`[AL No Jump] nextFav es null o igual a currentFav.`);
-                        }
-                    } // Fin if currentTime >= calculatedJumpTime
-                    // else { // Log si no se cumple (Opcional, puede generar mucho ruido)
-                    //     if (calculatedJumpTime - currentTime < 0.5) { console.log(`[AL Near Miss] Time:${currentTime.toFixed(4)}, JumpAt:${calculatedJumpTime.toFixed(4)}`); }
-                    // }
+            // Actualizar el tiempo anterior SIEMPRE al final del bloque timeupdate
+            previousTimeForAutoLoop = currentTime;
 
-                } // Fin if trackEndTime
-            } // Fin if currentFavStartTime
-        } // Fin if AutoLoop Activo
-
-        // Actualizar el tiempo anterior (mantenemos por si acaso, aunque no lo usemos en la condición IF principal)
-        previousTimeForAutoLoop = currentTime;
-        // --- FIN: Lógica Auto-Bucle ---
 
 
     }); // Fin de timeupdate
