@@ -924,6 +924,8 @@ function toggleFavorite(seconds, buttonElement) {
             goToPrevious: goToPrevious,
         };
     })();
+
+    window.TrackNavigator = TrackNavigator; // <-- ADD THIS LINE TO EXPOSE GLOBALLY
     // --- FIN: Módulo de Navegación ---
 
     console.log("Aplicación inicializada y listeners configurados."); // LOG FINAL INIT
