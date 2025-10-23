@@ -24,6 +24,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const bioExtended = document.getElementById('bio-extended');
     const bioToggle = document.getElementById('bio-toggle');
     const autoLoopBtn = document.getElementById('autoLoopBtn');
+    const prevBtn = document.getElementById('prevBtn'); // <-- AÑADE ESTA LÍNEA
+    const nextBtn = document.getElementById('nextBtn'); // <-- AÑADE ESTA LÍNEA
+
+
     let currentTrackNameForNotification = null;
 
 
@@ -1105,6 +1109,23 @@ function toggleFavorite(seconds, buttonElement) {
         console.warn("[AutoLoop] Botón Auto-Bucle no encontrado."); // LOG
     }
     // --- FIN: Lógica Botón ---
+
+    // --- INICIO: Listeners para Skip Buttons ---
+    if (prevBtn) {
+        prevBtn.addEventListener('click', () => {
+            console.log("Clic Previous");
+            TrackNavigator.goToPrevious(); // <-- Llama a tu lógica existente
+        });
+    }
+
+    if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+            console.log("Clic Next");
+            TrackNavigator.goToNext(); // <-- Llama a tu lógica existente
+        });
+    }
+    // --- FIN: Listeners para Skip Buttons ---
+
 
     console.log("Aplicación inicializada y listeners configurados."); // LOG FINAL INIT
 
