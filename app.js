@@ -58,20 +58,20 @@ let wasPlayingBeforeDrag = false; // Para saber si pausar/reanudar
         console.log("Inicializando WaveSurfer..."); // LOG
         wavesurfer = WaveSurfer.create({
             container: '#waveform',
-            // --- VALORES FINALES BASADOS EN image_b05879.png ---
-            waveColor: "#cccccc",       // Color base (gris claro)
-            progressColor: "#ff7f00",   // Color de progreso (naranja)
-            cursorColor: "#ffffff",     // Color del cursor (blanco)
-            height: 100,                // Altura
-            cursorWidth: 1,             // Ancho cursor
-            barWidth: 1,                // Ancho barra
-            barGap: 0,                  // Espacio barra
-            barHeight: 0.9,             // Altura relativa barra
-            barRadius: 10,              // Radio barra
-            // --- FIN VALORES FINALES ---
+            waveColor: "#cccccc",
+            progressColor: "#ff7f00",
+            cursorColor: "#ffffff",
+            height: 100, // O 200 si prefieres la altura del prototipo
+            cursorWidth: 1,
+            // --- AJUSTES PARA PARECERSE AL PROTOTIPO ---
+            barWidth: 2,    // <-- Cambiado de 1
+            barGap: 1,      // <-- Cambiado de 0
+            barRadius: 2,   // <-- Añadido (similar al prototipo)
+            normalize: true, // <-- Añadido (importante para la altura)
+            // --- FIN AJUSTES ---
             responsive: true,
             backend: 'MediaElement',
-            media: document.getElementById('audio-player') // Conectarlo al <audio>
+            media: document.getElementById('audio-player')
         });
         console.log("WaveSurfer inicializado correctamente."); // LOG
         // Hacer accesible globalmente para depuración desde la consola
