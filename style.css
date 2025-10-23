@@ -61,6 +61,15 @@ INICIO REEMPLAZO 2.1: Encabezado de Perfil
     /* Eliminamos max-height, overflow, position, padding-bottom, box-sizing */
 }
 
+/* --- INICIO: Desactivar selección de texto en Bio --- */
+#profile-bio-container {
+    user-select: none; /* Standard syntax */
+    -webkit-user-select: none; /* Safari */
+    -moz-user-select: none; /* Firefox */
+    -ms-user-select: none; /* Internet Explorer/Edge */
+}
+/* --- FIN: Desactivar selección --- */
+
 /* Estilo para el nuevo enlace "Ver más" */
 .bio-toggle-link {
     color: var(--brand-color);
@@ -482,6 +491,48 @@ INICIO REEMPLAZO 2.4 (Parte 2): Breakpoint 768px
     .track-time { font-size: 0.85em; min-width: 40px; }
     .track-title { font-size: 0.95em; }
     .favorite-btn { font-size: 1.2em; }
+
+
+    /* --- INICIO: Estilos para Contenedor Deslizable (Móvil) --- */
+
+    .controls-wrapper {
+    overflow-x: auto;   /* Habilita el scroll horizontal */
+    overflow-y: hidden;  /* Oculta el scroll vertical */
+    white-space: nowrap; /* Impide que los botones salten de línea */
+    width: 100%;         /* Ocupa todo el ancho */
+    padding-bottom: 5px; /* Pequeño espacio por si aparece la barra de scroll */
+    -webkit-overflow-scrolling: touch; /* Scroll suave en iOS */
+
+    /* Oculta la barra de scroll (opcional pero limpio) */
+    scrollbar-width: none;  /* Firefox */
+    }
+
+    .controls-wrapper::-webkit-scrollbar {
+    display: none;  /* Chrome, Safari, etc. */
+    }
+
+    /* * Esto asegura que los botones se muestren como "inline-flex"
+    * para que se alineen uno al lado del otro dentro del scroll.
+    */
+    .controls-wrapper > .favorites-filter,
+    .controls-wrapper > .auto-loop-button {
+    display: inline-flex;
+    }
+
+    /* * Quitamos el 'margin-left' que tenía el botón de bucle
+    * y lo reemplazamos con 'margin-right' en el botón de favoritos
+    * para un espaciado más consistente.
+    */
+    .auto-loop-button {
+    margin-left: 0;
+    }
+    .favorites-filter {
+    margin-right: 10px; /* Espacio entre los botones */
+    }
+
+    /* --- FIN: Estilos para Contenedor Deslizable --- */
+
+
 }
 /* =================================================
 FIN REEMPLAZO 2.4 (Parte 2)
