@@ -173,27 +173,42 @@ FIN REEMPLAZO 2.1
     margin-top: 10px;
 }
 
+/* --- INICIO: Estilos específicos para botón Play/Pause con SVG --- */
+/* (Reemplaza estilos anteriores si es necesario) */
+
 #playPauseBtn {
-    background-color: var(--brand-color);
-    color: var(--text-primary);
+    background-color: var(--brand-color); /* Verde de tu marca */
     border: none;
-    border-radius: 50%;
+    border-radius: 50%; /* Botón redondo */
     width: 50px;
     height: 50px;
-    font-size: 1.5em;
-    cursor: pointer;
-    display: flex;
+    display: flex; /* Para centrar el SVG */
     align-items: center;
     justify-content: center;
+    color: var(--dark-bg); /* Color oscuro (negro) para el icono dentro del botón verde */
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out, opacity 0.2s ease-in-out; /* Añadido opacity */
+    /* Eliminar font-size si existía */
 }
+
 #playPauseBtn:hover {
-    opacity: 0.8;
+    opacity: 0.85; /* Cambiado de color a opacidad para mejor efecto */
 }
-#playPauseBtn:disabled { /* Estilo para botn deshabilitado */
+
+/* Asegurar que el SVG dentro del botón de Play/Pause sea oscuro */
+#playPauseBtn svg {
+    color: var(--dark-bg);
+    width: 28px;
+    height: 28px;
+}
+
+#playPauseBtn:disabled { /* Estilo para botón deshabilitado (ya existe, pero asegurar) */
      background-color: #555;
      cursor: not-allowed;
      opacity: 0.6;
 }
+/* --- FIN: Estilos específicos para botón Play/Pause con SVG --- */
+
 
 /* --- INICIO: Estilos para Nuevos Controles --- */
 
