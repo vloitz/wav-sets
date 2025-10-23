@@ -614,6 +614,22 @@ INICIO REEMPLAZO 2.4 (Parte 2): Breakpoint 768px
 
     /* --- FIN: Estilos para Contenedor Deslizable --- */
 
+    /* --- INICIO: Ajustes Waveform Móvil --- */
+    #waveform wave {
+        /* Intenta con barras más delgadas y sin espacio */
+        --wave-bar-width: 1px !important;
+        --wave-bar-gap: 0px !important;
+
+        /* Opcional: Si quieres un poco de espacio */
+        /* --wave-bar-width: 1.5px !important; */
+        /* --wave-bar-gap: 0.5px !important; */
+    }
+    /* Opcional: Reducir altura en móvil si se siente muy grande */
+    #waveform {
+        height: 80px !important; /* Ya tenías esto, puedes dejarlo o ajustarlo */
+    }
+    /* --- FIN: Ajustes Waveform Móvil --- */
+
 
 }
 /* =================================================
