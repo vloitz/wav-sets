@@ -169,7 +169,7 @@ FIN REEMPLAZO 2.1
 .player-controls {
     display: flex;
     align-items: center;
-    gap: 10px; /* <-- CAMBIADO DE 15px a 10px */
+    gap: 15px; /* <-- MODIFICADO DE 10px a 15px */
     margin-top: 10px;
 }
 
@@ -227,6 +227,26 @@ FIN REEMPLAZO 2.1
     margin: 0 5px;
     opacity: 0.5;
 }
+
+/* --- INICIO: Estilos para Iconos SVG --- */
+/* (Añadido para dimensionar los nuevos iconos SVG) */
+.player-controls svg {
+    width: 28px;
+    height: 28px;
+    vertical-align: middle; /* Centrado vertical */
+}
+
+/* Tamaño más pequeño para los botones skip */
+.skip-btn svg {
+    width: 24px;
+    height: 24px;
+}
+
+/* Ocultar el icono de pausa por defecto */
+#pauseIcon {
+    display: none;
+}
+/* --- FIN: Estilos para Iconos SVG --- */
 
 /* --- FIN: Estilos para Nuevos Controles --- */
 
@@ -360,6 +380,10 @@ INICIO INSERCIÓN 2.3: Filtro de Favoritos
     cursor: pointer;
     transition: all 0.2s ease-in-out;
     margin-left: 10px; /* Espacio para separarlo del filtro fav */
+    /* -- AÑADE ESTAS 3 LÍNEAS -- */
+    display: flex;
+    align-items: center;
+    gap: 8px; /* O el espacio que prefieras */
 }
 
 .auto-loop-button:hover {
