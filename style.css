@@ -389,6 +389,13 @@ FIN INSERCIÓN 2.3
     -ms-user-select: none; /* Para Internet Explorer/Edge antiguo */
 
 }
+
+/* --- Resaltado para el track en reproducción --- */
+.track-title.track-title-playing {
+    color: var(--brand-color); /* <-- El verde de tu marca */
+    font-weight: 600; /* Un toque extra para que resalte más */
+}
+
 .current-tracklist-item:last-child {
     border-bottom: none;
 }
