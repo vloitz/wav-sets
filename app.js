@@ -415,6 +415,7 @@ const handleWaveformTouchEnd = (endEvent) => {
         // --- INICIO: Lógica para actualizar track en Media Session ---
         if (currentLoadedSet && currentLoadedSet.tracklist && currentLoadedSet.tracklist.length > 0) {
             let foundTrackName = null;
+            let foundTrackIndex = null;
             // Iterar tracklist para encontrar el track actual
             // Importante: Asumimos que tracklist está ordenado por tiempo
             for (let i = currentLoadedSet.tracklist.length - 1; i >= 0; i--) {
@@ -427,6 +428,7 @@ const handleWaveformTouchEnd = (endEvent) => {
 
                 if (currentTime >= trackStartTimeSeconds) {
                     foundTrackName = track.title;
+                    foundTrackIndex = i;
                     break; // Salir del bucle una vez encontrado
                 }
             }
@@ -436,11 +438,36 @@ const handleWaveformTouchEnd = (endEvent) => {
                 console.log(`[MediaSession TimeUpdate] Cambio de track detectado: "${foundTrackName}"`); // LOG
                 currentTrackNameForNotification = foundTrackName; // Guardar el nuevo nombre
                 updateMediaSessionMetadata(currentLoadedSet, currentTrackNameForNotification); // Actualizar notificación
+
+                // --- INICIO: NUEVO CÓDIGO DE RESALTADO ---
+
+                // 1. Limpiar todos los resaltados anteriores
+                currentTracklistElement.querySelectorAll('.track-title.track-title-playing').forEach(el => {
+                    el.classList.remove('track-title-playing');
+                });
+
+                // 2. Aplicar el nuevo resaltado usando el índice que guardamos
+                const newActiveItem = currentTracklistElement.querySelector(`.current-tracklist-item[data-index="${foundTrackIndex}"]`);
+                if (newActiveItem) {
+                    const titleElement = newActiveItem.querySelector('.track-title');
+                    if (titleElement) {
+                        titleElement.classList.add('track-title-playing');
+                        console.log(`[Highlight] Resaltando track: ${foundTrackName}`);
+                    }
+                }
+                // --- FIN: NUEVO CÓDIGO DE RESALTADO ---
+
             } else if (!foundTrackName && currentTrackNameForNotification !== null) {
                 // Caso borde: Si el tiempo es menor al primer track (ej: intro), reseteamos
                 console.log("[MediaSession TimeUpdate] Reseteando nombre de track (intro?)"); // LOG
                 currentTrackNameForNotification = null;
                 updateMediaSessionMetadata(currentLoadedSet, null); // Actualizar notificación
+
+                // --- AÑADE ESTO PARA LIMPIAR EL RESALTADO ---
+                currentTracklistElement.querySelectorAll('.track-title.track-title-playing').forEach(el => {
+                    el.classList.remove('track-title-playing');
+                });
+
             }
         }
         // --- FIN: Lógica Media Session ---
