@@ -571,7 +571,9 @@ const handleWaveformTouchEnd = (endEvent) => {
 
     wavesurfer.on('finish', () => {
         console.log("Evento: Finish (track terminado)"); // LOG
-        playPauseBtn.textContent = '▶️';
+        //playPauseBtn.textContent = '▶️';
+        if (playIcon) playIcon.style.display = 'block';
+        if (pauseIcon) pauseIcon.style.display = 'none';
         const nextIndex = (currentSetIndex + 1) % allSets.length;
         console.log(`Cargando siguiente track: ${nextIndex}`); // LOG
         if (allSets.length > 0) {
