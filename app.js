@@ -4,6 +4,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Referencias ---
     const waveformContainer = document.getElementById('waveform');
     const playPauseBtn = document.getElementById('playPauseBtn');
+    const playIcon = document.getElementById('playIcon');   // <-- NUEVO
+    const pauseIcon = document.getElementById('pauseIcon'); // <-- NUEVO
     const currentTimeEl = document.getElementById('currentTime');
     const totalDurationEl = document.getElementById('totalDuration');
     const currentCoverArt = document.getElementById('current-cover-art');
@@ -153,6 +155,11 @@ let wasPlayingBeforeDrag = false; // Para saber si pausar/reanudar
         currentTimeEl.textContent = '0:00';
         playPauseBtn.disabled = true;
         playPauseBtn.textContent = '🔄';
+
+        // --- INICIO: CÓDIGO FALTANTE (Establecer icono inicial) ---
+        if (playIcon) playIcon.style.display = 'block';   // Asegura que se muestre el icono de Play al cargar
+        if (pauseIcon) pauseIcon.style.display = 'none'; // Asegura que Pause esté oculto
+        // --- FIN: CÓDIGO FALTANTE ---
 
         console.log(`WaveSurfer intentará cargar: ${set.audio_url}`); // LOG
 
@@ -546,12 +553,16 @@ const handleWaveformTouchEnd = (endEvent) => {
     // --- FIN: Resetear Bandera ---
 
     wavesurfer.on('play', () => {
-        playPauseBtn.textContent = '⏸️';
+        //playPauseBtn.textContent = '⏸️';
+        if (playIcon) playIcon.style.display = 'none';    // Oculta Play
+        if (pauseIcon) pauseIcon.style.display = 'block'; // Muestra Pause
         updatePlayingHighlight();
         console.log("Evento: Play"); // LOG
     });
     wavesurfer.on('pause', () => {
-        playPauseBtn.textContent = '▶️';
+        //playPauseBtn.textContent = '▶️';
+        if (playIcon) playIcon.style.display = 'block';   // Muestra Play
+        if (pauseIcon) pauseIcon.style.display = 'none';  // Oculta Pause
         updatePlayingHighlight(); // Quitar resaltado
         console.log("Evento: Pause"); // LOG
     });
