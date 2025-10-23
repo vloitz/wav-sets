@@ -403,7 +403,9 @@ const handleWaveformTouchEnd = (endEvent) => {
         totalDurationEl.textContent = formatTime(duration);
         currentTimeEl.textContent = formatTime(0);
         playPauseBtn.disabled = false;
-        playPauseBtn.textContent = '▶️';
+        //playPauseBtn.textContent = '▶️';
+        if (playIcon) playIcon.style.display = 'block';
+        if (pauseIcon) pauseIcon.style.display = 'none';
         currentTrackTitle.textContent = allSets[currentSetIndex]?.title || "Set Listo";
         console.log("WaveSurfer listo para track:", allSets[currentSetIndex]?.title); // LOG ÉXITO
     });
