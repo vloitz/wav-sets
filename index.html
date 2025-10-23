@@ -84,11 +84,31 @@
                     <div id="waveform"></div>
                 </div>
                     <div class="player-controls">
-                        <button id="prevBtn" class="skip-btn" title="Pista Anterior">⏮️</button>
 
-                        <button id="playPauseBtn" disabled>🔄</button>
+                        <button id="prevBtn" class="skip-btn" title="Pista Anterior">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M11 18V6l-8.5 6 8.5 6zm.5-6l8.5 6V6l-8.5 6z"/>
+                                <path d="M0 0h24v24H0z" fill="none"/>
+                            </svg>
+                        </button>
 
-                        <button id="nextBtn" class="skip-btn" title="Siguiente Pista">⏭️</button>
+                        <button id="playPauseBtn" disabled title="Reproducir/Pausar">
+                            <svg id="playIcon" class="player-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M8 5v14l11-7z"/>
+                                <path d="M0 0h24v24H0z" fill="none"/>
+                            </svg>
+                            <svg id="pauseIcon" class="player-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="display:none;">
+                                <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                                <path d="M0 0h24v24H0z" fill="none"/>
+                            </svg>
+                        </button>
+
+                        <button id="nextBtn" class="skip-btn" title="Siguiente Pista">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M4 18l8.5-6L4 6v12zm9-12v12l8.5-6-8.5-6z"/>
+                                <path d="M0 0h24v24H0z" fill="none"/>
+                            </svg>
+                        </button>
 
                         <div class="time-display">
                             <span id="currentTime">0:00</span>
