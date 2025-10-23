@@ -154,7 +154,6 @@ let wasPlayingBeforeDrag = false; // Para saber si pausar/reanudar
         totalDurationEl.textContent = '0:00';
         currentTimeEl.textContent = '0:00';
         playPauseBtn.disabled = true;
-        playPauseBtn.textContent = '🔄';
 
         // --- INICIO: CÓDIGO FALTANTE (Establecer icono inicial) ---
         if (playIcon) playIcon.style.display = 'block';   // Asegura que se muestre el icono de Play al cargar
@@ -403,7 +402,6 @@ const handleWaveformTouchEnd = (endEvent) => {
         totalDurationEl.textContent = formatTime(duration);
         currentTimeEl.textContent = formatTime(0);
         playPauseBtn.disabled = false;
-        //playPauseBtn.textContent = '▶️';
         if (playIcon) playIcon.style.display = 'block';
         if (pauseIcon) pauseIcon.style.display = 'none';
         currentTrackTitle.textContent = allSets[currentSetIndex]?.title || "Set Listo";
@@ -555,14 +553,12 @@ const handleWaveformTouchEnd = (endEvent) => {
     // --- FIN: Resetear Bandera ---
 
     wavesurfer.on('play', () => {
-        //playPauseBtn.textContent = '⏸️';
         if (playIcon) playIcon.style.display = 'none';    // Oculta Play
         if (pauseIcon) pauseIcon.style.display = 'block'; // Muestra Pause
         updatePlayingHighlight();
         console.log("Evento: Play"); // LOG
     });
     wavesurfer.on('pause', () => {
-        //playPauseBtn.textContent = '▶️';
         if (playIcon) playIcon.style.display = 'block';   // Muestra Play
         if (pauseIcon) pauseIcon.style.display = 'none';  // Oculta Pause
         updatePlayingHighlight(); // Quitar resaltado
@@ -571,7 +567,6 @@ const handleWaveformTouchEnd = (endEvent) => {
 
     wavesurfer.on('finish', () => {
         console.log("Evento: Finish (track terminado)"); // LOG
-        //playPauseBtn.textContent = '▶️';
         if (playIcon) playIcon.style.display = 'block';
         if (pauseIcon) pauseIcon.style.display = 'none';
         const nextIndex = (currentSetIndex + 1) % allSets.length;
