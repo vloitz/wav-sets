@@ -158,24 +158,22 @@ FIN REEMPLAZO 2.1
 /* Contenedor para la forma de onda y controles */
 .waveform-container {
     width: 100%;
-    margin-bottom: 10px;
+    margin-bottom: 10px; /* Default margin-bottom */
 }
 #waveform {
     cursor: pointer; /* Indica que se puede hacer clic */
-    height: 100px; /* Altura de la forma de onda */
+    /* height: 100px; */ /* Altura ahora controlada por JS */
 }
 
 /* Controles personalizados */
 .player-controls {
     display: flex;
     align-items: center;
-    gap: 15px; /* <-- MODIFICADO DE 10px a 15px */
-    margin-top: 10px;
+    gap: 15px;
+    margin-top: 10px; /* Default margin-top */
 }
 
 /* --- INICIO: Estilos específicos para botón Play/Pause con SVG --- */
-/* (Reemplaza estilos anteriores si es necesario) */
-
 #playPauseBtn {
     background-color: var(--brand-color); /* Verde de tu marca */
     border: none;
@@ -188,92 +186,73 @@ FIN REEMPLAZO 2.1
     color: var(--dark-bg); /* Color oscuro (negro) para el icono dentro del botón verde */
     cursor: pointer;
     transition: background-color 0.2s ease-in-out, opacity 0.2s ease-in-out; /* Añadido opacity */
-    /* Eliminar font-size si existía */
 }
-
 #playPauseBtn:hover {
     opacity: 0.85; /* Cambiado de color a opacidad para mejor efecto */
 }
-
-/* Asegurar que el SVG dentro del botón de Play/Pause sea oscuro */
-#playPauseBtn svg {
+#playPauseBtn svg { /* SVG dentro del botón de Play/Pause */
     color: var(--dark-bg);
     width: 28px;
     height: 28px;
 }
-
-#playPauseBtn:disabled { /* Estilo para botón deshabilitado (ya existe, pero asegurar) */
+#playPauseBtn:disabled { /* Estilo para botón deshabilitado */
      background-color: #555;
      cursor: not-allowed;
      opacity: 0.6;
 }
 /* --- FIN: Estilos específicos para botón Play/Pause con SVG --- */
 
-
 /* --- INICIO: Estilos para Nuevos Controles --- */
-
-/* Estilo para los botones "skip" (anterior/siguiente) */
-.skip-btn {
+.skip-btn { /* Botones Previous/Next */
     background: none;
     border: none;
     color: var(--text-secondary); /* Color gris */
-    font-size: 1.3em; /* Un poco más pequeños que el de Play */
+    font-size: 1.3em;
     cursor: pointer;
     transition: color 0.2s;
-    padding: 0 5px; /* Un poco de espacio de clic */
+    padding: 0 5px;
 }
 .skip-btn:hover {
     color: var(--text-primary); /* Blanco al pasar el mouse */
 }
-
-/* Nuevo contenedor para los tiempos */
-.time-display {
+.time-display { /* Contenedor para tiempos */
     margin-left: auto; /* EMPUJA EL BLOQUE DE TIEMPO A LA DERECHA */
     display: flex;
     align-items: center;
     font-size: 0.9em;
     color: var(--text-secondary);
-    min-width: 90px; /* Espacio para "00:00 / 00:00" */
+    min-width: 90px;
     justify-content: flex-end;
 }
-
-/* Divisor "/" entre los tiempos */
-.time-divider {
+.time-divider { /* Separador "/" */
     margin: 0 5px;
     opacity: 0.5;
 }
-
 /* --- INICIO: Estilos para Iconos SVG --- */
-/* (Añadido para dimensionar los nuevos iconos SVG) */
-.player-controls svg {
+.player-controls svg { /* Estilo general SVG controles */
     width: 28px;
     height: 28px;
     vertical-align: middle; /* Centrado vertical */
 }
-
-/* Tamaño más pequeño para los botones skip */
-.skip-btn svg {
+.skip-btn svg { /* SVG dentro de botones skip */
     width: 24px;
     height: 24px;
 }
-
-/* Ocultar el icono de pausa por defecto */
-#pauseIcon {
+#pauseIcon { /* Ocultar icono Pausa por defecto */
     display: none;
 }
 /* --- FIN: Estilos para Iconos SVG --- */
-
 /* --- FIN: Estilos para Nuevos Controles --- */
 
 #currentTime, #totalDuration {
     font-size: 0.9em;
     color: var(--text-secondary);
-    min-width: 45px; /* Espacio para el tiempo */
-    text-shadow: 1px 1px 2px rgba(0,0,0,0.6); /* AÑADIDO 2.2 */
+    min-width: 45px;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.6);
 }
 #totalDuration {
-     margin-left: 0; /* <-- CAMBIADO DE 'auto' a 0 */
-     text-align: left; /* <-- CAMBIADO DE 'right' a 'left' */
+     margin-left: 0;
+     text-align: left;
      text-shadow: 1px 1px 2px rgba(0,0,0,0.6);
 }
 
@@ -288,13 +267,11 @@ FIN REEMPLAZO 2.1
     border-radius: 8px;
     padding: 20px;
 }
-
 .tracklist {
     list-style: none;
     padding: 0;
     margin: 0;
 }
-
 .track-item {
     display: flex;
     align-items: center;
@@ -303,11 +280,9 @@ FIN REEMPLAZO 2.1
     cursor: pointer;
     transition: background-color 0.2s;
 }
-
 .track-item:hover, .track-item.playing {
     background-color: rgba(255, 255, 255, 0.1);
 }
-
 .track-item-cover {
     width: 50px;
     height: 50px;
@@ -316,18 +291,15 @@ FIN REEMPLAZO 2.1
     margin-right: 15px;
     background-color: var(--dark-bg);
 }
-
 .track-item-title {
     font-size: 1.1em;
     font-weight: 500;
 }
-
 .track-item-date {
     font-size: 0.9em;
     color: var(--text-secondary);
     margin-left: auto;
 }
-
 
 /* --- NUEVOS ESTILOS: Tracklist del Set Actual --- */
 .current-tracklist-container {
@@ -336,7 +308,6 @@ FIN REEMPLAZO 2.1
     padding: 15px 20px;
     margin-bottom: 30px;
 }
-
 .current-tracklist-container h4 {
     margin-top: 0;
     margin-bottom: 10px;
@@ -395,129 +366,74 @@ INICIO INSERCIÓN 2.3: Filtro de Favoritos
     cursor: pointer;
     transition: all 0.2s ease-in-out;
     margin-left: 10px; /* Espacio para separarlo del filtro fav */
-    /* -- AÑADE ESTAS 3 LÍNEAS -- */
     display: flex;
     align-items: center;
-    gap: 8px; /* O el espacio que prefieras */
+    gap: 8px;
 }
-
 .auto-loop-button:hover {
-    background-color: rgba(255, 255, 255, 0.1); /* Ligero brillo al pasar el mouse */
+    background-color: rgba(255, 255, 255, 0.1);
     color: var(--text-primary);
     border-color: var(--text-primary);
 }
-
 .auto-loop-button.active {
-    background-color: var(--brand-color); /* Fondo verde cuando activo */
-    color: var(--dark-bg);             /* Texto oscuro cuando activo */
-    border-color: var(--brand-color);  /* Borde verde */
-    box-shadow: 0 0 8px rgba(29, 185, 84, 0.7); /* Sombra verde */
+    background-color: var(--brand-color);
+    color: var(--dark-bg);
+    border-color: var(--brand-color);
+    box-shadow: 0 0 8px rgba(29, 185, 84, 0.7);
 }
-
-/* --- INICIO: Estilos para SVG dentro del botón Auto-Loop --- */
 .auto-loop-button svg {
-    width: 1em; /* Ajusta el tamaño basado en el font-size del botón */
+    width: 1em;
     height: 1em;
-    fill: currentColor; /* Hereda el color del texto del botón */
-    vertical-align: middle; /* Ayuda a centrarlo */
+    fill: currentColor;
+    vertical-align: middle;
 }
-/* --- FIN: Estilos SVG --- */
-
 /* --- FIN: Estilos Botón --- */
-
-/* Ajuste responsivo si es necesario */
-@media (max-width: 768px) {
-    .auto-loop-button {
-         font-size: 0.75em; /* Un poco más pequeño en móvil */
-         margin-left: 5px;
-         padding: 2px 6px;
-    }
-
-    /* --- INICIO: Ajuste Altura Waveform Móvil --- */
-    #waveform {
-         height: 80px !important; /* O la altura que prefieras para móvil */
-    }
-    /* --- FIN: Ajuste Altura Waveform Móvil --- */
-
-/* --- INICIO: Ajuste Altura Waveform Móvil --- */
-    .player-details #waveform {
-         height: 80px !important;
-    }
-    /* --- FIN: Ajuste Altura Waveform Móvil --- */
-
-    /* === INICIO: NUEVA REGLA PARA BAJAR CONTROLES EN MÓVIL === */
-    .player-controls {
-        margin-top: 25px; /* Ajusta este valor si necesitas más/menos espacio */
-    }
-    /* === FIN: NUEVA REGLA === */
-
-
-}
-/* ================================================= */
-
-
-/* =================================================
-FIN INSERCIÓN 2.3
-=================================================
-*/
 
 .current-tracklist {
     list-style: none;
     padding: 0;
     margin: 0;
-    max-height: 400px; /* Altura máxima con scroll */
+    max-height: 400px;
     overflow-y: auto;
 }
-
 .current-tracklist-item {
     display: flex;
     align-items: center;
     padding: 8px 5px;
-    border-bottom: 1px solid #333; /* Separador sutil */
+    border-bottom: 1px solid #333;
     cursor: pointer;
     transition: background-color 0.2s;
-
-    /* --- AÑADIR ESTA LÍNEA --- */
-    user-select: none; /* Evita la selección de texto */
-    -webkit-user-select: none; /* Para navegadores basados en WebKit (Safari, Chrome antiguo) */
-    -moz-user-select: none; /* Para Firefox */
-    -ms-user-select: none; /* Para Internet Explorer/Edge antiguo */
-
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
 }
-
-/* --- Resaltado para el track en reproducción --- */
-.track-title.track-title-playing {
-    color: var(--brand-color); /* <-- El verde de tu marca */
-    font-weight: 600; /* Un toque extra para que resalte más */
+.track-title.track-title-playing { /* Resaltado track activo */
+    color: var(--brand-color);
+    font-weight: 600;
 }
-
 .current-tracklist-item:last-child {
     border-bottom: none;
 }
-
 .current-tracklist-item:hover {
     background-color: rgba(255, 255, 255, 0.05);
 }
-
 .track-time {
     color: var(--text-secondary);
     font-size: 0.9em;
-    min-width: 45px; /* Alineación */
+    min-width: 45px;
     margin-right: 10px;
-    font-variant-numeric: tabular-nums; /* Asegura ancho fijo para números */
+    font-variant-numeric: tabular-nums;
 }
 .track-time:hover {
-    color: var(--brand-color); /* Resaltar al pasar el mouse */
+    color: var(--brand-color);
 }
-
 .track-emoji {
     margin-right: 10px;
 }
-
 .track-title {
-    flex-grow: 1; /* Ocupa el espacio restante */
+    flex-grow: 1;
 }
-
 .favorite-btn {
     background: none;
     border: none;
@@ -529,44 +445,29 @@ FIN INSERCIÓN 2.3
     transition: color 0.2s, transform 0.1s;
 }
 .favorite-btn:hover {
-    color: #ffc107; /* Amarillo para hover */
+    color: #ffc107;
 }
 .favorite-btn.favorited {
-    color: #ffc107; /* Amarillo cuando es favorito */
+    color: #ffc107;
     transform: scale(1.1);
 }
-/* 2025-10-21_011846_ */
-
 
 /* --- 3. Responsive para Mvil --- */
 
-/* =================================================
-INICIO INSERCIÓN 2.4 (Parte 1): Breakpoint 992px
-=================================================
-*/
-@media (max-width: 992px) { /* Aumentar breakpoint para ocultar antes */
-     /* Ocultar contenido extra en pantallas medianas/pequeñas */
+@media (max-width: 992px) {
     .profile-extra-content {
         display: none;
     }
     .profile-info {
-        justify-content: flex-start; /* Evitar que el texto se expanda */
+        justify-content: flex-start;
     }
 }
-/* =================================================
-FIN INSERCIÓN 2.4 (Parte 1)
-=================================================
-*/
 
-/* =================================================
-INICIO REEMPLAZO 2.4 (Parte 2): Breakpoint 768px
-=================================================
-*/
 @media (max-width: 768px) {
     /* Perfil Móvil */
-    .profile-info { flex-direction: column; align-items: center; margin-top: -75px; text-align: center; padding: 0 15px; gap: 0; /* Resetear gap */ }
+    .profile-info { flex-direction: column; align-items: center; margin-top: -75px; text-align: center; padding: 0 15px; gap: 0; }
     .profile-pic { margin-right: 0; margin-bottom: 15px; width: 120px; height: 120px; margin-top: 0; }
-    .profile-details-container { align-items: center; padding-top: 0; max-width: 100%; /* Ocupar todo el ancho */ }
+    .profile-details-container { align-items: center; padding-top: 0; max-width: 100%; }
     .profile-name { font-size: 2em; margin: 0 0 5px 0; }
     .profile-location { margin: 0 0 10px 0; font-size: 1em; }
     .profile-bio { max-width: 100%; margin-bottom: 15px; font-size: 0.9em; }
@@ -579,9 +480,9 @@ INICIO REEMPLAZO 2.4 (Parte 2): Breakpoint 768px
     #current-track-title { text-align: center; font-size: 1.5em; text-shadow: 1px 1px 3px rgba(0,0,0,0.7); }
     #current-track-artist { text-shadow: 1px 1px 3px rgba(0,0,0,0.7); text-align: center; }
 
-    #waveform { height: 80px; }
-    .track-item-title { font-size: 1em; }
-    .track-item-date { font-size: 0.8em; }
+    /* Altura waveform ya controlada en JS, CSS la anula solo para móvil si es necesario */
+    /* .track-item-title { font-size: 1em; } */ /* Comentado, revisa si es necesario */
+    /* .track-item-date { font-size: 0.8em; } */ /* Comentado, revisa si es necesario */
 
     /* Tracklist Actual Móvil */
     .current-tracklist-container { padding: 10px 15px; }
@@ -594,78 +495,50 @@ INICIO REEMPLAZO 2.4 (Parte 2): Breakpoint 768px
     .track-title { font-size: 0.95em; }
     .favorite-btn { font-size: 1.2em; }
 
-
     /* --- INICIO: Estilos para Contenedor Deslizable (Móvil) --- */
-    /* ... (código del contenedor deslizable) ... */
-    .favorites-filter {
-        margin-right: 10px; /* Espacio entre los botones */ /* */
-    }
-    /* --- FIN: Estilos para Contenedor Deslizable --- */
-
-    /* === PEGA EL BLOQUE DE ALTURA AQUÍ === */
-    /* --- INICIO: Ajuste Altura Waveform Móvil --- */
-    #waveform {
-         height: 80px !important; /* O la altura que prefieras para móvil */
-    }
-    /* --- FIN: Ajuste Altura Waveform Móvil --- */
-    /* === FIN DEL BLOQUE PEGADO === */
-
-
-    /* --- INICIO: Estilos para Contenedor Deslizable (Móvil) --- */
-
-
     .controls-wrapper {
-    overflow-x: auto;   /* Habilita el scroll horizontal */
-    overflow-y: hidden;  /* Oculta el scroll vertical */
-    white-space: nowrap; /* Impide que los botones salten de línea */
-    width: 100%;         /* Ocupa todo el ancho */
-    padding-bottom: 5px; /* Pequeño espacio por si aparece la barra de scroll */
-    -webkit-overflow-scrolling: touch; /* Scroll suave en iOS */
-
-    /* Oculta la barra de scroll (opcional pero limpio) */
-    scrollbar-width: none;  /* Firefox */
+        overflow-x: auto;
+        overflow-y: hidden;
+        white-space: nowrap;
+        width: 100%;
+        padding-bottom: 5px;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none; /* Firefox */
     }
-
     .controls-wrapper::-webkit-scrollbar {
-    display: none;  /* Chrome, Safari, etc. */
+        display: none; /* Chrome, Safari, etc. */
     }
-
-    /* * Esto asegura que los botones se muestren como "inline-flex"
-    * para que se alineen uno al lado del otro dentro del scroll.
-    */
     .controls-wrapper > .favorites-filter,
     .controls-wrapper > .auto-loop-button {
-    display: inline-flex;
+        display: inline-flex;
     }
-
-    /* * Quitamos el 'margin-left' que tenía el botón de bucle
-    * y lo reemplazamos con 'margin-right' en el botón de favoritos
-    * para un espaciado más consistente.
-    */
     .auto-loop-button {
-    margin-left: 0;
+        margin-left: 0; /* Anula margen anterior */
+        font-size: 0.75em; /* Reducir tamaño botón */
+        padding: 2px 6px;
     }
     .favorites-filter {
-    margin-right: 10px; /* Espacio entre los botones */
+        margin-right: 10px; /* Espacio entre botones */
     }
-
     /* --- FIN: Estilos para Contenedor Deslizable --- */
 
+    /* --- INICIO: Ajuste Altura Waveform Móvil (CON MAYOR ESPECIFICIDAD) --- */
+    .player-details #waveform { /* Selector modificado */
+         height: 80px !important;
+    }
+    /* --- FIN: Ajuste Altura Waveform Móvil --- */
 
+    /* === INICIO: NUEVA REGLA PARA AÑADIR ESPACIO DEBAJO DE LA ONDA EN MÓVIL === */
+    .waveform-container {
+        margin-bottom: 25px; /* Ajusta este valor (ej. 20px, 25px, 30px) */
+    }
+    /* === FIN: NUEVA REGLA === */
 
 }
 
 /* --- Ajustes Específicos para Desktop --- */
 @media (min-width: 769px) {
-    /* Añadir más espacio sobre los controles en desktop */
     .player-controls {
-        margin-top: 25px; /* Ajusta este valor (ej. 20px, 25px, 30px) hasta que te guste */
+        margin-top: 25px; /* Ajusta este valor */
     }
 }
-/* === FIN DEL BLOQUE PEGADO === */
-
-
-/* =================================================
-FIN REEMPLAZO 2.4 (Parte 2)
-=================================================
-*/
