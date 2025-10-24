@@ -58,17 +58,17 @@ let wasPlayingBeforeDrag = false; // Para saber si pausar/reanudar
         console.log("Inicializando WaveSurfer..."); // LOG
         wavesurfer = WaveSurfer.create({
             container: '#waveform',
-            waveColor: "#cccccc",
-            progressColor: "#ff7f00",
-            cursorColor: "#ffffff",
-            height: 100, // O 200 si prefieres la altura del prototipo
-            cursorWidth: 1,
-            // --- AJUSTES PARA PARECERSE AL PROTOTIPO ---
-            barWidth: 2,    // <-- Cambiado de 1
-            barGap: 1,      // <-- Cambiado de 0
-            barRadius: 2,   // <-- Añadido (similar al prototipo)
-            normalize: true, // <-- Añadido (importante para la altura)
-            // --- FIN AJUSTES ---
+            // --- Matching Prototype Visuals ---
+            waveColor: 'rgba(255, 255, 255, 0.60)', // Match prototype
+            progressColor: 'rgba(255, 255, 255, 0.60)', // Match prototype
+            height: 128,                          // Match prototype
+            barWidth: 3,                          // Match prototype
+            barGap: 1,                           // Match prototype
+            // barRadius: 0, // Default in prototype, can omit or set explicitly
+            // normalize: false, // Default in prototype, ensure it's not true
+            // --- End Matching ---
+            cursorColor: "#ffffff", // Keep your preferred cursor color
+            cursorWidth: 1,         // Keep your preferred cursor width
             responsive: true,
             backend: 'MediaElement',
             media: document.getElementById('audio-player')
