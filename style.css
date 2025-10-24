@@ -538,25 +538,31 @@ INICIO INSERCIÓN 2.3: Filtro de Favoritos
 
 /* --- INICIO: Estilos para Distintivo de Calidad FLAC --- */
 .audio-quality-badge {
-    position: absolute; /* Permite posicionarlo respecto a .player-details */
-    top: 15px;          /* Espacio desde arriba */
-    right: 15px;         /* Espacio desde la derecha */
-    background-color: rgba(29, 185, 84, 0.8); /* Verde de marca semi-transparente */
-    color: var(--dark-bg); /* Texto oscuro */
-    padding: 3px 8px;   /* Relleno interior */
-    border-radius: 4px; /* Bordes redondeados */
-    font-size: 0.75em;  /* Tamaño de fuente pequeño */
-    font-weight: 700;   /* Negrita */
-    text-transform: uppercase; /* Mayúsculas */
-    z-index: 5;         /* Asegura que esté por encima de otros elementos si es necesario */
-    pointer-events: none; /* Evita que interfiera con clics en la onda */
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    /* Fondo con degradado sutil */
+    background: linear-gradient(145deg, rgba(20, 130, 60, 0.9), rgba(29, 185, 84, 0.85));
+    color: #FFFFFF; /* Texto blanco */
+    padding: 4px 10px; /* Un poco más de padding */
+    border-radius: 5px; /* Bordes ligeramente más redondeados */
+    font-size: 0.7em;  /* Un poco más pequeño para elegancia */
+    font-weight: 600;   /* Ligeramente menos grueso */
+    text-transform: uppercase;
+    letter-spacing: 0.5px; /* Espacio entre letras */
+    /* Efecto de borde sutil */
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    /* Sombra para darle profundidad */
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+    z-index: 5;
+    pointer-events: none;
 }
 
 /* Ajuste para móvil para que no choque con elementos */
 @media (max-width: 768px) {
     .audio-quality-badge {
-        top: 10px;
-        right: 10px;
+        top: 5px;
+        right: 6px;
         font-size: 0.65em; /* Aún más pequeño en móvil */
         padding: 2px 6px;
     }
