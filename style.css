@@ -439,6 +439,13 @@ INICIO INSERCIÓN 2.3: Filtro de Favoritos
     }
     /* --- FIN: Ajuste Altura Waveform Móvil --- */
 
+    /* --- INICIO: Ajuste Altura Waveform Móvil (CON MAYOR ESPECIFICIDAD) --- */
+    .player-details #waveform { /* <-- SELECTOR MODIFICADO */
+         height: 80px !important;
+    }
+    /* --- FIN: Ajuste Altura Waveform Móvil --- */
+
+
 }
 /* ================================================= */
 
