@@ -536,23 +536,23 @@ INICIO INSERCIÓN 2.3: Filtro de Favoritos
 
 }
 
-/* --- INICIO: Estilos Badge FLAC (Opción Magenta Neón) --- */
+/* --- INICIO: Estilos Badge FLAC (Magenta Neón - Refinado) --- */
 .audio-quality-badge {
     position: absolute;
     top: 15px;
     right: 15px;
-    background-color: rgba(0, 0, 0, 0.6); /* Fondo oscuro semi-transparente */
+    background-color: rgba(0, 0, 0, 0.65); /* Fondo un poco más opaco */
     color: #FF00FF; /* MAGENTA NEÓN */
-    padding: 4px 10px;
+    padding: 3px 9px; /* Ajuste sutil de padding */
     border-radius: 5px;
-    font-size: 0.7em;
-    font-weight: 700; /* Más grueso para que el neón resalte */
+    font-size: 0.65em; /* Ligeramente más pequeño */
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.8px; /* Un poco más de espacio */
-    border: 1px solid rgba(255, 0, 255, 0.5); /* Borde magenta semi-transparente */
-    /* Efecto GLOBO neón */
-    text-shadow: 0 0 5px rgba(255, 0, 255, 0.7), 0 0 10px rgba(255, 0, 255, 0.5);
-    box-shadow: 0 0 8px rgba(255, 0, 255, 0.3); /* Sombra exterior suave */
+    letter-spacing: 0.7px;
+    border: 1px solid rgba(255, 0, 255, 0.4); /* Borde un poco más suave */
+    /* Efecto GLOBO neón un poco más suave */
+    text-shadow: 0 0 4px rgba(255, 0, 255, 0.6), 0 0 8px rgba(255, 0, 255, 0.4);
+    box-shadow: 0 0 6px rgba(255, 0, 255, 0.25); /* Sombra exterior más suave */
     z-index: 5;
     pointer-events: none;
 }
@@ -561,8 +561,8 @@ INICIO INSERCIÓN 2.3: Filtro de Favoritos
 /* Ajuste para móvil para que no choque con elementos */
 @media (max-width: 768px) {
     .audio-quality-badge {
-        top: 5px;
-        right: 6px;
+        top: 3px;
+        right: 2.9px;
         font-size: 0.65em; /* Aún más pequeño en móvil */
         padding: 2px 6px;
     }
