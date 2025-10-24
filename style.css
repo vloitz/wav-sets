@@ -539,6 +539,6 @@ INICIO INSERCIÓN 2.3: Filtro de Favoritos
 /* --- Ajustes Específicos para Desktop --- */
 @media (min-width: 769px) {
     .player-controls {
-        margin-top: 25px; /* Ajusta este valor */
+        margin-top: 45px; /* Ajusta este valor */
     }
 }
