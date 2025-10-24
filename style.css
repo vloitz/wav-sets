@@ -432,6 +432,13 @@ INICIO INSERCIÓN 2.3: Filtro de Favoritos
          margin-left: 5px;
          padding: 2px 6px;
     }
+
+    /* --- INICIO: Ajuste Altura Waveform Móvil --- */
+    #waveform {
+         height: 80px !important; /* O la altura que prefieras para móvil */
+    }
+    /* --- FIN: Ajuste Altura Waveform Móvil --- */
+
 }
 /* ================================================= */
 
@@ -576,6 +583,23 @@ INICIO REEMPLAZO 2.4 (Parte 2): Breakpoint 768px
 
 
     /* --- INICIO: Estilos para Contenedor Deslizable (Móvil) --- */
+    /* ... (código del contenedor deslizable) ... */
+    .favorites-filter {
+        margin-right: 10px; /* Espacio entre los botones */ /* */
+    }
+    /* --- FIN: Estilos para Contenedor Deslizable --- */
+
+    /* === PEGA EL BLOQUE DE ALTURA AQUÍ === */
+    /* --- INICIO: Ajuste Altura Waveform Móvil --- */
+    #waveform {
+         height: 80px !important; /* O la altura que prefieras para móvil */
+    }
+    /* --- FIN: Ajuste Altura Waveform Móvil --- */
+    /* === FIN DEL BLOQUE PEGADO === */
+
+
+    /* --- INICIO: Estilos para Contenedor Deslizable (Móvil) --- */
+
 
     .controls-wrapper {
     overflow-x: auto;   /* Habilita el scroll horizontal */
@@ -617,6 +641,17 @@ INICIO REEMPLAZO 2.4 (Parte 2): Breakpoint 768px
 
 
 }
+
+/* --- Ajustes Específicos para Desktop --- */
+@media (min-width: 769px) {
+    /* Añadir más espacio sobre los controles en desktop */
+    .player-controls {
+        margin-top: 25px; /* Ajusta este valor (ej. 20px, 25px, 30px) hasta que te guste */
+    }
+}
+/* === FIN DEL BLOQUE PEGADO === */
+
+
 /* =================================================
 FIN REEMPLAZO 2.4 (Parte 2)
 =================================================
