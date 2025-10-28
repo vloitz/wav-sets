@@ -465,6 +465,16 @@ const handleWaveformTouchEnd = (endEvent) => {
                         titleElement.classList.add('track-title-playing');
                         console.log(`[Highlight] Resaltando track: ${foundTrackName}`);
                     }
+
+                    // --- INICIO: Auto-Scroll al track activo ---
+                    console.log(`[AutoScroll] Enfocando item: ${foundTrackName}`); // LOG
+                    newActiveItem.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'nearest',
+                        inline: 'nearest'
+                    });
+                    // --- FIN: Auto-Scroll ---
+
                 }
                 // --- FIN: NUEVO CÓDIGO DE RESALTADO ---
 
