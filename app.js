@@ -466,43 +466,37 @@ const handleWaveformTouchEnd = (endEvent) => {
                         console.log(`[Highlight] Resaltando track: ${foundTrackName}`);
                     }
 
-                    // --- INICIO: Auto-Scroll al track activo (v2: Manual) ---
+                    // --- INICIO: Auto-Scroll al track activo (v3: Viewport Check + Top Align) ---
                     try {
-                        console.log(`[AutoScroll] Enfocando item: ${foundTrackName}`); // LOG
-
                         const container = currentTracklistElement; // El <ul>
                         const item = newActiveItem; // El <li>
 
-                        const containerTop = container.scrollTop;
-                        const containerHeight = container.clientHeight;
-                        const itemTop = item.offsetTop; // Distancia del <li> al <ul>
-                        const itemHeight = item.clientHeight;
+                        // --- INICIO: Verificación de Viewport ---
+                        // Comprobar si *alguna parte* del contenedor está visible en pantalla
+                        const rect = container.getBoundingClientRect();
+                        const isContainerPartiallyVisible = rect.top < (window.innerHeight || document.documentElement.clientHeight) && rect.bottom > 0;
 
-                        const itemBottom = itemTop + itemHeight;
-                        const containerBottom = containerTop + containerHeight;
-
-                        console.log(`[AutoScroll] Contenedor (Top/Bottom): ${containerTop.toFixed(2)} / ${containerBottom.toFixed(2)} | Item (Top/Bottom): ${itemTop.toFixed(2)} / ${itemBottom.toFixed(2)}`); // LOG
-
-                        // Comprobar si el item está *fuera* de la vista
-                        if (itemTop < containerTop) {
-                            // Item está por ENCIMA de la vista
-                            console.log("[AutoScroll] Item está ARRIBA. Scrolleando..."); // LOG
-                            container.scrollTo({
-                                top: itemTop,
-                                behavior: 'smooth'
-                            });
-                        } else if (itemBottom > containerBottom) {
-                            // Item está por DEBAJO de la vista
-                            console.log("[AutoScroll] Item está ABAJO. Scrolleando..."); // LOG
-                            container.scrollTo({
-                                top: itemBottom - containerHeight, // Alinea el *fondo* del item con el *fondo* del contenedor
-                                behavior: 'smooth'
-                            });
-                        } else {
-                            console.log("[AutoScroll] Item ya está visible. No se scrollea."); // LOG
+                        if (!isContainerPartiallyVisible) {
+                            console.log("[AutoScroll v3] Contenedor no está visible en pantalla. Scroll omitido."); // LOG
+                            return; // Salir si el contenedor no está en el viewport
                         }
+                        // --- FIN: Verificación de Viewport ---
+
+                        console.log(`[AutoScroll v3] Enfocando item (Top Align): ${foundTrackName}`); // LOG
+
+                        // Calcular la posición superior del item relativa al contenedor
+                        const itemTop = item.offsetTop;
+
+                        console.log(`[AutoScroll v3] Scrolleando contenedor a: ${itemTop.toFixed(2)}`); // LOG
+
+                        // Ejecutar el scroll *solo* en el contenedor para alinear el item arriba
+                        container.scrollTo({
+                            top: itemTop,
+                            behavior: 'smooth'
+                        });
+
                     } catch (scrollError) {
-                        console.error("[AutoScroll] Error durante el scroll manual:", scrollError); // LOG ERROR
+                        console.error("[AutoScroll v3] Error durante el scroll manual:", scrollError); // LOG ERROR
                     }
                     // --- FIN: Auto-Scroll ---
 
