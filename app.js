@@ -466,42 +466,46 @@ const handleWaveformTouchEnd = (endEvent) => {
                         console.log(`[Highlight] Resaltando track: ${foundTrackName}`);
                     }
 
-                    // --- INICIO: Auto-Scroll al track activo (v4: Cálculo Offset Corregido) ---
+                    // --- INICIO: Auto-Scroll al track activo (v5: Center Align) ---
                     try {
                         const container = currentTracklistElement; // El <ul>
                         const item = newActiveItem; // El <li>
 
                         // --- INICIO: Verificación de Viewport ---
-                        // Comprobar si *alguna parte* del contenedor está visible en pantalla
                         const rect = container.getBoundingClientRect();
                         const isContainerPartiallyVisible = rect.top < (window.innerHeight || document.documentElement.clientHeight) && rect.bottom > 0;
 
                         if (!isContainerPartiallyVisible) {
-                            console.log("[AutoScroll v4] Contenedor no está visible en pantalla. Scroll omitido."); // LOG
+                            console.log("[AutoScroll v5] Contenedor no está visible en pantalla. Scroll omitido."); // LOG
                             return; // Salir si el contenedor no está en el viewport
                         }
                         // --- FIN: Verificación de Viewport ---
 
-                        console.log(`[AutoScroll v4] Enfocando item (Top Align): ${foundTrackName}`); // LOG
+                        console.log(`[AutoScroll v5] Enfocando item (Center Align): ${foundTrackName}`); // LOG
 
-                        // --- INICIO: Cálculo Offset Corregido ---
-                        // Calculamos la posición del item relativa al contenedor,
-                        // restando el offsetTop del contenedor al del item.
-                        // Esto funciona porque (según el CSS) ambos comparten el mismo offsetParent (body).
+                        // --- INICIO: Cálculo de Alineación Central ---
                         const itemTopRelativeToContainer = item.offsetTop - container.offsetTop;
+                        const containerHeight = container.clientHeight;
+                        const itemHeight = item.clientHeight;
 
-                        console.log(`[AutoScroll v4] item.offsetTop (abs): ${item.offsetTop.toFixed(2)} | container.offsetTop (abs): ${container.offsetTop.toFixed(2)}`); // LOG
-                        console.log(`[AutoScroll v4] Scrolleando contenedor a (relativo): ${itemTopRelativeToContainer.toFixed(2)}`); // LOG
-                        // --- FIN: Cálculo Offset Corregido ---
+                        // Calculamos la posición para centrar el item:
+                        // 1. itemTopRelativeToContainer (mueve el item al tope)
+                        // 2. - (containerHeight / 2) (sube el scroll a la mitad del contenedor)
+                        // 3. + (itemHeight / 2) (baja el scroll la mitad de la altura del item)
+                        const scrollToTop = itemTopRelativeToContainer - (containerHeight / 2) + (itemHeight / 2);
 
-                        // Ejecutar el scroll *solo* en el contenedor para alinear el item arriba
+                        console.log(`[AutoScroll v5] itemTopRel: ${itemTopRelativeToContainer.toFixed(2)}, containerH/2: ${(containerHeight / 2).toFixed(2)}, itemH/2: ${(itemHeight / 2).toFixed(2)}`); // LOG
+                        console.log(`[AutoScroll v5] Scrolleando contenedor a: ${scrollToTop.toFixed(2)}`); // LOG
+                        // --- FIN: Cálculo de Alineación Central ---
+
+                        // Ejecutar el scroll *solo* en el contenedor
                         container.scrollTo({
-                            top: itemTopRelativeToContainer,
+                            top: scrollToTop,
                             behavior: 'smooth'
                         });
 
                     } catch (scrollError) {
-                        console.error("[AutoScroll v4] Error durante el scroll manual:", scrollError); // LOG ERROR
+                        console.error("[AutoScroll v5] Error durante el scroll manual:", scrollError); // LOG ERROR
                     }
                     // --- FIN: Auto-Scroll ---
 
