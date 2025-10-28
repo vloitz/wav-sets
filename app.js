@@ -466,7 +466,7 @@ const handleWaveformTouchEnd = (endEvent) => {
                         console.log(`[Highlight] Resaltando track: ${foundTrackName}`);
                     }
 
-                    // --- INICIO: Auto-Scroll al track activo (v3: Viewport Check + Top Align) ---
+                    // --- INICIO: Auto-Scroll al track activo (v4: Cálculo Offset Corregido) ---
                     try {
                         const container = currentTracklistElement; // El <ul>
                         const item = newActiveItem; // El <li>
@@ -477,26 +477,31 @@ const handleWaveformTouchEnd = (endEvent) => {
                         const isContainerPartiallyVisible = rect.top < (window.innerHeight || document.documentElement.clientHeight) && rect.bottom > 0;
 
                         if (!isContainerPartiallyVisible) {
-                            console.log("[AutoScroll v3] Contenedor no está visible en pantalla. Scroll omitido."); // LOG
+                            console.log("[AutoScroll v4] Contenedor no está visible en pantalla. Scroll omitido."); // LOG
                             return; // Salir si el contenedor no está en el viewport
                         }
                         // --- FIN: Verificación de Viewport ---
 
-                        console.log(`[AutoScroll v3] Enfocando item (Top Align): ${foundTrackName}`); // LOG
+                        console.log(`[AutoScroll v4] Enfocando item (Top Align): ${foundTrackName}`); // LOG
 
-                        // Calcular la posición superior del item relativa al contenedor
-                        const itemTop = item.offsetTop;
+                        // --- INICIO: Cálculo Offset Corregido ---
+                        // Calculamos la posición del item relativa al contenedor,
+                        // restando el offsetTop del contenedor al del item.
+                        // Esto funciona porque (según el CSS) ambos comparten el mismo offsetParent (body).
+                        const itemTopRelativeToContainer = item.offsetTop - container.offsetTop;
 
-                        console.log(`[AutoScroll v3] Scrolleando contenedor a: ${itemTop.toFixed(2)}`); // LOG
+                        console.log(`[AutoScroll v4] item.offsetTop (abs): ${item.offsetTop.toFixed(2)} | container.offsetTop (abs): ${container.offsetTop.toFixed(2)}`); // LOG
+                        console.log(`[AutoScroll v4] Scrolleando contenedor a (relativo): ${itemTopRelativeToContainer.toFixed(2)}`); // LOG
+                        // --- FIN: Cálculo Offset Corregido ---
 
                         // Ejecutar el scroll *solo* en el contenedor para alinear el item arriba
                         container.scrollTo({
-                            top: itemTop,
+                            top: itemTopRelativeToContainer,
                             behavior: 'smooth'
                         });
 
                     } catch (scrollError) {
-                        console.error("[AutoScroll v3] Error durante el scroll manual:", scrollError); // LOG ERROR
+                        console.error("[AutoScroll v4] Error durante el scroll manual:", scrollError); // LOG ERROR
                     }
                     // --- FIN: Auto-Scroll ---
 
