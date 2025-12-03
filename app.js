@@ -591,8 +591,8 @@ const handleWaveformTouchEnd = (endEvent) => {
         // Verificamos si hay un tiempo pendiente en la URL Y si es la primera carga (para no saltar en loops)
         const params = URLController.getParams();
 
-        // Solo saltamos si hay tiempo definido, es mayor a 0, y el set cargado coincide con el ID de la URL
-        if (params.timestamp && params.timestamp > 0 && params.setId === currentLoadedSet.id) {
+        // Solo saltamos si el tiempo NO es nulo, es >= 0, y el ID coincide
+        if (params.timestamp !== null && params.timestamp >= 0 && params.setId === currentLoadedSet.id) {
 
             // Hack de seguridad: Verificamos si ya "saltamos" para no hacerlo infinitamente si el usuario da play/pause
             if (!window.hasDeepLinkSeeked) {
