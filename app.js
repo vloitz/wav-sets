@@ -93,6 +93,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const timeLabel = document.getElementById('shareTimeLabel');
         const shareBtn = document.getElementById('shareBtn');
 
+        // Referencias Fase 6
+        const waBtn = document.getElementById('shareWaBtn');
+        const fbBtn = document.getElementById('shareFbBtn');
+        const xBtn = document.getElementById('shareXBtn');
+
         // Inicializar listeners
         const init = () => {
             if (!shareBtn || !modalOverlay) {
@@ -152,6 +157,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 const seconds = Math.floor(wavesurfer.getCurrentTime());
                 finalUrl += `?t=${seconds}`;
             }
+
+            // --- FASE 6: Actualizar Botones Sociales ---
+            const encodedUrl = encodeURIComponent(finalUrl);
+            const titleText = encodeURIComponent(`Escucha este set de Vloitz: ${currentLoadedSet.title}`);
+
+            // WhatsApp: https://wa.me/?text=[URL]
+            if (waBtn) waBtn.href = `https://wa.me/?text=${titleText}%20${encodedUrl}`;
+
+            // Facebook: https://www.facebook.com/sharer/sharer.php?u=[URL]
+            if (fbBtn) fbBtn.href = `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`;
+
+            // X (Twitter): https://twitter.com/intent/tweet?url=[URL]&text=[TEXT]
+            if (xBtn) xBtn.href = `https://twitter.com/intent/tweet?text=${titleText}&url=${encodedUrl}`;
+            // -------------------------------------------
 
             urlInput.value = finalUrl;
             // --- FIN: Generación de URL Limpia ---
