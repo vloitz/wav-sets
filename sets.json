@@ -15,7 +15,7 @@
 
             "tracklist": [
                 {"time": "0:00", "emoji": "🌅", "title": "Diego Bustamante - Madness (SEBS (US) Remix)"},
-                {"time": "1:51", "emoji": "🌴", "title": "Pablo Juarez, Resco (US) - So Sick (Original Mix)"},
+                {"time": "1:51", "emoji": "", "title": "Pablo Juarez, Resco (US) - So Sick (Original Mix)"},
                 {"time": "3:57", "emoji": "🥁", "title": "Adrian Mejias - Never Stop (Original Mix)"},
                 {"time": "5:25", "emoji": "🐆", "title": "Giovanni Nuñez - La Luna (Original Mix)"},
                 {"time": "7:24", "emoji": "🔥", "title": "Reenday - Bongo (Extended Mix)"},
@@ -41,6 +41,47 @@
                 {"time": "52:34", "emoji": "🏆", "title": "Zkosta, Camtraks - Gold Linings ft. Camtraks (P-rez Remix)"}
             ]
 
+        },
+
+        {
+            "title": "GridLock Groovy 003",
+            "id": "GL003",
+            "date": "2025-12-03",
+            "audio_url": "https://media.githubusercontent.com/media/vloitz/wav-sets/refs/heads/main/audio/GDL003_HIFI.flac",
+            "cover_art_url": "https://raw.githubusercontent.com/vloitz/wav-sets/refs/heads/main/Artwork/GDL003_ARTWORK.jpg",
+            "peaks_url": "https://raw.githubusercontent.com/vloitz/wav-sets/refs/heads/main/peaks/GDL_003_peaks_max_detail.json",
+            "tracklist": [
+                {"time": "0:00", "emoji": "🌅", "title": "Patrizio Exclusive, Lollomezz - Sweet Love"},
+                {"time": "2:29", "emoji": "🚗", "title": "Carloh - Pra Dançar"},
+                {"time": "5:00", "emoji": "🥁", "title": "Elias R, Reenday - La Noche"},
+                {"time": "6:31", "emoji": "🐆", "title": "Fercio - To The Dance Floor"},
+                {"time": "8:38", "emoji": "🔥", "title": "Santi Dominguez - Believe"},
+                {"time": "10:53", "emoji": "🌆", "title": "Seba Iturra - F CK YEAH !"},
+                {"time": "12:52", "emoji": "🚀", "title": "Sergiodnine - Disco Fresh"},
+                {"time": "14:37", "emoji": "🌙", "title": "Andres Blows, Fran-co - Flow Repeat"},
+                {"time": "15:53", "emoji": "🐺", "title": "jeaneiffel - Trumbeat"},
+                {"time": "18:52", "emoji": "🛸", "title": "BESSEMM - Wayout"},
+                {"time": "20:23", "emoji": "🔮", "title": "Juan Ferreyro, Caitto - I Don't Have"},
+                {"time": "22:38", "emoji": "🔑", "title": "Ivan Lopez - Don't Talk (Herloop Mix)"},
+                {"time": "24:22", "emoji": "🌋", "title": "Nautik (US) - Third Eye"},
+                {"time": "25:52", "emoji": "💣", "title": "Seba Cortes, ANDRES_HERRERA - Body Communicate"},
+                {"time": "27:23", "emoji": "🎭", "title": "Yas, LASADJ - La Piña"},
+                {"time": "29:53", "emoji": "👑", "title": "Roworth - Fiesta Loca"},
+                {"time": "32:22", "emoji": "⚡", "title": "Carloh - Solo Tu"},
+                {"time": "35:41", "emoji": "💎", "title": "Erick Cz, Juan Velasquez - GLICHSS"},
+                {"time": "36:41", "emoji": "🌀", "title": "Smith & Welson - La Vida Loca (DJ Global Byte Mix)"},
+                {"time": "38:12", "emoji": "🕶️", "title": "Eloyco - Heyyy!"},
+                {"time": "40:42", "emoji": "👽", "title": "Jim Poel - Bempi"},
+                {"time": "42:41", "emoji": "🎪", "title": "Raumakustik, Pete Kaltenburg - Hive"},
+                {"time": "45:41", "emoji": "👻", "title": "S7VEN (SP) - Jumpin (Summer Mix)"},
+                {"time": "47:41", "emoji": "🧬", "title": "Juan Velasquez - Viajera"},
+                {"time": "48:32", "emoji": "🌊", "title": "Ricardo Criollo House - La Tribu"},
+                {"time": "49:49", "emoji": "⛓️", "title": "Paul Clarkson - Hypnotic"},
+                {"time": "52:11", "emoji": "🪐", "title": "LAVY (IT) - Linear Pulse"},
+                {"time": "54:11", "emoji": "🍸", "title": "Raumakustik, Pete Kaltenburg - All Night Long"},
+                {"time": "56:11", "emoji": "💥", "title": "Erland Galjaard - Music Move Your Feet"}
+            ]
         }
+
     ]
 }
