@@ -35,6 +35,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const bioExtended = document.getElementById('bio-extended');
     const bioToggle = document.getElementById('bio-toggle');
     const autoLoopBtn = document.getElementById('autoLoopBtn');
+
+    const spectrumBtn = document.getElementById('spectrumBtn');
+
     const prevBtn = document.getElementById('prevBtn'); // <-- AÑADE ESTA LÍNEA
     const nextBtn = document.getElementById('nextBtn'); // <-- AÑADE ESTA LÍNEA
 
@@ -45,6 +48,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let allSets = [];
     let currentSetIndex = 0;
     let isAutoLoopActive = false;
+
+    // Configuración Espectro (Fase 8)
+    // Por defecto TRUE, a menos que el usuario lo haya desactivado antes
+    let isSpectrumActive = localStorage.getItem('vloitz_spectrum') !== 'false';
+
     let isSeekingViaAutoLoop = false;
     let previousTimeForAutoLoop = -1; // <-- AÑADIR: Guarda el tiempo anterior
 
@@ -692,7 +700,8 @@ const handleWaveformTouchEnd = (endEvent) => {
         currentTrackTitle.textContent = allSets[currentSetIndex]?.title || "Set Listo";
         console.log("WaveSurfer listo para track:", allSets[currentSetIndex]?.title); // LOG ÉXITO
 
-        paintWaveformRegions();
+        // --- FASE 8: Inicializar Espectro según preferencia ---
+        toggleSpectrumState(); // Esto llamará a paintWaveformRegions si es true
 
         // --- INICIO: Lógica Deep Linking Time Seek (Fase 3.2) ---
         // Verificamos si hay un tiempo pendiente en la URL Y si es la primera carga (para no saltar en loops)
@@ -778,7 +787,8 @@ const handleWaveformTouchEnd = (endEvent) => {
                     if (titleElement) {
                         titleElement.classList.add('track-title-playing');
                         // Aplicar el color específico del track
-                        if (newActiveItem.dataset.activeColor) {
+                        // Solo aplicar color si el modo Espectro está activo
+                        if (isSpectrumActive && newActiveItem.dataset.activeColor) {
                             titleElement.style.color = newActiveItem.dataset.activeColor;
                         }
                         console.log(`[Highlight] Resaltando track: ${foundTrackName}`);
@@ -1481,6 +1491,43 @@ function toggleFavorite(seconds, buttonElement) {
         console.warn("[AutoLoop] Botón Auto-Bucle no encontrado."); // LOG
     }
     // --- FIN: Lógica Botón ---
+
+    // --- LÓGICA MODO ESPECTRO (Fase 8) ---
+    function toggleSpectrumState() {
+        // 1. Actualizar UI del botón
+        if (spectrumBtn) {
+            spectrumBtn.classList.toggle('active', isSpectrumActive);
+        }
+
+        // 2. Gestionar la Onda y el Playlist
+        if (isSpectrumActive) {
+            // ACTIVAR: Pintar regiones y permitir colores en texto
+            paintWaveformRegions();
+            console.log("[Spectrum] Activado.");
+        } else {
+            // DESACTIVAR: Borrar regiones y limpiar colores de texto
+            if (wsRegions) wsRegions.clearRegions();
+
+            // Limpiar colores forzados en el playlist
+            const allTracks = document.querySelectorAll('.current-tracklist-item .track-title');
+            allTracks.forEach(el => el.style.color = '');
+
+            console.log("[Spectrum] Desactivado.");
+        }
+
+        // 3. Guardar preferencia
+        localStorage.setItem('vloitz_spectrum', isSpectrumActive);
+    }
+
+    // Listener del botón
+    if (spectrumBtn) {
+        spectrumBtn.addEventListener('click', () => {
+            isSpectrumActive = !isSpectrumActive;
+            toggleSpectrumState();
+        });
+        // Estado inicial visual del botón
+        spectrumBtn.classList.toggle('active', isSpectrumActive);
+    }
 
     // --- INICIO: Listeners para Skip Buttons ---
     if (prevBtn) {
