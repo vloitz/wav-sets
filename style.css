@@ -502,10 +502,12 @@ INICIO INSERCIÓN 2.3: Filtro de Favoritos
     .controls-wrapper > .auto-loop-button {
         display: inline-flex;
     }
-    .auto-loop-button {
-        margin-left: 0; /* Anula margen anterior */
-        font-size: 0.75em; /* Reducir tamaño botón */
-        padding: 2px 6px;
+    /* Corrección: Forzar tamaño pequeño para los iconos SVG dentro de los botones */
+    .auto-loop-button svg {
+        width: 14px;
+        height: 14px;
+        fill: currentColor;
+        pointer-events: none; /* Evita que el clic en el icono falle */
     }
     .favorites-filter {
         margin-right: 10px; /* Espacio entre botones */
