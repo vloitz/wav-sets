@@ -575,3 +575,72 @@ INICIO INSERCIÓN 2.3: Filtro de Favoritos
         margin-top: 25px; /* Ajusta este valor */
     }
 }
+
+/* --- FASE 4: ESTILOS MODAL COMPARTIR (Estilo YouTube Dark) --- */
+
+/* Botón en la barra de controles */
+.action-btn {
+    background: none; border: none; color: var(--text-secondary); cursor: pointer;
+    padding: 0 5px; margin-left: 10px; transition: color 0.2s;
+}
+.action-btn:hover { color: var(--text-primary); }
+
+/* Overlay (Fondo oscuro) */
+.share-modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background-color: rgba(0, 0, 0, 0.7); z-index: 1000;
+    display: flex; justify-content: center; align-items: center;
+    backdrop-filter: blur(2px); /* Efecto moderno */
+}
+
+/* Ventana Modal */
+.share-modal-content {
+    background-color: #282828; /* Gris YouTube */
+    width: 90%; max-width: 500px;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    font-family: Roboto, Arial, sans-serif;
+    overflow: hidden; animation: fadeIn 0.2s ease-out;
+}
+
+/* Cabecera */
+.share-modal-header {
+    padding: 15px 20px;
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid #3e3e3e;
+}
+.share-modal-header h3 { margin: 0; font-size: 1.1em; color: #fff; }
+.share-modal-close {
+    background: none; border: none; color: #aaa; font-size: 24px; cursor: pointer;
+}
+.share-modal-close:hover { color: #fff; }
+
+/* Cuerpo */
+.share-modal-body { padding: 20px; }
+
+/* Grupo Input + Botón */
+.share-input-group {
+    display: flex; border: 1px solid #3e3e3e; border-radius: 8px;
+    padding: 4px; background-color: #121212; margin-bottom: 15px;
+}
+#shareUrlInput {
+    flex-grow: 1; background: none; border: none; color: #aaa;
+    padding: 10px; font-size: 0.9em; outline: none;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#copyShareUrlBtn {
+    background-color: #3ea6ff; /* Azul YouTube */
+    color: #000; border: none; border-radius: 18px;
+    padding: 0 20px; font-weight: 600; cursor: pointer;
+    transition: background-color 0.2s;
+}
+#copyShareUrlBtn:hover { background-color: #65b8ff; }
+
+/* Checkbox Personalizado */
+.share-option-row { display: flex; align-items: center; margin-top: 10px; }
+.share-checkbox-label {
+    display: flex; align-items: center; cursor: pointer; color: #aaa; font-size: 0.9em; user-select: none;
+}
+.share-checkbox-label input { margin-right: 10px; accent-color: #3ea6ff; transform: scale(1.2); }
+
+@keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
