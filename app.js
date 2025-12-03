@@ -1492,7 +1492,7 @@ function toggleFavorite(seconds, buttonElement) {
     }
     // --- FIN: Lógica Botón ---
 
-    // --- LÓGICA MODO ESPECTRO (Fase 8) ---
+    // --- LÓGICA MODO ESPECTRO (Fase 8 - Corregida) ---
     function toggleSpectrumState() {
         // 1. Actualizar UI del botón
         if (spectrumBtn) {
@@ -1501,8 +1501,19 @@ function toggleFavorite(seconds, buttonElement) {
 
         // 2. Gestionar la Onda y el Playlist
         if (isSpectrumActive) {
-            // ACTIVAR: Pintar regiones y permitir colores en texto
+            // ACTIVAR: Pintar regiones
             paintWaveformRegions();
+
+            // --- NUEVO: Restaurar color del texto ACTIVO inmediatamente ---
+            const activeTitle = document.querySelector('.track-title.track-title-playing');
+            if (activeTitle) {
+                const activeItem = activeTitle.closest('.current-tracklist-item');
+                if (activeItem && activeItem.dataset.activeColor) {
+                    activeTitle.style.color = activeItem.dataset.activeColor;
+                }
+            }
+            // -------------------------------------------------------------
+
             console.log("[Spectrum] Activado.");
         } else {
             // DESACTIVAR: Borrar regiones y limpiar colores de texto
