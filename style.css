@@ -506,10 +506,11 @@ INICIO INSERCIÓN 2.3: Filtro de Favoritos
     /* Forzar al icono a ser pequeño, ignorando el HTML de 800px */
     .favorites-filter svg,
     .auto-loop-button svg {
-        width: 14px;
-        height: 14px;
+        width: 14px !important;  /* <--- AÑADIDO !important */
+        height: 14px !important; /* <--- AÑADIDO !important */
         fill: currentColor;
         pointer-events: none;
+        min-width: 14px; /* Asegura que no se aplaste */
     }
 
     .favorites-filter {
