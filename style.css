@@ -326,68 +326,58 @@ INICIO INSERCIÓN 2.3: Filtro de Favoritos
     align-items: center;
     margin-bottom: 15px;
 }
-.favorites-filter {
+
+/* Contenedor de botones (Alineación Horizontal Perfecta) */
+.controls-wrapper {
     display: flex;
     align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    color: var(--text-secondary);
-    font-size: 0.9em;
-    padding: 3px 6px;
-    border-radius: 4px;
-    transition: background-color 0.2s, color 0.2s;
-}
-.favorites-filter:hover {
-    background-color: rgba(255, 255, 255, 0.1);
-    color: var(--text-primary);
-}
-.favorites-filter input[type="checkbox"] {
-    display: none;
-}
-.favorites-filter .star-icon {
-    color: #ffc107;
-    font-size: 1.3em;
-    line-height: 1;
-    transition: transform 0.2s;
-}
-.favorites-filter:hover .star-icon {
-    transform: scale(1.1);
+    gap: 10px; /* Espacio uniforme entre botones */
 }
 
-/* --- INICIO: Estilos Botón Auto-Bucle (Fase 1) --- */
+/* --- FASE 9: ESTILOS UNIFICADOS (Favoritos + Loop + Espectro) --- */
+.favorites-filter,
 .auto-loop-button {
-    background-color: var(--light-bg); /* Fondo oscuro por defecto */
-    color: var(--text-secondary);     /* Texto gris por defecto */
-    border: 1px solid var(--text-secondary); /* Borde gris */
-    padding: 3px 8px;                 /* Relleno similar al filtro fav */
-    border-radius: 4px;              /* Bordes redondeados */
-    font-size: 0.8em;                /* Tamaño de fuente pequeño */
-    font-weight: 600;                /* Semi-negrita */
+    background-color: var(--light-bg);
+    color: var(--text-secondary);
+    border: 1px solid var(--text-secondary); /* Borde igual para todos */
+    padding: 4px 12px;                       /* Relleno uniforme */
+    border-radius: 20px;                     /* Bordes redondeados modernos (Pill shape) */
+    font-size: 0.8em;
+    font-weight: 600;
     cursor: pointer;
     transition: all 0.2s ease-in-out;
-    margin-left: 10px; /* Espacio para separarlo del filtro fav */
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
+    height: 32px; /* Altura forzada para que sean idénticos */
+    box-sizing: border-box;
+    text-decoration: none;
+    margin: 0;
 }
+
+/* Efectos Hover */
+.favorites-filter:hover,
 .auto-loop-button:hover {
-    background-color: rgba(255, 255, 255, 0.1);
-    color: var(--text-primary);
     border-color: var(--text-primary);
+    color: var(--text-primary);
+    background-color: rgba(255, 255, 255, 0.05);
 }
+
+/* Estado Activo (Encendidos) */
+.favorites-filter:has(input:checked),
 .auto-loop-button.active {
     background-color: var(--brand-color);
     color: var(--dark-bg);
     border-color: var(--brand-color);
-    box-shadow: 0 0 8px rgba(29, 185, 84, 0.7);
+    box-shadow: 0 0 8px rgba(29, 185, 84, 0.4);
 }
-.auto-loop-button svg {
-    width: 1em;
-    height: 1em;
-    fill: currentColor;
-    vertical-align: middle;
+
+/* Ajustes Estrella Favoritos */
+.favorites-filter .star-icon {
+    font-size: 1.1em;
+    color: inherit;
 }
-/* --- FIN: Estilos Botón --- */
+.favorites-filter input[type="checkbox"] { display: none; }
 
 .current-tracklist {
     list-style: none;
