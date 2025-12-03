@@ -65,11 +65,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const setId = params.get('set'); // captura ?set=...
             const timestamp = params.get('t'); // captura &t=...
 
-            // Log de diagnóstico (Regla 5)
+        // Log de diagnóstico (Regla 5)
             console.log(`[URLController] Params detectados -> ID: ${setId}, Time: ${timestamp}`);
 
             return {
-                setId: setId ? setId.toLowerCase() : null,
+                setId: setId ? setId : null, // <--- CORREGIDO: Respeta mayúsculas/minúsculas exactas
                 timestamp: timestamp ? parseInt(timestamp, 10) : null
             };
         };
