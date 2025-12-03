@@ -146,7 +146,26 @@ let wasPlayingBeforeDrag = false; // Para saber si pausar/reanudar
             allSets.sort((a, b) => new Date(b.date) - new Date(a.date)); // Ordenar
             populateTracklist(allSets);
             if (allSets.length > 0) {
-                loadTrack(allSets[0], 0);
+
+                // --- INICIO: Lógica Deep Linking (Fase 3.1) ---
+                const params = URLController.getParams();
+                let targetIndex = 0; // Por defecto: el último set (índice 0)
+
+                if (params.setId) {
+                    // Buscar índice del set que coincida con el ID
+                    const foundIndex = allSets.findIndex(set => set.id === params.setId);
+                    if (foundIndex !== -1) {
+                        targetIndex = foundIndex;
+                        console.log(`[DeepLink] ✅ Set encontrado por ID: "${params.setId}" (Index: ${targetIndex})`);
+                    } else {
+                        console.warn(`[DeepLink] ⚠️ ID "${params.setId}" no encontrado. Cargando set más reciente.`);
+                    }
+                }
+
+                // Cargar el set decidido (Por URL o por defecto)
+                loadTrack(allSets[targetIndex], targetIndex);
+                // --- FIN: Lógica Deep Linking ---
+
 
                 // --- Poblar "Latest Set" (prototipo v4) ---
                 if (latestSetTitle && latestSetDate) {
@@ -446,6 +465,27 @@ const handleWaveformTouchEnd = (endEvent) => {
         if (pauseIcon) pauseIcon.style.display = 'none';
         currentTrackTitle.textContent = allSets[currentSetIndex]?.title || "Set Listo";
         console.log("WaveSurfer listo para track:", allSets[currentSetIndex]?.title); // LOG ÉXITO
+
+        // --- INICIO: Lógica Deep Linking Time Seek (Fase 3.2) ---
+        // Verificamos si hay un tiempo pendiente en la URL Y si es la primera carga (para no saltar en loops)
+        const params = URLController.getParams();
+
+        // Solo saltamos si hay tiempo definido, es mayor a 0, y el set cargado coincide con el ID de la URL
+        if (params.timestamp && params.timestamp > 0 && params.setId === currentLoadedSet.id) {
+
+            // Hack de seguridad: Verificamos si ya "saltamos" para no hacerlo infinitamente si el usuario da play/pause
+            if (!window.hasDeepLinkSeeked) {
+                const duration = wavesurfer.getDuration();
+                if (duration > 0) {
+                    const progress = params.timestamp / duration;
+                    console.log(`[DeepLink] 🚀 Saltando al segundo ${params.timestamp} (Progreso: ${progress.toFixed(4)})`);
+                    wavesurfer.seekTo(progress);
+                    window.hasDeepLinkSeeked = true; // Marcar como "saltado" para esta sesión
+                }
+            }
+        }
+        // --- FIN: Lógica Deep Linking Time Seek ---
+
     });
 
      wavesurfer.on('loading', (percent) => {
