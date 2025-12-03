@@ -480,6 +480,10 @@ const handleWaveformTouchEnd = (endEvent) => {
                     const progress = params.timestamp / duration;
                     console.log(`[DeepLink] 🚀 Saltando al segundo ${params.timestamp} (Progreso: ${progress.toFixed(4)})`);
                     wavesurfer.seekTo(progress);
+
+                    // Intento de Auto-Play (puede ser bloqueado por el navegador)
+                    wavesurfer.play().catch(e => console.warn("[DeepLink] Auto-Play bloqueado por navegador:", e));
+
                     window.hasDeepLinkSeeked = true; // Marcar como "saltado" para esta sesión
                 }
             }
