@@ -1,6 +1,15 @@
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DOM listo. Iniciando aplicación..."); // LOG INICIAL
 
+    // --- TEST FASE 2 ---
+    // Esto debería leer 'null' ahora, o valores si cambias la URL manualmente
+    setTimeout(() => {
+        if (typeof URLController !== 'undefined') {
+            URLController.getParams();
+        }
+    }, 1000);
+    // -------------------
+
     // --- Referencias ---
     const waveformContainer = document.getElementById('waveform');
     const playPauseBtn = document.getElementById('playPauseBtn');
@@ -46,6 +55,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentLoadedSet = null; // Para saber qué set está cargado
     let wavesurfer = null; // Declarar wavesurfer aquí
+
+
+    // --- INICIO: Módulo URLController (Fase 2 - Deep Linking) ---
+    const URLController = (() => {
+        // Función privada para leer parámetros
+        const getParams = () => {
+            const params = new URLSearchParams(window.location.search);
+            const setId = params.get('set'); // captura ?set=...
+            const timestamp = params.get('t'); // captura &t=...
+
+            // Log de diagnóstico (Regla 5)
+            console.log(`[URLController] Params detectados -> ID: ${setId}, Time: ${timestamp}`);
+
+            return {
+                setId: setId ? setId.toLowerCase() : null,
+                timestamp: timestamp ? parseInt(timestamp, 10) : null
+            };
+        };
+
+        return {
+            getParams: getParams
+        };
+    })();
+    // --- FIN: Módulo URLController ---
 
     // --- Variables para lógica táctil v6 Final ---
 let isDraggingWaveformTouch = false;
@@ -95,6 +128,13 @@ let wasPlayingBeforeDrag = false; // Para saber si pausar/reanudar
          })
         .then(data => {
             console.log("sets.json cargado:", data); // LOG ÉXITO
+
+            // --- VERIFICACIÓN FASE 1 ---
+            if (data.sets && data.sets.length > 0) {
+                console.log("[Fase 1 Check] ID del primer set:", data.sets[0].id);
+            }
+            // ---------------------------
+
             // Cargar perfil
             if (data.profile) {
                 profilePicImg.src = data.profile.profile_pic_url;
