@@ -662,3 +662,25 @@ INICIO INSERCIÓN 2.3: Filtro de Favoritos
 .social-share-btn.wa:hover { background-color: #25D366; } /* WhatsApp Verde */
 .social-share-btn.fb:hover { background-color: #1877F2; } /* Facebook Azul */
 .social-share-btn.x:hover { background-color: #000000; border: 1px solid #333; } /* X Negro */
+
+/* --- FASE 7: CAPAS DE WAVESURFER (Estilo Prototipo) --- */
+/* 1. Regiones (Colores): Al fondo */
+#waveform ::part(region) {
+    z-index: 1 !important;
+    border-right: 1px solid rgba(0,0,0,0.2); /* Separador sutil */
+}
+
+/* 2. Onda (Audio): Encima de los colores */
+#waveform ::part(wave) {
+    z-index: 2 !important;
+}
+
+/* 3. Progreso: Encima de la onda */
+#waveform ::part(progress) {
+    z-index: 3 !important;
+}
+
+/* 4. Cursor: Encima de todo */
+#waveform ::part(cursor) {
+    z-index: 4 !important;
+}
