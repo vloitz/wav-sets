@@ -1,4 +1,4 @@
-/* --- Reseteo Bsico y Tema Oscuro --- */
+/* --- Reseteo Basico y Tema Oscuro --- */
 :root {
     --brand-color: #1DB954; /* Un acento verde */
     --dark-bg: #121212;
@@ -23,22 +23,18 @@ body, html {
     padding: 0 15px;
 }
 
-/* =================================================
-INICIO REEMPLAZO 2.1: Encabezado de Perfil
-=================================================
-*/
-/* --- 1. Encabezado de Perfil (Revisado v3 + Espacio Extra) --- */
+/* --- 1. Encabezado de Perfil --- */
 .profile-header { width: 100%; margin-bottom: 30px; }
 .profile-banner { height: 250px; background-color: var(--light-bg); background-size: cover; background-position: center; }
 .profile-info {
     display: flex;
-    align-items: flex-start; /* Alinear arriba */
-    justify-content: space-between; /* Empujar contenido extra a la derecha */
+    align-items: flex-start;
+    justify-content: space-between;
     padding: 0 30px;
     margin-top: -75px;
     position: relative;
     z-index: 2;
-    gap: 25px; /* Espacio entre foto, detalles y contenido extra */
+    gap: 25px;
 }
 .profile-pic {
     width: 150px; height: 150px; border-radius: 50%; border: 4px solid var(--dark-bg);
@@ -46,38 +42,33 @@ INICIO REEMPLAZO 2.1: Encabezado de Perfil
     margin-top: 10px;
 }
 
-/* Contenedor para Nombre, Loc, Bio, Sociales */
 .profile-details-container {
     display: flex; flex-direction: column;
     padding-top: 20px;
-    flex-grow: 1; /* Permite que ocupe espacio, pero limitado por max-width */
-    max-width: 650px; /* Limitar ancho del texto */
+    flex-grow: 1;
+    max-width: 650px;
 }
 .profile-name { font-size: 2.8em; margin: 0 0 5px 0; line-height: 1.1; }
 .profile-location { font-size: 1.1em; color: var(--text-secondary); margin: 0 0 20px 0; }
 .profile-bio {
     font-size: 0.95em; color: var(--text-secondary); margin-bottom: 15px;
     line-height: 1.5;
-    /* Eliminamos max-height, overflow, position, padding-bottom, box-sizing */
 }
 
-/* --- INICIO: Desactivar selección de texto en Bio --- */
 #profile-bio-container {
-    user-select: none; /* Standard syntax */
-    -webkit-user-select: none; /* Safari */
-    -moz-user-select: none; /* Firefox */
-    -ms-user-select: none; /* Internet Explorer/Edge */
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
 }
-/* --- FIN: Desactivar selección --- */
 
-/* Estilo para el nuevo enlace "Ver más" */
 .bio-toggle-link {
     color: var(--brand-color);
     cursor: pointer;
     font-weight: bold;
     font-size: 0.9em;
-    display: inline-block; /* Para asegurar buen área de clic */
-    margin-top: 5px; /* Pequeño espacio superior */
+    display: inline-block;
+    margin-top: 5px;
 }
 
 .profile-socials { display: flex; gap: 15px; }
@@ -85,22 +76,20 @@ INICIO REEMPLAZO 2.1: Encabezado de Perfil
 
 .social-icon:hover {
     background-color: var(--brand-color);
-    color: var(--dark-bg); /* El SVG tomará este color (fill: currentColor) */
+    color: var(--dark-bg);
 }
 .social-icon svg {
     width: 16px;
     height: 16px;
-    fill: currentColor; /* Hereda el color del <a> (var(--text-primary) o var(--dark-bg) en hover) */
+    fill: currentColor;
 }
 
-/* --- NUEVO: Contenedor para Espacio Extra (Desktop) --- */
 .profile-extra-content {
-    padding-top: 20px; /* Alinear verticalmente con detalles */
-    width: 250px; /* Ancho fijo para este ejemplo */
-    flex-shrink: 0; /* No encoger */
-    display: block; /* Mostrar por defecto */
+    padding-top: 20px;
+    width: 250px;
+    flex-shrink: 0;
+    display: block;
 }
-/* Placeholder para "Latest Set" */
 .latest-set-highlight {
     background-color: var(--light-bg);
     border-radius: 6px;
@@ -123,20 +112,10 @@ INICIO REEMPLAZO 2.1: Encabezado de Perfil
     color: var(--text-secondary);
     margin-top: 3px;
 }
-/* --- FIN Espacio Extra --- */
-/* =================================================
-FIN REEMPLAZO 2.1
-=================================================
-*/
 
-/* --- 2a. Reproductor Principal (CON WAVESURFER) --- */
-/* REEMPLAZO 2.2 */
+/* --- 2. Reproductor Principal --- */
 .player-card { display: flex; background-color: var(--light-bg); border-radius: 8px; padding: 20px; margin-bottom: 30px; gap: 20px; overflow: hidden; position: relative; }
-
-/* REEMPLAZO 2.2 */
 .player-cover-art { width: 200px; height: 200px; object-fit: cover; border-radius: 6px; background-color: var(--dark-bg); flex-shrink: 0; position: static; opacity: 1; z-index: auto; }
-
-/* REEMPLAZO 2.2 */
 .player-details { display: flex; flex-direction: column; justify-content: center; flex-grow: 1; min-width: 0; position: relative; z-index: 1; background-color: transparent; }
 
 #current-track-title {
@@ -144,79 +123,73 @@ FIN REEMPLAZO 2.1
     font-size: 1.8em;
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis; /* Aade puntos suspensivos si el ttulo es largo */
-    text-shadow: none; /* AÑADIDO 2.2 */
+    text-overflow: ellipsis;
+    text-shadow: none;
 }
 
 #current-track-artist {
-    margin: 0 0 15px 0; /* Reducido el margen inferior */
+    margin: 0 0 15px 0;
     font-size: 1.2em;
     color: var(--text-secondary);
-    text-shadow: none; /* AÑADIDO 2.2 */
+    text-shadow: none;
 }
 
-/* Contenedor para la forma de onda y controles */
 .waveform-container {
     width: 100%;
-    margin-bottom: 10px; /* Default margin-bottom */
+    margin-bottom: 10px;
 }
 #waveform {
-    cursor: pointer; /* Indica que se puede hacer clic */
-    /* height: 100px; */ /* Altura ahora controlada por JS */
+    cursor: pointer;
 }
 
-/* Controles personalizados */
 .player-controls {
     display: flex;
     align-items: center;
     gap: 15px;
-    margin-top: 10px; /* Default margin-top */
+    margin-top: 10px;
 }
 
-/* --- INICIO: Estilos específicos para botón Play/Pause con SVG --- */
 #playPauseBtn {
-    background-color: var(--brand-color); /* Verde de tu marca */
+    background-color: var(--brand-color);
     border: none;
-    border-radius: 50%; /* Botón redondo */
+    border-radius: 50%;
     width: 50px;
     height: 50px;
-    display: flex; /* Para centrar el SVG */
+    display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--dark-bg); /* Color oscuro (negro) para el icono dentro del botón verde */
+    color: var(--dark-bg);
     cursor: pointer;
-    transition: background-color 0.2s ease-in-out, opacity 0.2s ease-in-out; /* Añadido opacity */
+    transition: background-color 0.2s ease-in-out, opacity 0.2s ease-in-out;
 }
 #playPauseBtn:hover {
-    opacity: 0.85; /* Cambiado de color a opacidad para mejor efecto */
+    opacity: 0.85;
 }
-#playPauseBtn svg { /* SVG dentro del botón de Play/Pause */
+#playPauseBtn svg {
     color: var(--dark-bg);
     width: 28px;
     height: 28px;
 }
-#playPauseBtn:disabled { /* Estilo para botón deshabilitado */
+#playPauseBtn:disabled {
      background-color: #555;
      cursor: not-allowed;
      opacity: 0.6;
 }
-/* --- FIN: Estilos específicos para botón Play/Pause con SVG --- */
 
-/* --- INICIO: Estilos para Nuevos Controles --- */
-.skip-btn { /* Botones Previous/Next */
+.skip-btn {
     background: none;
     border: none;
-    color: var(--text-secondary); /* Color gris */
+    color: var(--text-secondary);
     font-size: 1.3em;
     cursor: pointer;
     transition: color 0.2s;
     padding: 0 5px;
 }
 .skip-btn:hover {
-    color: var(--text-primary); /* Blanco al pasar el mouse */
+    color: var(--text-primary);
 }
-.time-display { /* Contenedor para tiempos */
-    margin-left: auto; /* EMPUJA EL BLOQUE DE TIEMPO A LA DERECHA */
+.time-display {
+    margin-left: auto;
     display: flex;
     align-items: center;
     font-size: 0.9em;
@@ -224,25 +197,23 @@ FIN REEMPLAZO 2.1
     min-width: 90px;
     justify-content: flex-end;
 }
-.time-divider { /* Separador "/" */
+.time-divider {
     margin: 0 5px;
     opacity: 0.5;
 }
-/* --- INICIO: Estilos para Iconos SVG --- */
-.player-controls svg { /* Estilo general SVG controles */
+
+.player-controls svg {
     width: 28px;
     height: 28px;
-    vertical-align: middle; /* Centrado vertical */
+    vertical-align: middle;
 }
-.skip-btn svg { /* SVG dentro de botones skip */
+.skip-btn svg {
     width: 24px;
     height: 24px;
 }
-#pauseIcon { /* Ocultar icono Pausa por defecto */
+#pauseIcon {
     display: none;
 }
-/* --- FIN: Estilos para Iconos SVG --- */
-/* --- FIN: Estilos para Nuevos Controles --- */
 
 #currentTime, #totalDuration {
     font-size: 0.9em;
@@ -256,12 +227,11 @@ FIN REEMPLAZO 2.1
      text-shadow: 1px 1px 2px rgba(0,0,0,0.6);
 }
 
-/* Ocultamos el reproductor <audio> original */
 #audio-player {
     display: none;
 }
 
-/* --- 2b. Lista de Sets --- */
+/* --- 3. Lista de Sets --- */
 .tracklist-container {
     background-color: var(--light-bg);
     border-radius: 8px;
@@ -301,7 +271,7 @@ FIN REEMPLAZO 2.1
     margin-left: auto;
 }
 
-/* --- NUEVOS ESTILOS: Tracklist del Set Actual --- */
+/* --- 4. Tracklist del Set Actual --- */
 .current-tracklist-container {
     background-color: var(--light-bg);
     border-radius: 8px;
@@ -316,10 +286,6 @@ FIN REEMPLAZO 2.1
     text-transform: uppercase;
 }
 
-/* =================================================
-INICIO INSERCIÓN 2.3: Filtro de Favoritos
-=================================================
-*/
 .current-tracklist-header {
     display: flex;
     justify-content: space-between;
@@ -327,57 +293,66 @@ INICIO INSERCIÓN 2.3: Filtro de Favoritos
     margin-bottom: 15px;
 }
 
-/* Contenedor de botones (Alineación Horizontal Perfecta) */
+/* --- FASE 9: Botones Unificados (Favoritos, Auto-Bucle, Espectro) --- */
+
+/* 1. Contenedor Flexible */
 .controls-wrapper {
     display: flex;
     align-items: center;
-    gap: 10px; /* Espacio uniforme entre botones */
+    gap: 10px; /* Espacio uniforme */
 }
 
-/* --- FASE 9: ESTILOS UNIFICADOS (Favoritos + Loop + Espectro) --- */
+/* 2. Estilo Base para TODOS los botones */
 .favorites-filter,
 .auto-loop-button {
     background-color: var(--light-bg);
     color: var(--text-secondary);
-    border: 1px solid var(--text-secondary); /* Borde igual para todos */
-    padding: 4px 12px;                       /* Relleno uniforme */
-    border-radius: 20px;                     /* Bordes redondeados modernos (Pill shape) */
+    border: 1px solid var(--text-secondary);
+    padding: 0 12px;
+    border-radius: 20px; /* Pastilla */
     font-size: 0.8em;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s ease-in-out;
+    transition: all 0.2s;
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    height: 32px; /* Altura forzada para que sean idénticos */
-    box-sizing: border-box;
+    height: 32px; /* Altura forzada */
     text-decoration: none;
     margin: 0;
+    box-sizing: border-box;
 }
 
-/* Efectos Hover */
-.favorites-filter:hover,
-.auto-loop-button:hover {
+/* 3. Corrección Vital: Iconos Pequeños (Mata al icono gigante) */
+.favorites-filter svg,
+.auto-loop-button svg {
+    width: 14px !important;
+    height: 14px !important;
+    fill: currentColor;
+    pointer-events: none;
+    min-width: 14px;
+}
+
+/* 4. Hover */
+.favorites-filter:hover, .auto-loop-button:hover {
     border-color: var(--text-primary);
     color: var(--text-primary);
     background-color: rgba(255, 255, 255, 0.05);
 }
 
-/* Estado Activo (Encendidos) */
-.favorites-filter:has(input:checked),
-.auto-loop-button.active {
+/* 5. Estado Activo (Verde) */
+.favorites-filter:has(input:checked), .auto-loop-button.active {
     background-color: var(--brand-color);
     color: var(--dark-bg);
     border-color: var(--brand-color);
     box-shadow: 0 0 8px rgba(29, 185, 84, 0.4);
 }
 
-/* Ajustes Estrella Favoritos */
-.favorites-filter .star-icon {
-    font-size: 1.1em;
-    color: inherit;
-}
+/* Ajustes Extra */
+.favorites-filter .star-icon { font-size: 1.1em; color: inherit; }
 .favorites-filter input[type="checkbox"] { display: none; }
+
+/* ---------------------------------------------------- */
 
 .current-tracklist {
     list-style: none;
@@ -398,7 +373,7 @@ INICIO INSERCIÓN 2.3: Filtro de Favoritos
     -moz-user-select: none;
     -ms-user-select: none;
 }
-.track-title.track-title-playing { /* Resaltado track activo */
+.track-title.track-title-playing {
     color: var(--brand-color);
     font-weight: 600;
 }
@@ -442,19 +417,13 @@ INICIO INSERCIÓN 2.3: Filtro de Favoritos
     transform: scale(1.1);
 }
 
-/* --- 3. Responsive para Mvil --- */
-
+/* --- Responsive --- */
 @media (max-width: 992px) {
-    .profile-extra-content {
-        display: none;
-    }
-    .profile-info {
-        justify-content: flex-start;
-    }
+    .profile-extra-content { display: none; }
+    .profile-info { justify-content: flex-start; }
 }
 
 @media (max-width: 768px) {
-    /* Perfil Móvil */
     .profile-info { flex-direction: column; align-items: center; margin-top: -75px; text-align: center; padding: 0 15px; gap: 0; }
     .profile-pic { margin-right: 0; margin-bottom: 15px; width: 120px; height: 120px; margin-top: 0; }
     .profile-details-container { align-items: center; padding-top: 0; max-width: 100%; }
@@ -463,29 +432,22 @@ INICIO INSERCIÓN 2.3: Filtro de Favoritos
     .profile-bio { max-width: 100%; margin-bottom: 15px; font-size: 0.9em; }
     .profile-socials { justify-content: center; }
 
-    /* Player Móvil (Portada detrás) */
     .player-card { flex-direction: column; padding: 0; }
     .player-cover-art { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; opacity: 0.45; border-radius: 8px; }
     .player-details { position: relative; z-index: 1; width: 100%; background: linear-gradient(rgba(18,18,18,0.5), rgba(18,18,18,0.8)); padding: 20px; box-sizing: border-box; align-items: center; }
     #current-track-title { text-align: center; font-size: 1.5em; text-shadow: 1px 1px 3px rgba(0,0,0,0.7); }
     #current-track-artist { text-shadow: 1px 1px 3px rgba(0,0,0,0.7); text-align: center; }
 
-    /* Altura waveform ya controlada en JS, CSS la anula solo para móvil si es necesario */
-    /* .track-item-title { font-size: 1em; } */ /* Comentado, revisa si es necesario */
-    /* .track-item-date { font-size: 0.8em; } */ /* Comentado, revisa si es necesario */
-
-    /* Tracklist Actual Móvil */
     .current-tracklist-container { padding: 10px 15px; }
     .current-tracklist-header { margin-bottom: 10px; flex-direction: column; align-items: flex-start; gap: 5px; }
     .current-tracklist-header h4 { font-size: 0.8em; }
-    .favorites-filter { font-size: 0.8em; padding: 2px 4px; }
     .current-tracklist { max-height: 300px; }
     .current-tracklist-item { padding: 6px 0px; }
     .track-time { font-size: 0.85em; min-width: 40px; }
     .track-title { font-size: 0.95em; }
     .favorite-btn { font-size: 1.2em; }
 
-    /* --- INICIO: Estilos para Contenedor Deslizable (Móvil) --- */
+    /* Scroll Horizontal en Móvil */
     .controls-wrapper {
         overflow-x: auto;
         overflow-y: hidden;
@@ -493,105 +455,69 @@ INICIO INSERCIÓN 2.3: Filtro de Favoritos
         width: 100%;
         padding-bottom: 5px;
         -webkit-overflow-scrolling: touch;
-        scrollbar-width: none; /* Firefox */
+        scrollbar-width: none;
+        display: flex; /* Asegurar flex */
     }
-    .controls-wrapper::-webkit-scrollbar {
-        display: none; /* Chrome, Safari, etc. */
-    }
-    .controls-wrapper > .favorites-filter,
-    .controls-wrapper > .auto-loop-button {
-        display: inline-flex;
+    .controls-wrapper::-webkit-scrollbar { display: none; }
+
+    .favorites-filter, .auto-loop-button {
+        flex-shrink: 0; /* Evitar que se aplasten */
     }
 
-    /* Forzar al icono a ser pequeño, ignorando el HTML de 800px */
-    .favorites-filter svg,
-    .auto-loop-button svg {
-        width: 14px !important;  /* <--- AÑADIDO !important */
-        height: 14px !important; /* <--- AÑADIDO !important */
-        fill: currentColor;
-        pointer-events: none;
-        min-width: 14px; /* Asegura que no se aplaste */
-    }
+    .player-details #waveform { height: 80px !important; }
+    .waveform-container { margin-bottom: 45px; }
 
-    .favorites-filter {
-        margin-right: 10px; /* Espacio entre botones */
+    .audio-quality-badge {
+        top: 3px;
+        right: 2.9px;
+        font-size: 0.65em;
+        padding: 2px 6px;
     }
-    /* --- FIN: Estilos para Contenedor Deslizable --- */
-
-    /* --- INICIO: Ajuste Altura Waveform Móvil (CON MAYOR ESPECIFICIDAD) --- */
-    .player-details #waveform { /* Selector modificado */
-         height: 80px !important;
-    }
-    /* --- FIN: Ajuste Altura Waveform Móvil --- */
-
-    /* === INICIO: NUEVA REGLA PARA AÑADIR ESPACIO DEBAJO DE LA ONDA EN MÓVIL === */
-    .waveform-container {
-        margin-bottom: 45px; /* Ajusta este valor (ej. 20px, 25px, 30px) */
-    }
-    /* === FIN: NUEVA REGLA === */
-
 }
 
-/* --- INICIO: Estilos Badge FLAC (Magenta Neón - Refinado) --- */
+/* --- Badge FLAC --- */
 .audio-quality-badge {
     position: absolute;
     top: 15px;
     right: 15px;
-    background-color: rgba(0, 0, 0, 0.65); /* Fondo un poco más opaco */
-    color: #FF00FF; /* MAGENTA NEÓN */
-    padding: 3px 9px; /* Ajuste sutil de padding */
+    background-color: rgba(0, 0, 0, 0.65);
+    color: #FF00FF;
+    padding: 3px 9px;
     border-radius: 5px;
-    font-size: 0.65em; /* Ligeramente más pequeño */
+    font-size: 0.65em;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.7px;
-    border: 1px solid rgba(255, 0, 255, 0.4); /* Borde un poco más suave */
-    /* Efecto GLOBO neón un poco más suave */
+    border: 1px solid rgba(255, 0, 255, 0.4);
     text-shadow: 0 0 4px rgba(255, 0, 255, 0.6), 0 0 8px rgba(255, 0, 255, 0.4);
-    box-shadow: 0 0 6px rgba(255, 0, 255, 0.25); /* Sombra exterior más suave */
+    box-shadow: 0 0 6px rgba(255, 0, 255, 0.25);
     z-index: 5;
     pointer-events: none;
 }
-/* --- FIN: Estilos Badge FLAC --- */
 
-/* Ajuste para móvil para que no choque con elementos */
-@media (max-width: 768px) {
-    .audio-quality-badge {
-        top: 3px;
-        right: 2.9px;
-        font-size: 0.65em; /* Aún más pequeño en móvil */
-        padding: 2px 6px;
-    }
-}
-/* --- FIN: Estilos para Distintivo de Calidad FLAC --- */
-
-/* --- Ajustes Específicos para Desktop --- */
+/* --- Ajustes Desktop --- */
 @media (min-width: 769px) {
     .player-controls {
-        margin-top: 25px; /* Ajusta este valor */
+        margin-top: 25px;
     }
 }
 
-/* --- FASE 4: ESTILOS MODAL COMPARTIR (Estilo YouTube Dark) --- */
-
-/* Botón en la barra de controles */
+/* --- MODAL COMPARTIR --- */
 .action-btn {
     background: none; border: none; color: var(--text-secondary); cursor: pointer;
     padding: 0 5px; margin-left: 10px; transition: color 0.2s;
 }
 .action-btn:hover { color: var(--text-primary); }
 
-/* Overlay (Fondo oscuro) */
 .share-modal-overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background-color: rgba(0, 0, 0, 0.7); z-index: 1000;
     display: flex; justify-content: center; align-items: center;
-    backdrop-filter: blur(2px); /* Efecto moderno */
+    backdrop-filter: blur(2px);
 }
 
-/* Ventana Modal */
 .share-modal-content {
-    background-color: #282828; /* Gris YouTube */
+    background-color: #282828;
     width: 90%; max-width: 500px;
     border-radius: 12px;
     box-shadow: 0 10px 25px rgba(0,0,0,0.5);
@@ -599,7 +525,6 @@ INICIO INSERCIÓN 2.3: Filtro de Favoritos
     overflow: hidden; animation: fadeIn 0.2s ease-out;
 }
 
-/* Cabecera */
 .share-modal-header {
     padding: 15px 20px;
     display: flex; justify-content: space-between; align-items: center;
@@ -611,10 +536,8 @@ INICIO INSERCIÓN 2.3: Filtro de Favoritos
 }
 .share-modal-close:hover { color: #fff; }
 
-/* Cuerpo */
 .share-modal-body { padding: 20px; }
 
-/* Grupo Input + Botón */
 .share-input-group {
     display: flex; border: 1px solid #3e3e3e; border-radius: 8px;
     padding: 4px; background-color: #121212; margin-bottom: 15px;
@@ -625,14 +548,13 @@ INICIO INSERCIÓN 2.3: Filtro de Favoritos
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 #copyShareUrlBtn {
-    background-color: #3ea6ff; /* Azul YouTube */
+    background-color: #3ea6ff;
     color: #000; border: none; border-radius: 18px;
     padding: 0 20px; font-weight: 600; cursor: pointer;
     transition: background-color 0.2s;
 }
 #copyShareUrlBtn:hover { background-color: #65b8ff; }
 
-/* Checkbox Personalizado */
 .share-option-row { display: flex; align-items: center; margin-top: 10px; }
 .share-checkbox-label {
     display: flex; align-items: center; cursor: pointer; color: #aaa; font-size: 0.9em; user-select: none;
@@ -641,7 +563,7 @@ INICIO INSERCIÓN 2.3: Filtro de Favoritos
 
 @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
 
-/* --- FASE 6: BOTONES SOCIALES --- */
+/* --- BOTONES SOCIALES --- */
 .share-social-row {
     display: flex; justify-content: center; gap: 20px; margin-bottom: 20px;
 }
@@ -654,29 +576,15 @@ INICIO INSERCIÓN 2.3: Filtro de Favoritos
 .social-share-btn svg { width: 24px; height: 24px; }
 .social-share-btn:hover { transform: translateY(-3px); }
 
-/* Colores de marca al hover */
-.social-share-btn.wa:hover { background-color: #25D366; } /* WhatsApp Verde */
-.social-share-btn.fb:hover { background-color: #1877F2; } /* Facebook Azul */
-.social-share-btn.x:hover { background-color: #000000; border: 1px solid #333; } /* X Negro */
+.social-share-btn.wa:hover { background-color: #25D366; }
+.social-share-btn.fb:hover { background-color: #1877F2; }
+.social-share-btn.x:hover { background-color: #000000; border: 1px solid #333; }
 
-/* --- FASE 7: CAPAS DE WAVESURFER (Estilo Prototipo) --- */
-/* 1. Regiones (Colores): Al fondo */
+/* --- CAPAS DE WAVESURFER --- */
 #waveform ::part(region) {
     z-index: 1 !important;
-    border-right: 1px solid rgba(0,0,0,0.2); /* Separador sutil */
+    border-right: 1px solid rgba(0,0,0,0.2);
 }
-
-/* 2. Onda (Audio): Encima de los colores */
-#waveform ::part(wave) {
-    z-index: 2 !important;
-}
-
-/* 3. Progreso: Encima de la onda */
-#waveform ::part(progress) {
-    z-index: 3 !important;
-}
-
-/* 4. Cursor: Encima de todo */
-#waveform ::part(cursor) {
-    z-index: 4 !important;
-}
+#waveform ::part(wave) { z-index: 2 !important; }
+#waveform ::part(progress) { z-index: 3 !important; }
+#waveform ::part(cursor) { z-index: 4 !important; }
