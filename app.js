@@ -141,18 +141,20 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         const updateUrl = () => {
-            // Construir URL limpia (Protocolo + Host + Path) sin parámetros viejos
-            const baseUrl = window.location.protocol + '//' + window.location.host + window.location.pathname;
+            // --- INICIO: Generación de URL Limpia (Opción B) ---
+            const rootUrl = window.location.origin + window.location.pathname.replace('index.html', '');
+            const cleanRoot = rootUrl.endsWith('/') ? rootUrl : rootUrl + '/';
 
-            let finalUrl = `${baseUrl}?set=${currentLoadedSet.id}`;
+            // Apuntar a la carpeta generada
+            let finalUrl = `${cleanRoot}share/${currentLoadedSet.id}/`;
 
-            // Si el checkbox está marcado, añadir tiempo
             if (timeCheckbox.checked) {
                 const seconds = Math.floor(wavesurfer.getCurrentTime());
-                finalUrl += `&t=${seconds}`;
+                finalUrl += `?t=${seconds}`;
             }
 
             urlInput.value = finalUrl;
+            // --- FIN: Generación de URL Limpia ---
         };
 
         const copyToClipboard = () => {
