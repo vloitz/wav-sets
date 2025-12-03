@@ -56,6 +56,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentLoadedSet = null; // Para saber qué set está cargado
     let wavesurfer = null; // Declarar wavesurfer aquí
 
+    let wsRegions = null; // Referencia al plugin de regiones
+
 
     // --- INICIO: Módulo URLController (Fase 2 - Deep Linking) ---
     const URLController = (() => {
@@ -201,6 +203,94 @@ document.addEventListener('DOMContentLoaded', () => {
     })();
     // --- FIN: Módulo ShareController ---
 
+    // --- INICIO: Módulo ColorController (Fase 7 - Paleta Dinámica) ---
+    const ColorController = (() => {
+        let palette = [];
+
+        // Generador de paleta profesional (Portado de segmentos.html)
+        const generatePalette = () => {
+            const baseTones = [
+                [230, 0, 0],   [0, 200, 80],   [0, 120, 255], [255, 190, 0], [220, 0, 200],
+                [0, 190, 200], [255, 100, 0],  [140, 0, 220], [120, 220, 0], [255, 50, 100]
+            ];
+            const variations = ['Vibrante', 'Muteado', 'Profundo'];
+
+            baseTones.forEach(([r, g, b]) => {
+                variations.forEach(variant => {
+                    let finalR = r, finalG = g, finalB = b;
+
+                    if (variant === 'Muteado') {
+                        const intensity = 0.6;
+                        const gray = (r + g + b) / 3;
+                        finalR = Math.round(r * intensity + gray * (1 - intensity));
+                        finalG = Math.round(g * intensity + gray * (1 - intensity));
+                        finalB = Math.round(b * intensity + gray * (1 - intensity));
+                    } else if (variant === 'Profundo') {
+                        finalR = Math.round(r * 0.5);
+                        finalG = Math.round(g * 0.5);
+                        finalB = Math.round(b * 0.5);
+                    }
+
+                    // Guardamos rgba para la onda (transparente) y rgb para el texto (solido)
+                    palette.push({
+                        waveColor: `rgba(${finalR}, ${finalG}, ${finalB}, 0.25)`, // 25% opacidad para fondo
+                        textColor: `rgb(${finalR}, ${finalG}, ${finalB})`         // 100% opacidad para texto
+                    });
+                });
+            });
+            console.log(`[ColorController] Paleta generada con ${palette.length} tonos.`);
+        };
+
+        // Obtener color (con loop infinito si index > 30)
+        const getColor = (index) => {
+            if (palette.length === 0) generatePalette();
+            return palette[index % palette.length];
+        };
+
+        return { getColor };
+    })();
+
+
+    // --- FUNCIÓN DE PINTADO (Fase 7) ---
+    function paintWaveformRegions() {
+        if (!wsRegions || !currentLoadedSet || !currentLoadedSet.tracklist) return;
+
+        console.log("[Regions] Iniciando pintado de espectro...");
+        wsRegions.clearRegions(); // Limpiar anteriores
+
+        const tracks = currentLoadedSet.tracklist;
+        const totalDuration = wavesurfer.getDuration();
+
+        tracks.forEach((track, index) => {
+            // 1. Obtener tiempo de inicio (convertir "MM:SS" a segundos)
+            const timeParts = track.time.split(':');
+            const startTime = parseInt(timeParts[0], 10) * 60 + parseInt(timeParts[1], 10);
+
+            // 2. Calcular tiempo de fin (Inicio del siguiente track o Final del audio)
+            let endTime = totalDuration;
+            if (index < tracks.length - 1) {
+                const nextParts = tracks[index + 1].time.split(':');
+                endTime = parseInt(nextParts[0], 10) * 60 + parseInt(nextParts[1], 10);
+            }
+
+            // 3. Obtener color de la paleta
+            const colors = ColorController.getColor(index);
+
+            // 4. Dibujar región
+            wsRegions.addRegion({
+                start: startTime,
+                end: endTime,
+                color: colors.waveColor, // Color transparente para la onda
+                drag: false,
+                resize: false
+            });
+        });
+        console.log(`[Regions] ${tracks.length} regiones dibujadas.`);
+    }
+
+    // --- FIN: Módulo ColorController ---
+
+
     // --- Variables para lógica táctil v6 Final ---
 let isDraggingWaveformTouch = false;
 let longTouchTimer = null;
@@ -221,6 +311,9 @@ let wasPlayingBeforeDrag = false; // Para saber si pausar/reanudar
             // barRadius: 0, // Default in prototype, can omit or set explicitly
             // normalize: false, // Default in prototype, ensure it's not true
             // --- End Matching ---
+
+            plugins: [WaveSurfer.Regions.create()], // Activar plugin
+
             cursorColor: "#ffffff", // Keep your preferred cursor color
             cursorWidth: 1,         // Keep your preferred cursor width
             responsive: true,
@@ -230,6 +323,9 @@ let wasPlayingBeforeDrag = false; // Para saber si pausar/reanudar
         console.log("WaveSurfer inicializado correctamente."); // LOG
         // Hacer accesible globalmente para depuración desde la consola
         window.wavesurfer = wavesurfer;
+
+        wsRegions = wavesurfer.plugins[0]; // Guardar referencia para usarla luego
+
         console.log("Instancia de WaveSurfer asignada a window.wavesurfer para depuración."); // LOG
     } catch (error) {
          console.error("Error CRÍTICO al inicializar WaveSurfer:", error); // LOG ERROR
@@ -449,7 +545,15 @@ let wasPlayingBeforeDrag = false; // Para saber si pausar/reanudar
         }
 
         tracklistData.forEach((track, index) => {
+
+            // Obtener el color asignado a este track (Texto Sólido)
+            const trackColors = ColorController.getColor(index);
+
             const li = document.createElement('li');
+
+            // Guardamos el color en el elemento para usarlo luego
+            li.dataset.activeColor = trackColors.textColor;
+
             li.className = 'current-tracklist-item';
             li.dataset.time = track.time;
             li.dataset.index = index;
@@ -578,6 +682,7 @@ const handleWaveformTouchEnd = (endEvent) => {
     // --- Eventos de WaveSurfer ---
 
     wavesurfer.on('ready', () => {
+
         const duration = wavesurfer.getDuration();
         totalDurationEl.textContent = formatTime(duration);
         currentTimeEl.textContent = formatTime(0);
@@ -586,6 +691,8 @@ const handleWaveformTouchEnd = (endEvent) => {
         if (pauseIcon) pauseIcon.style.display = 'none';
         currentTrackTitle.textContent = allSets[currentSetIndex]?.title || "Set Listo";
         console.log("WaveSurfer listo para track:", allSets[currentSetIndex]?.title); // LOG ÉXITO
+
+        paintWaveformRegions();
 
         // --- INICIO: Lógica Deep Linking Time Seek (Fase 3.2) ---
         // Verificamos si hay un tiempo pendiente en la URL Y si es la primera carga (para no saltar en loops)
@@ -657,17 +764,23 @@ const handleWaveformTouchEnd = (endEvent) => {
 
                 // --- INICIO: NUEVO CÓDIGO DE RESALTADO ---
 
-                // 1. Limpiar todos los resaltados anteriores
+                // 1. Limpiar todos los resaltados anteriores (Clase y Color)
                 currentTracklistElement.querySelectorAll('.track-title.track-title-playing').forEach(el => {
                     el.classList.remove('track-title-playing');
+                    el.style.color = ''; // Quitar color forzado
                 });
 
                 // 2. Aplicar el nuevo resaltado usando el índice que guardamos
                 const newActiveItem = currentTracklistElement.querySelector(`.current-tracklist-item[data-index="${foundTrackIndex}"]`);
                 if (newActiveItem) {
+
                     const titleElement = newActiveItem.querySelector('.track-title');
                     if (titleElement) {
                         titleElement.classList.add('track-title-playing');
+                        // Aplicar el color específico del track
+                        if (newActiveItem.dataset.activeColor) {
+                            titleElement.style.color = newActiveItem.dataset.activeColor;
+                        }
                         console.log(`[Highlight] Resaltando track: ${foundTrackName}`);
                     }
 
