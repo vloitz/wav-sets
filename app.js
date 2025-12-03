@@ -77,8 +77,108 @@ document.addEventListener('DOMContentLoaded', () => {
         return {
             getParams: getParams
         };
+
     })();
     // --- FIN: Módulo URLController ---
+
+
+    // --- INICIO: Módulo ShareController (Fase 5 - Lógica Compartir) ---
+    const ShareController = (() => {
+        // Referencias DOM
+        const modalOverlay = document.getElementById('share-modal-overlay');
+        const closeBtn = document.getElementById('closeShareBtn');
+        const urlInput = document.getElementById('shareUrlInput');
+        const copyBtn = document.getElementById('copyShareUrlBtn');
+        const timeCheckbox = document.getElementById('shareTimeCheckbox');
+        const timeLabel = document.getElementById('shareTimeLabel');
+        const shareBtn = document.getElementById('shareBtn');
+
+        // Inicializar listeners
+        const init = () => {
+            if (!shareBtn || !modalOverlay) {
+                console.warn("[ShareController] Elementos UI no encontrados. Saltando init.");
+                return;
+            }
+
+            // 1. Abrir Modal
+            shareBtn.addEventListener('click', openModal);
+
+            // 2. Cerrar Modal (Botón X y Clic fuera)
+            closeBtn.addEventListener('click', closeModal);
+            modalOverlay.addEventListener('click', (e) => {
+                if (e.target === modalOverlay) closeModal();
+            });
+
+            // 3. Actualizar URL al cambiar checkbox
+            timeCheckbox.addEventListener('change', updateUrl);
+
+            // 4. Copiar al portapapeles
+            copyBtn.addEventListener('click', copyToClipboard);
+
+            console.log("[ShareController] Módulo inicializado.");
+        };
+
+        const openModal = () => {
+            if (!currentLoadedSet || !wavesurfer) return;
+
+            // Actualizar etiqueta de tiempo
+            const currentTime = wavesurfer.getCurrentTime();
+            timeLabel.textContent = `Iniciar en ${formatTime(currentTime)}`;
+
+            // Resetear checkbox a false por defecto al abrir
+            timeCheckbox.checked = false;
+
+            // Generar URL base
+            updateUrl();
+
+            // Mostrar modal
+            modalOverlay.style.display = 'flex';
+            console.log(`[ShareController] Abriendo modal para SetID: ${currentLoadedSet.id}`);
+        };
+
+        const closeModal = () => {
+            modalOverlay.style.display = 'none';
+        };
+
+        const updateUrl = () => {
+            // Construir URL limpia (Protocolo + Host + Path) sin parámetros viejos
+            const baseUrl = window.location.protocol + '//' + window.location.host + window.location.pathname;
+
+            let finalUrl = `${baseUrl}?set=${currentLoadedSet.id}`;
+
+            // Si el checkbox está marcado, añadir tiempo
+            if (timeCheckbox.checked) {
+                const seconds = Math.floor(wavesurfer.getCurrentTime());
+                finalUrl += `&t=${seconds}`;
+            }
+
+            urlInput.value = finalUrl;
+        };
+
+        const copyToClipboard = () => {
+            urlInput.select();
+            urlInput.setSelectionRange(0, 99999); // Para móviles
+
+            navigator.clipboard.writeText(urlInput.value).then(() => {
+                // Feedback visual en el botón
+                const originalText = copyBtn.textContent;
+                copyBtn.textContent = "¡Copiado!";
+                copyBtn.style.backgroundColor = "#1DB954"; // Verde marca
+
+                setTimeout(() => {
+                    copyBtn.textContent = originalText;
+                    copyBtn.style.backgroundColor = ""; // Restaurar color original
+                }, 2000);
+
+                console.log("[ShareController] URL copiada: ", urlInput.value);
+            }).catch(err => {
+                console.error("[ShareController] Error al copiar: ", err);
+            });
+        };
+
+        return { init };
+    })();
+    // --- FIN: Módulo ShareController ---
 
     // --- Variables para lógica táctil v6 Final ---
 let isDraggingWaveformTouch = false;
@@ -1263,6 +1363,12 @@ function toggleFavorite(seconds, buttonElement) {
         });
     }
     // --- FIN: Listeners para Skip Buttons ---
+
+    // --- INICIO: Inicialización ShareController (Fase 5) ---
+    if (typeof ShareController !== 'undefined') {
+        ShareController.init();
+    }
+    // --- FIN: Inicialización ShareController ---
 
 
     console.log("Aplicación inicializada y listeners configurados."); // LOG FINAL INIT
