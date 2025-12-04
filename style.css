@@ -588,3 +588,53 @@ body, html {
 #waveform ::part(wave) { z-index: 2 !important; }
 #waveform ::part(progress) { z-index: 3 !important; }
 #waveform ::part(cursor) { z-index: 4 !important; }
+
+/* --- FASE 11: TOAST PWA --- */
+.pwa-toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    max-width: 400px;
+    background-color: #282828;
+    border: 1px solid #333;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+    z-index: 2000; /* Encima de todo */
+    padding: 15px;
+    animation: slideUp 0.5s ease-out;
+}
+
+.pwa-content {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.pwa-text strong { display: block; color: #fff; margin-bottom: 4px; }
+.pwa-text span { font-size: 0.9em; color: #b3b3b3; }
+
+.pwa-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+#pwaDismissBtn {
+    background: none; border: none; color: #b3b3b3;
+    font-weight: 600; cursor: pointer; padding: 8px 12px;
+}
+
+#pwaInstallBtn {
+    background-color: var(--brand-color);
+    color: var(--dark-bg);
+    border: none; border-radius: 20px;
+    padding: 8px 20px; font-weight: 700;
+    cursor: pointer;
+}
+
+@keyframes slideUp {
+    from { transform: translate(-50%, 100%); opacity: 0; }
+    to { transform: translate(-50%, 0); opacity: 1; }
+}
