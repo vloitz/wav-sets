@@ -207,6 +207,20 @@
         </div>
     </div>
 
+
+    <div id="pwa-toast" class="pwa-toast" style="display: none;">
+        <div class="pwa-content">
+            <div class="pwa-text">
+                <strong>Instalar Vloitz App</strong>
+                <span>Mejor rendimiento y pantalla completa.</span>
+            </div>
+            <div class="pwa-actions">
+                <button id="pwaDismissBtn">Ahora no</button>
+                <button id="pwaInstallBtn">Instalar</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js')
