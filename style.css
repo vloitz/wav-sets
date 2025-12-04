@@ -15,6 +15,13 @@ body, html {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     background-color: var(--dark-bg);
     color: var(--text-primary);
+
+    /* --- BLOQUEO DE ZOOM Y GESTOS --- */
+    touch-action: manipulation; /* Evita zoom por doble toque */
+    overscroll-behavior: none;  /* Evita el "rebote" elástico al scrollear al tope */
+    -webkit-user-select: none;  /* (Opcional) Evita seleccionar texto por error en la interfaz */
+    user-select: none;
+
 }
 
 .app-container {
