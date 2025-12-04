@@ -1565,16 +1565,18 @@ function toggleFavorite(seconds, buttonElement) {
 
     console.log("Aplicación inicializada y listeners configurados."); // LOG FINAL INIT
 
-    // --- FASE 12: Estrategia "Sticky + Random Ghost" (Persistencia Aleatoria) ---
+
+
+    // --- FASE 12/13: Estrategia "Sticky + Random Ghost + Barra de Tiempo" ---
     let deferredPrompt;
-    let ghostTimer; // Variable para el temporizador dinámico
+    let ghostTimer;
+    const progressFill = document.getElementById('pwaProgressFill'); // Referencia a la barra
 
     // --- TUS VARIABLES DE CONTROL ---
     const PWA_CONFIG = {
         INITIAL_DELAY: 10000,       // 10 seg: Tiempo inicial al cargar (Aviso Fijo)
-        // Vector de tiempos en MINUTOS para el fantasma aleatorio
-        GHOST_INTERVALS_MIN: [1, 2],
-        GHOST_DURATION: 3500        //Cuánto dura visible el fantasma antes de irse
+        GHOST_INTERVALS_MIN: [1, 2, 3], // Minutos aleatorios para que vuelva a salir (Ej: 1, 2 o 3 min)
+        GHOST_DURATION: 4000        // 4 seg: Tiempo que dura el fantasma visible
     };
 
     window.addEventListener('beforeinstallprompt', (e) => {
@@ -1588,53 +1590,71 @@ function toggleFavorite(seconds, buttonElement) {
         }, PWA_CONFIG.INITIAL_DELAY);
     });
 
-    // Función 1: Aviso Fijo (Obliga a decidir la primera vez)
+    // Función 1: Aviso Fijo (El primero, no se va solo)
     function showStickyPrompt() {
         const pwaToast = document.getElementById('pwa-toast');
         if (!pwaToast) return;
 
         pwaToast.style.display = 'block';
-        console.log("[PWA] Aviso FIJO mostrado. Esperando interacción...");
+        console.log("[PWA] Aviso FIJO mostrado.");
 
-        setupButtons(pwaToast, true); // true = Es el modo sticky
+        // En modo fijo, la barra está quieta (o vacía)
+        if (progressFill) {
+            progressFill.style.transition = 'none';
+            progressFill.style.width = '0%';
+        }
+
+        setupButtons(pwaToast, true); // true = Modo Sticky
     }
 
-    // Función 2: Programar el siguiente Fantasma Aleatorio
+    // Función 2: Programar el siguiente Fantasma
     function scheduleNextGhost() {
-        // 1. Elegir un tiempo al azar del vector
+        // Elegir tiempo al azar del vector
         const minutes = PWA_CONFIG.GHOST_INTERVALS_MIN[Math.floor(Math.random() * PWA_CONFIG.GHOST_INTERVALS_MIN.length)];
-        const delayMs = minutes * 60 * 1000; // Convertir a milisegundos
+        const delayMs = minutes * 60 * 1000;
+
+        // PARA PRUEBAS RÁPIDAS (Borrar luego): Descomenta la siguiente línea para que sean SEGUNDOS en vez de MINUTOS
+        // const delayMs = minutes * 10000;
 
         console.log(`[PWA] Próximo fantasma programado en ${minutes} minutos.`);
 
-        // 2. Iniciar temporizador
         if (ghostTimer) clearTimeout(ghostTimer);
-
         ghostTimer = setTimeout(() => {
             triggerGhost();
         }, delayMs);
     }
 
-    // Función 3: Mostrar el Fantasma y programar el siguiente
+    // Función 3: El Fantasma (Con Barra de Tiempo)
     function triggerGhost() {
         const pwaToast = document.getElementById('pwa-toast');
         if (!pwaToast) return;
 
-        // Mostrar
+        // 1. Resetear barra (llena al 100% instantáneo)
+        if (progressFill) {
+            progressFill.style.transition = 'none';
+            progressFill.style.width = '100%';
+        }
+
+        // 2. Mostrar ventana
         pwaToast.style.display = 'block';
-        console.log("[PWA] Aparición Fantasma...");
+        console.log(`[PWA] Aparición Fantasma (${PWA_CONFIG.GHOST_DURATION}ms)...`);
 
-        // Configurar botones (false = modo fantasma)
-        setupButtons(pwaToast, false);
+        setupButtons(pwaToast, false); // false = Modo Fantasma
 
-        // Auto-Desvanecer y RE-PROGRAMAR el siguiente ciclo
+        // 3. Iniciar animación de la barra (hacia 0%)
+        setTimeout(() => {
+            if (progressFill) {
+                progressFill.style.transition = `width ${PWA_CONFIG.GHOST_DURATION}ms linear`;
+                progressFill.style.width = '0%';
+            }
+        }, 50);
+
+        // 4. Auto-Desvanecer y Reprogramar
         setTimeout(() => {
             if (pwaToast.style.display === 'block') {
                 pwaToast.style.display = 'none';
                 console.log("[PWA] El fantasma se desvaneció.");
-
-                // ¡AQUÍ ESTÁ LA CLAVE! Al irse, programa el siguiente turno aleatorio
-                scheduleNextGhost();
+                scheduleNextGhost(); // ¡IMPORTANTE! Vuelve a iniciar el ciclo
             }
         }, PWA_CONFIG.GHOST_DURATION);
     }
@@ -1647,7 +1667,7 @@ function toggleFavorite(seconds, buttonElement) {
         // INSTALAR
         installBtn.onclick = async () => {
             pwaToast.style.display = 'none';
-            if (ghostTimer) clearTimeout(ghostTimer); // Detener fantasmas si instala
+            if (ghostTimer) clearTimeout(ghostTimer);
 
             if (deferredPrompt) {
                 deferredPrompt.prompt();
@@ -1657,27 +1677,28 @@ function toggleFavorite(seconds, buttonElement) {
             }
         };
 
-        // CERRAR / AHORA NO
+        // CERRAR (Botón "Ahora no")
         dismissBtn.onclick = () => {
             pwaToast.style.display = 'none';
 
             if (isStickyMode) {
-                // Si cerró el aviso FIJO inicial, arranca el ciclo aleatorio
-                console.log("[PWA] Usuario cerró aviso fijo. Iniciando ciclo aleatorio.");
+                // Si cerró el aviso FIJO inicial, iniciamos la tortura fantasma >:)
+                console.log("[PWA] Usuario cerró aviso fijo. Iniciando ciclo fantasma.");
                 scheduleNextGhost();
             } else {
-                // Si cerró un fantasma manualmente, igual programamos el siguiente
+                // Si cerró un fantasma manualmente, reprogramamos el siguiente igual
                 console.log("[PWA] Usuario cerró fantasma manualmente.");
                 scheduleNextGhost();
             }
         };
     }
 
-    // Limpieza si se instala
+    // Limpieza final si instala
     window.addEventListener('appinstalled', () => {
         const pwaToast = document.getElementById('pwa-toast');
         if(pwaToast) pwaToast.style.display = 'none';
         if (ghostTimer) clearTimeout(ghostTimer);
     });
+
 
 });
