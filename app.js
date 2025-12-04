@@ -1576,7 +1576,7 @@ function toggleFavorite(seconds, buttonElement) {
     const PWA_CONFIG = {
         INITIAL_DELAY: 10000,       // 10 seg: Tiempo inicial al cargar (Aviso Fijo)
         GHOST_INTERVALS_MIN: [1, 2], // Minutos aleatorios para que vuelva a salir (Ej: 1, 2 o 3 min)
-        GHOST_DURATION: 4000        // 4 seg: Tiempo que dura el fantasma visible
+        GHOST_DURATION: 9000        // 4 seg: Tiempo que dura el fantasma visible
     };
 
     window.addEventListener('beforeinstallprompt', (e) => {
