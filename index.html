@@ -13,6 +13,10 @@
     <link rel="icon" type="image/png" sizes="96x96" href="favicon/favicon-96x96.png">
     <link rel="icon" type="image/svg+xml" href="favicon/favicon.svg">
     <link rel="icon" type="image/x-icon" href="favicon/favicon.ico">
+
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1DB954">
+
     <meta property="og:title" content="Vloitz - High Quality Sets">
     <meta property="og:description" content="Listen to curated electronic music sets by Vloitz in FLAC/WAV quality.">
     <meta property="og:url" content="https://vloitz.github.io/wav-sets/">
@@ -202,6 +206,14 @@
             </div>
         </div>
     </div>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js')
+                .then(() => console.log('[PWA] Service Worker Registrado Correctamente'))
+                .catch(err => console.error('[PWA] Error al registrar SW:', err));
+        }
+    </script>
 
     <script src="app.js"></script>
 </body>
