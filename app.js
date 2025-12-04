@@ -1566,139 +1566,129 @@ function toggleFavorite(seconds, buttonElement) {
     console.log("Aplicación inicializada y listeners configurados."); // LOG FINAL INIT
 
 
+// --- FASE 12/13: Estrategia "Sticky + Random Ghost" (MODO PRUEBAS) ---
+let deferredPrompt;
+let ghostTimer;
+const progressFill = document.getElementById('pwaProgressFill');
 
-    // --- FASE 12/13: Estrategia "Sticky + Random Ghost + Barra de Tiempo" ---
-    let deferredPrompt;
-    let ghostTimer;
-    const progressFill = document.getElementById('pwaProgressFill'); // Referencia a la barra
+// --- VARIABLES DE CONTROL (MODO RÁPIDO) ---
+const PWA_CONFIG = {
+    INITIAL_DELAY: 5000,        // 5 seg: Primer aviso (Sticky)
+    // ¡OJO! Aquí usaremos SEGUNDOS para probar (0.2 = 12 segundos aprox)
+    // Cuando verifiques que funciona, cambias esto a [1, 2, 3]
+    GHOST_INTERVALS_MIN: [0.1, 0.2],
+    GHOST_DURATION: 5000        // 5 seg: Duración del fantasma
+};
 
-    // --- TUS VARIABLES DE CONTROL ---
-    const PWA_CONFIG = {
-        INITIAL_DELAY: 10000,       // 10 seg: Tiempo inicial al cargar (Aviso Fijo)
-        GHOST_INTERVALS_MIN: [1, 2], // Minutos aleatorios para que vuelva a salir (Ej: 1, 2 o 3 min)
-        GHOST_DURATION: 9000        // 4 seg: Tiempo que dura el fantasma visible
-    };
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    console.log("[PWA] Evento capturado.");
 
-    window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
-        deferredPrompt = e;
-        console.log("[PWA] Evento capturado. Iniciando cuenta regresiva inicial...");
+    // 1. Primer Impacto: AVISO FIJO
+    setTimeout(() => {
+        showStickyPrompt();
+    }, PWA_CONFIG.INITIAL_DELAY);
+});
 
-        // 1. Primer Impacto: AVISO FIJO (Sticky)
-        setTimeout(() => {
-            showStickyPrompt();
-        }, PWA_CONFIG.INITIAL_DELAY);
-    });
+// Función 1: Aviso Fijo
+function showStickyPrompt() {
+    const pwaToast = document.getElementById('pwa-toast');
+    if (!pwaToast) return;
 
-    // Función 1: Aviso Fijo (El primero, no se va solo)
-    function showStickyPrompt() {
-        const pwaToast = document.getElementById('pwa-toast');
-        if (!pwaToast) return;
+    pwaToast.style.display = 'block';
+    if (progressFill) {
+        progressFill.style.transition = 'none';
+        progressFill.style.width = '0%';
+    }
+    setupButtons(pwaToast, true); // true = Modo Sticky
+}
 
-        pwaToast.style.display = 'block';
-        console.log("[PWA] Aviso FIJO mostrado.");
+// Función 2: Programar Fantasma
+function scheduleNextGhost() {
+    // Elegir tiempo al azar
+    const minutes = PWA_CONFIG.GHOST_INTERVALS_MIN[Math.floor(Math.random() * PWA_CONFIG.GHOST_INTERVALS_MIN.length)];
 
-        // En modo fijo, la barra está quieta (o vacía)
+    // CONVERSIÓN: minutos * 60 * 1000
+    // Con 0.1 minutos -> son 6 segundos. Con 0.2 -> 12 segundos.
+    const delayMs = minutes * 60 * 1000;
+
+    console.log(`[PWA] Próximo fantasma en ${(delayMs/1000).toFixed(0)} segundos.`);
+
+    if (ghostTimer) clearTimeout(ghostTimer);
+    ghostTimer = setTimeout(() => {
+        triggerGhost();
+    }, delayMs);
+}
+
+// Función 3: El Fantasma (Con Barra)
+function triggerGhost() {
+    const pwaToast = document.getElementById('pwa-toast');
+    if (!pwaToast) return;
+
+    // Reset barra
+    if (progressFill) {
+        progressFill.style.transition = 'none';
+        progressFill.style.width = '100%';
+    }
+
+    pwaToast.style.display = 'block';
+    setupButtons(pwaToast, false); // false = Modo Fantasma
+
+    // Animar barra
+    setTimeout(() => {
         if (progressFill) {
-            progressFill.style.transition = 'none';
+            progressFill.style.transition = `width ${PWA_CONFIG.GHOST_DURATION}ms linear`;
             progressFill.style.width = '0%';
         }
+    }, 50);
 
-        setupButtons(pwaToast, true); // true = Modo Sticky
-    }
-
-    // Función 2: Programar el siguiente Fantasma
-    function scheduleNextGhost() {
-        // Elegir tiempo al azar del vector
-        const minutes = PWA_CONFIG.GHOST_INTERVALS_MIN[Math.floor(Math.random() * PWA_CONFIG.GHOST_INTERVALS_MIN.length)];
-        const delayMs = minutes * 60 * 1000;
-
-        // PARA PRUEBAS RÁPIDAS (Borrar luego): Descomenta la siguiente línea para que sean SEGUNDOS en vez de MINUTOS
-        // const delayMs = minutes * 10000;
-
-        console.log(`[PWA] Próximo fantasma programado en ${minutes} minutos.`);
-
-        if (ghostTimer) clearTimeout(ghostTimer);
-        ghostTimer = setTimeout(() => {
-            triggerGhost();
-        }, delayMs);
-    }
-
-    // Función 3: El Fantasma (Con Barra de Tiempo)
-    function triggerGhost() {
-        const pwaToast = document.getElementById('pwa-toast');
-        if (!pwaToast) return;
-
-        // 1. Resetear barra (llena al 100% instantáneo)
-        if (progressFill) {
-            progressFill.style.transition = 'none';
-            progressFill.style.width = '100%';
+    // Auto-Desvanecer
+    setTimeout(() => {
+        if (pwaToast.style.display === 'block') {
+            pwaToast.style.display = 'none';
+            console.log("[PWA] Fantasma desvanecido. Reprogramando...");
+            scheduleNextGhost(); // <--- EL BUCLE CONTINÚA
         }
+    }, PWA_CONFIG.GHOST_DURATION);
+}
 
-        // 2. Mostrar ventana
-        pwaToast.style.display = 'block';
-        console.log(`[PWA] Aparición Fantasma (${PWA_CONFIG.GHOST_DURATION}ms)...`);
+// Configuración de botones
+function setupButtons(pwaToast, isStickyMode) {
+    const installBtn = document.getElementById('pwaInstallBtn');
+    const dismissBtn = document.getElementById('pwaDismissBtn');
 
-        setupButtons(pwaToast, false); // false = Modo Fantasma
-
-        // 3. Iniciar animación de la barra (hacia 0%)
-        setTimeout(() => {
-            if (progressFill) {
-                progressFill.style.transition = `width ${PWA_CONFIG.GHOST_DURATION}ms linear`;
-                progressFill.style.width = '0%';
-            }
-        }, 50);
-
-        // 4. Auto-Desvanecer y Reprogramar
-        setTimeout(() => {
-            if (pwaToast.style.display === 'block') {
-                pwaToast.style.display = 'none';
-                console.log("[PWA] El fantasma se desvaneció.");
-                scheduleNextGhost(); // ¡IMPORTANTE! Vuelve a iniciar el ciclo
-            }
-        }, PWA_CONFIG.GHOST_DURATION);
-    }
-
-    // Configuración de botones
-    function setupButtons(pwaToast, isStickyMode) {
-        const installBtn = document.getElementById('pwaInstallBtn');
-        const dismissBtn = document.getElementById('pwaDismissBtn');
-
-        // INSTALAR
-        installBtn.onclick = async () => {
-            pwaToast.style.display = 'none';
-            if (ghostTimer) clearTimeout(ghostTimer);
-
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                const { outcome } = await deferredPrompt.userChoice;
-                console.log(`[PWA] Usuario decidió: ${outcome}`);
-                deferredPrompt = null;
-            }
-        };
-
-        // CERRAR (Botón "Ahora no")
-        dismissBtn.onclick = () => {
-            pwaToast.style.display = 'none';
-
-            if (isStickyMode) {
-                // Si cerró el aviso FIJO inicial, iniciamos la tortura fantasma >:)
-                console.log("[PWA] Usuario cerró aviso fijo. Iniciando ciclo fantasma.");
-                scheduleNextGhost();
-            } else {
-                // Si cerró un fantasma manualmente, reprogramamos el siguiente igual
-                console.log("[PWA] Usuario cerró fantasma manualmente.");
-                scheduleNextGhost();
-            }
-        };
-    }
-
-    // Limpieza final si instala
-    window.addEventListener('appinstalled', () => {
-        const pwaToast = document.getElementById('pwa-toast');
-        if(pwaToast) pwaToast.style.display = 'none';
+    // INSTALAR
+    installBtn.onclick = async () => {
+        pwaToast.style.display = 'none';
         if (ghostTimer) clearTimeout(ghostTimer);
-    });
+        if (deferredPrompt) {
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            console.log(`[PWA] Decisión: ${outcome}`);
+            deferredPrompt = null;
+        }
+    };
+
+    // AHORA NO
+    dismissBtn.onclick = () => {
+        pwaToast.style.display = 'none';
+
+        if (isStickyMode) {
+            console.log("[PWA] Cerró Sticky. Inicia ciclo fantasma.");
+            scheduleNextGhost();
+        } else {
+            console.log("[PWA] Cerró Fantasma manual. Reprogramando.");
+            scheduleNextGhost();
+        }
+    };
+}
+
+window.addEventListener('appinstalled', () => {
+    const pwaToast = document.getElementById('pwa-toast');
+    if(pwaToast) pwaToast.style.display = 'none';
+    if (ghostTimer) clearTimeout(ghostTimer);
+});
 
 
 });
