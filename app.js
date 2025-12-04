@@ -1576,7 +1576,7 @@ const PWA_CONFIG = {
     INITIAL_DELAY: 5000,        // 5 seg: Primer aviso (Sticky)
     // ¡OJO! Aquí usaremos SEGUNDOS para probar (0.2 = 12 segundos aprox)
     // Cuando verifiques que funciona, cambias esto a [1, 2, 3]
-    GHOST_INTERVALS_MIN: [0.1, 0.2],
+    GHOST_INTERVALS_MIN: [4, 9, 15, 25],
     GHOST_DURATION: 5000        // 5 seg: Duración del fantasma
 };
 
