@@ -1565,6 +1565,61 @@ function toggleFavorite(seconds, buttonElement) {
 
     console.log("Aplicación inicializada y listeners configurados."); // LOG FINAL INIT
 
+    // --- FASE 11: Lógica PWA Install Prompt (Ventana Flotante) ---
+    let deferredPrompt; // Variable para guardar el evento nativo
 
+    window.addEventListener('beforeinstallprompt', (e) => {
+        // 1. Evitar que Chrome muestre su mini-barra automática
+        e.preventDefault();
+
+        // 2. Guardar el evento para usarlo luego
+        deferredPrompt = e;
+        console.log("[PWA] Evento de instalación capturado. Esperando 10s...");
+
+        // 3. Esperar 10 segundos antes de mostrar NUESTRO botón
+        setTimeout(() => {
+            showInstallPromotion();
+        }, 10000); // 10 segundos
+    });
+
+    function showInstallPromotion() {
+        const pwaToast = document.getElementById('pwa-toast');
+        const installBtn = document.getElementById('pwaInstallBtn');
+        const dismissBtn = document.getElementById('pwaDismissBtn');
+
+        if (!pwaToast) return;
+
+        // Mostrar la ventanita
+        pwaToast.style.display = 'block';
+
+        // Listener: Usuario dice SÍ
+        installBtn.addEventListener('click', async () => {
+            // Ocultar ventana
+            pwaToast.style.display = 'none';
+
+            // Lanzar el prompt nativo
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+
+                // Esperar decisión del usuario
+                const { outcome } = await deferredPrompt.userChoice;
+                console.log(`[PWA] Usuario decidió: ${outcome}`);
+
+                deferredPrompt = null;
+            }
+        });
+
+        // Listener: Usuario dice NO
+        dismissBtn.addEventListener('click', () => {
+            pwaToast.style.display = 'none';
+        });
+    }
+
+    // Opcional: Si ya se instaló, ocultar todo
+    window.addEventListener('appinstalled', () => {
+        console.log('[PWA] ¡Aplicación instalada con éxito!');
+        const pwaToast = document.getElementById('pwa-toast');
+        if(pwaToast) pwaToast.style.display = 'none';
+    });
 
 });
