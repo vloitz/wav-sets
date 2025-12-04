@@ -1573,7 +1573,7 @@ function toggleFavorite(seconds, buttonElement) {
     const PWA_CONFIG = {
         INITIAL_DELAY: 10000,       // 10 seg: Tiempo inicial al cargar (Aviso Fijo)
         // Vector de tiempos en MINUTOS para el fantasma aleatorio
-        GHOST_INTERVALS_MIN: [3, 5, 8, 10, 15],
+        GHOST_INTERVALS_MIN: [1, 2],
         GHOST_DURATION: 3500        //Cuánto dura visible el fantasma antes de irse
     };
 
