@@ -1574,7 +1574,7 @@ function toggleFavorite(seconds, buttonElement) {
         INITIAL_DELAY: 10000,       // 10 seg: Tiempo inicial al cargar (Aviso Fijo)
         // Vector de tiempos en MINUTOS para el fantasma aleatorio
         GHOST_INTERVALS_MIN: [3, 5, 8, 10, 15],
-        GHOST_DURATION: 3000        //Cuánto dura visible el fantasma antes de irse
+        GHOST_DURATION: 3500        //Cuánto dura visible el fantasma antes de irse
     };
 
     window.addEventListener('beforeinstallprompt', (e) => {
