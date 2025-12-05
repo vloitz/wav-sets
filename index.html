@@ -433,50 +433,85 @@ function setupAudioCapture() {
             stState.isEncoding = false;
         }
 
-// --- START RECORDING (Shadow Mode) ---
-        stDOM.startBtn.addEventListener('click', async () => {
-            if (stState.isEncoding) return;
+// --- CLICK EN "CREAR STORY" ---
+stDOM.startBtn.addEventListener('click', async () => {
+    if (stState.isEncoding) return;
 
-            // 1. Pausar el reproductor principal (el visible) para no escuchar doble
-            const mainAudio = document.getElementById('audio-player');
-            if (!mainAudio.paused) mainAudio.pause();
+    // 1. Pausar el reproductor principal (Visible)
+    const mainAudio = document.getElementById('audio-player');
+    const currentTime = window.wavesurfer.getCurrentTime(); // Guardamos el tiempo exacto
+    if (!mainAudio.paused) mainAudio.pause();
 
-            // 2. Preparar el Shadow Player
-            setupAudioCapture();
+    console.log("[SHADOW] Iniciando estrategia de clonación...");
 
-            // 3. Iniciar reproducción del Shadow Player (Requiere gesto de usuario)
-            try {
-                await stState.audioContext.resume();
-                await stState.shadowAudio.play();
-                console.log("[AUDIO] Shadow Player reproduciendo...");
-            } catch(e) {
-                console.error("Error al iniciar Shadow Audio:", e);
-                alert("Error de seguridad en audio. Intenta recargar.");
-                return;
-            }
+    // 2. Crear el Shadow Player (Invisible)
+    const shadowAudio = new Audio();
 
-            // 4. Configurar UI y Encoder (Igual que antes)
-            stDOM.viewIntro.style.display = 'none';
-            stDOM.viewProcess.style.display = 'block';
-            stState.isEncoding = true;
+    // [CRÍTICO] Esto debe ir ANTES de asignar el src
+    shadowAudio.crossOrigin = "anonymous";
+    shadowAudio.loop = false;
+    shadowAudio.volume = 1.0; // Volumen al máximo para la grabación
 
-            const isHQ = stDOM.hqToggle.checked;
-            stState.config = {
-                width: 360, height: 640, duration: 15,
-                fps: isHQ ? 30 : 24, bitrate: isHQ ? 2500000 : 1000000
-            };
+    // 3. Cache Buster: Forzamos a GitHub a darnos una copia nueva y limpia
+    // Agregamos un número aleatorio al final para que no use la caché del navegador
+    const cleanSrc = stState.currentSetData.audio_url + "?t=" + Date.now();
+    shadowAudio.src = cleanSrc;
 
-            stDOM.statusText.innerText = "Grabando Clip...";
-            stPrepareStaticLayer();
+    // 4. Sincronizar tiempo
+    shadowAudio.currentTime = currentTime;
 
-            try { await runRealTimeEncoding(); }
-            catch (e) {
-                console.error(e);
-                stState.isEncoding = false;
-                alert("Ocurrió un error. Revisa la consola.");
-                resetModule();
-            }
-        });
+    // 5. Preparar Web Audio API
+    try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        // Si no existe, lo creamos. Si existe y está suspendido, lo despertamos.
+        if (!stState.audioContext) stState.audioContext = new AudioContext({ latencyHint: 'playback' });
+        if (stState.audioContext.state === 'suspended') await stState.audioContext.resume();
+
+        // Conexiones
+        const source = stState.audioContext.createMediaElementSource(shadowAudio);
+        const dest = stState.audioContext.createMediaStreamDestination();
+
+        source.connect(dest); // A la grabadora
+        source.connect(stState.audioContext.destination); // A los altavoces (Para monitorear)
+
+        // Guardamos referencias globales para limpiar luego
+        stState.shadowAudio = shadowAudio;
+        stState.mediaStreamDest = dest;
+
+        // 6. [VITAL] Dar Play y ESPERAR a que realmente arranque
+        console.log("[SHADOW] Intentando reproducir clon...");
+        await shadowAudio.play();
+        console.log("[SHADOW] ¡Clon reproduciendo! Audio desbloqueado.");
+
+    } catch (e) {
+        console.error("[SHADOW ERROR]", e);
+        alert("Android bloqueó el audio. Intenta tocar el botón de nuevo.");
+        return; // Cancelar todo si no suena
+    }
+
+    // 7. Si llegamos aquí, el audio YA está sonando. Ahora configuramos el video.
+    stDOM.viewIntro.style.display = 'none';
+    stDOM.viewProcess.style.display = 'block';
+    stState.isEncoding = true;
+
+    const isHQ = stDOM.hqToggle.checked;
+    stState.config = {
+        width: 360, height: 640, duration: 15,
+        fps: isHQ ? 30 : 24, bitrate: isHQ ? 2500000 : 1000000
+    };
+
+    stDOM.statusText.innerText = "Grabando Clip...";
+    stPrepareStaticLayer();
+
+    // Arrancamos el motor de video
+    try { await runRealTimeEncoding(); }
+    catch (e) {
+        console.error(e);
+        stState.isEncoding = false;
+        alert("Error en encoder.");
+        resetModule();
+    }
+});
 
         // --- ENGINE ESTABLE + FIX FRECUENCIA ---
         async function runRealTimeEncoding() {
@@ -592,20 +627,18 @@ function setupAudioCapture() {
                 requestAnimationFrame(drawFrame);
             });
 
-// --- FINALIZAR Y LIMPIAR SHADOW PLAYER ---
+// --- FINALIZAR Y DESTRUIR CLON ---
             stDOM.statusText.innerText = "Finalizando...";
             stopAudio = true;
 
-            // 1. Matar el Shadow Player
+            // Matar al Shadow Player
             if (stState.shadowAudio) {
                 stState.shadowAudio.pause();
-                stState.shadowAudio.src = ""; // Liberar memoria
+                stState.shadowAudio.src = ""; // Vaciar memoria
+                stState.shadowAudio.load();   // Forzar limpieza
                 stState.shadowAudio = null;
-                console.log("[AUDIO] Shadow Player destruido.");
+                console.log("[SHADOW] Clon destruido.");
             }
-
-            // (Opcional) Si quieres que la música vuelva sola al terminar:
-            // document.getElementById('audio-player').play();
 
             try { audioReader.releaseLock(); } catch(e) {}
 
