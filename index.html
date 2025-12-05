@@ -340,48 +340,48 @@
         const stCoverImg = new Image();
         stCoverImg.crossOrigin = "Anonymous";
 
-// --- AUDIO SETUP: ESTRATEGIA SHADOW PLAYER (CORS FIX) ---
-function setupAudioCapture() {
-    // Si ya tenemos el Shadow Player listo, salimos
-    if (stState.shadowAudio) return;
+        // --- AUDIO SETUP (El Puente "Anti-Silencio") ---
+        function setupAudioCapture() {
+            // SI YA EXISTE, SOLO RESUMIR (Para Android)
+            if (stState.audioContext) {
+                if (stState.audioContext.state === 'suspended') {
+                    stState.audioContext.resume();
+                }
+                return;
+            }
 
-    try {
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        // Creamos contexto interactivo
-        if (!stState.audioContext) {
-            stState.audioContext = new AudioContext({ latencyHint: 'interactive', sampleRate: 48000 });
+            const audioEl = document.getElementById('audio-player');
+
+            // 2. Crear Source (Solo una vez)
+            if (!stState.sourceNode) {
+                stState.sourceNode = stState.audioContext.createMediaElementSource(audioEl);
+            }
+
+            // 3. Crear Bridge (GainNode)
+            // Esto engaña a Android: Pasamos el audio por un nodo de ganancia (volumen 1)
+            // para que crea que estamos "editando" el audio y no lo silencie.
+            if (!stState.gainNode) {
+                stState.gainNode = stState.audioContext.createGain();
+                stState.gainNode.gain.value = 1.0;
+
+                // Conectar: Source -> Bridge -> Speakers (Para que oigas la música)
+                stState.sourceNode.connect(stState.gainNode);
+                stState.gainNode.connect(stState.audioContext.destination);
+            }
+
+            // 4. Crear Destino de Grabación
+            if (stState.mediaStreamDest) {
+                try { stState.gainNode.disconnect(stState.mediaStreamDest); } catch(e){}
+            }
+            stState.mediaStreamDest = stState.audioContext.createMediaStreamDestination();
+
+            // Conectar: Bridge -> Grabadora
+            stState.gainNode.connect(stState.mediaStreamDest);
+
+            console.log(`[AUDIO SETUP] Bridge activo. Frecuencia del dispositivo: ${stState.audioContext.sampleRate}Hz`);
         }
-        if (stState.audioContext.state === 'suspended') {
-            stState.audioContext.resume();
-        }
 
-        // 1. CREAR EL SHADOW PLAYER (Reproductor invisible)
-        stState.shadowAudio = new Audio();
-        stState.shadowAudio.crossOrigin = "anonymous"; // CRÍTICO: Configurar ANTES del src
-
-        // 2. CACHE BUSTER: Engañamos a Android para que descargue el archivo "nuevo" y limpio
-        // Agregamos un número aleatorio al final de la URL
-        const cleanSrc = stState.currentSetData.audio_url + "?nocache=" + Date.now();
-        stState.shadowAudio.src = cleanSrc;
-
-        // Sincronizar tiempo de inicio exacto donde estaba el usuario
-        stState.shadowAudio.currentTime = stState.startTime;
-
-        // 3. CONEXIONES WEB AUDIO
-        stState.sourceNode = stState.audioContext.createMediaElementSource(stState.shadowAudio);
-        stState.mediaStreamDest = stState.audioContext.createMediaStreamDestination();
-
-        // Conectar a la grabadora
-        stState.sourceNode.connect(stState.mediaStreamDest);
-        // Conectar a los altavoces (Vital para que Android no corte el proceso)
-        stState.sourceNode.connect(stState.audioContext.destination);
-
-        console.log("[AUDIO] Shadow Player creado (Caché evadida).");
-
-    } catch (e) { console.warn("[AUDIO ERROR]", e); }
-}
-
-// --- UI EVENTS ---
+        // --- UI EVENTS ---
         if(stDOM.hqToggle) {
             stDOM.hqToggle.addEventListener('change', () => {
                 stDOM.qualityText.innerText = stDOM.hqToggle.checked ? "Alta Calidad" : "Modo Seguro";
@@ -433,107 +433,67 @@ function setupAudioCapture() {
             stState.isEncoding = false;
         }
 
-// --- CLICK EN "CREAR STORY" ---
-stDOM.startBtn.addEventListener('click', async () => {
-    if (stState.isEncoding) return;
+        // --- START BUTTON ---
+        stDOM.startBtn.addEventListener('click', async () => {
+            if (stState.isEncoding) return;
 
-    // 1. Pausar Audio Visible
-    const mainAudio = document.getElementById('audio-player');
-    const currentTime = window.wavesurfer.getCurrentTime();
-    if (!mainAudio.paused) mainAudio.pause();
+            // 1. Iniciar Audio
+            setupAudioCapture();
+            if (stState.audioContext.state === 'suspended') await stState.audioContext.resume();
 
-    console.log("[V14] Iniciando Shadow Player Dinámico...");
+            // 2. Asegurar Play
+            const audioEl = document.getElementById('audio-player');
+            if (audioEl.paused) audioEl.play();
 
-    // 2. Crear Shadow Player
-    const shadowAudio = new Audio();
-    shadowAudio.crossOrigin = "anonymous";
-    shadowAudio.loop = false;
-    // Cache Buster
-    shadowAudio.src = stState.currentSetData.audio_url + "?t=" + Date.now();
-    shadowAudio.currentTime = currentTime;
-    shadowAudio.volume = 1.0;
+            // 3. Sync Tiempo
+            if (window.wavesurfer) stState.startTime = window.wavesurfer.getCurrentTime();
 
-    try {
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
+            // UI
+            stDOM.viewIntro.style.display = 'none';
+            stDOM.viewProcess.style.display = 'block';
+            stState.isEncoding = true;
 
-        // --- CAMBIO CLAVE 1: NO forzar sampleRate. Dejar que Android elija. ---
-        if (!stState.audioContext) stState.audioContext = new AudioContext({ latencyHint: 'playback' });
-        if (stState.audioContext.state === 'suspended') await stState.audioContext.resume();
-
-        // Conectar
-        const source = stState.audioContext.createMediaElementSource(shadowAudio);
-        const dest = stState.audioContext.createMediaStreamDestination();
-
-        source.connect(dest);
-        source.connect(stState.audioContext.destination);
-
-        stState.shadowAudio = shadowAudio;
-        stState.mediaStreamDest = dest;
-        // Guardamos la referencia al nodo fuente para desconectarlo limpio luego
-        stState.sourceNode = source;
-
-        // --- CAMBIO CLAVE 2: Esperar al evento 'playing' real ---
-        await new Promise((resolve, reject) => {
-            const onPlay = () => {
-                shadowAudio.removeEventListener('playing', onPlay);
-                resolve();
+            const isHQ = stDOM.hqToggle.checked;
+            stState.config = {
+                width: 360, height: 640, duration: 15,
+                fps: isHQ ? 30 : 24, bitrate: isHQ ? 2500000 : 1000000
             };
-            const onError = (e) => {
-                shadowAudio.removeEventListener('error', onError);
-                reject(e);
-            };
-            shadowAudio.addEventListener('playing', onPlay);
-            shadowAudio.addEventListener('error', onError);
 
-            shadowAudio.play().catch(reject);
+            stDOM.statusText.innerText = "Inicializando...";
+            stPrepareStaticLayer();
+
+            try { await runRealTimeEncoding(); }
+            catch (e) {
+                console.error(e);
+                stState.isEncoding = false;
+                alert("Error: " + e.message);
+                resetModule();
+            }
         });
 
-        console.log("[V14] Audio confirmado sonando. SampleRate del sistema:", stState.audioContext.sampleRate);
-
-    } catch (e) {
-        console.error("[V14 Error]", e);
-        alert("Error de audio. Intenta de nuevo.");
-        return;
-    }
-
-    // UI y Configuración
-    stDOM.viewIntro.style.display = 'none';
-    stDOM.viewProcess.style.display = 'block';
-    stState.isEncoding = true;
-
-    const isHQ = stDOM.hqToggle.checked;
-    stState.config = {
-        width: 360, height: 640, duration: 15,
-        fps: isHQ ? 30 : 24, bitrate: isHQ ? 2500000 : 1000000
-    };
-
-    stDOM.statusText.innerText = "Grabando Clip...";
-    stPrepareStaticLayer();
-
-    try { await runRealTimeEncoding(); }
-    catch (e) {
-        console.error(e);
-        stState.isEncoding = false;
-        alert("Error al finalizar el video.");
-        resetModule();
-    }
-});
         // --- ENGINE ESTABLE + FIX FRECUENCIA ---
-async function runRealTimeEncoding() {
-            // --- FIX MAESTRO DE FORMATO ---
-            // Leemos qué frecuencia está usando REALMENTE el móvil (ej: 44100 o 48000)
+        async function runRealTimeEncoding() {
+            // 1. OBTENER FRECUENCIA REAL DEL HARDWARE (El cambio crítico)
+            // En lugar de confiar en valores por defecto, leemos lo que el móvil está usando.
             const realSampleRate = stState.audioContext.sampleRate;
-            console.log("[V14 Encoder] Configurando AAC a:", realSampleRate, "Hz");
+            console.log("[ENGINE] Hardware Sample Rate detectado:", realSampleRate);
 
+            stDOM.statusText.innerText = "Grabando...";
+
+            // 2. CONFIGURAR MUXER
             let muxer = new Muxer({
                 target: new ArrayBufferTarget(),
                 video: { codec: 'avc', width: stState.config.width, height: stState.config.height },
-                // Usamos la frecuencia real aquí
-                audio: { codec: 'aac', numberOfChannels: 2, sampleRate: realSampleRate },
+                audio: {
+                    codec: 'aac',
+                    numberOfChannels: 2,
+                    sampleRate: realSampleRate // <--- AQUÍ USAMOS LA VARIABLE
+                },
                 fastStart: 'in-memory',
                 firstTimestampBehavior: 'offset'
             });
 
+            // 3. CONFIGURAR VIDEO ENCODER
             let videoEncoder = new VideoEncoder({
                 output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
                 error: e => console.error("Video Error:", e)
@@ -543,29 +503,32 @@ async function runRealTimeEncoding() {
                 bitrate: stState.config.bitrate, framerate: stState.config.fps
             });
 
+            // 4. CONFIGURAR AUDIO ENCODER
             let audioEncoder = new AudioEncoder({
                 output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
                 error: e => console.error("Audio Error:", e)
             });
 
-            // --- FIX DE FORMATO AAC ---
             audioEncoder.configure({
                 codec: 'mp4a.40.2',
                 numberOfChannels: 2,
-                sampleRate: realSampleRate, // <--- CRÍTICO: Coincidir con el hardware
+                sampleRate: realSampleRate, // <--- AQUÍ TAMBIÉN (Debe coincidir con Muxer)
                 bitrate: 128000
             });
 
-            const audioTrack = stState.mediaStreamDest.stream.getAudioTracks()[0];
-            const trackProcessor = new MediaStreamTrackProcessor({ track: audioTrack });
+            // 4. Capturar el Stream del "Puente"
+            const audioStreamTrack = stState.mediaStreamDest.stream.getAudioTracks()[0];
+            const trackProcessor = new MediaStreamTrackProcessor({ track: audioStreamTrack });
             const audioReader = trackProcessor.readable.getReader();
 
-            // Bucle de lectura de audio
+            // --- BUCLE DE AUDIO ---
             const processAudio = async () => {
                 while (stState.isEncoding) {
                     try {
                         const result = await audioReader.read();
                         if (result.done) break;
+
+                        // Solo codificamos si el encoder está listo
                         if (audioEncoder.state === 'configured') {
                             audioEncoder.encode(result.value);
                         }
@@ -575,7 +538,7 @@ async function runRealTimeEncoding() {
             };
             processAudio();
 
-            // Bucle Visual (Video Frame)
+            // --- BUCLE DE VIDEO ---
             const startTime = performance.now();
             const durationMs = stState.config.duration * 1000;
             let frameCount = 0;
@@ -583,91 +546,60 @@ async function runRealTimeEncoding() {
             await new Promise((resolve) => {
                 const drawFrame = async (now) => {
                     if (!stState.isEncoding) { resolve(); return; }
+
                     const elapsed = now - startTime;
+
                     if (elapsed >= durationMs) {
                         stState.isEncoding = false;
                         resolve();
                         return;
                     }
 
-                    // ... (Tu código de dibujo de Canvas va aquí igual que antes) ...
+                    // UI Update
                     stDOM.progressFill.style.width = (elapsed / durationMs) * 100 + "%";
+
+                    // Dibujar
                     stUpdateAudioSimulation(frameCount);
                     stCtx.drawImage(stState.staticCanvas, 0, 0);
                     stDrawDynamicLayer(elapsed / 1000);
 
+                    // Generar Frame (Usando 'now' para sincronía perfecta con audio)
                     const vFrame = new VideoFrame(stDOM.canvas, {
                         timestamp: now * 1000,
                         duration: (1000 / stState.config.fps) * 1000
                     });
 
-                    if (videoEncoder.encodeQueueSize < 2) {
-                        videoEncoder.encode(vFrame, { keyFrame: frameCount % 30 === 0 });
+                    // Control de flujo suave
+                    if (videoEncoder.encodeQueueSize < 4) {
+                        if (videoEncoder.state === 'configured') {
+                            videoEncoder.encode(vFrame, { keyFrame: frameCount % 30 === 0 });
+                        }
                     }
                     vFrame.close();
+
                     frameCount++;
                     requestAnimationFrame(drawFrame);
                 };
                 requestAnimationFrame(drawFrame);
             });
 
-        // --- FINALIZACIÓN BLINDADA (V15 FAULT TOLERANT) ---
-            stDOM.statusText.innerText = "Finalizando...";
+            // --- FINALIZAR ---
+            stDOM.statusText.innerText = "Procesando...";
 
-            // 1. Detener banderas primero para que los bucles de lectura se detengan suavemente
-            stState.isEncoding = false;
+            try { await audioReader.cancel(); } catch(e) {}
 
-            // 2. Intentar cerrar Video (Prioridad Alta)
             try {
                 if (videoEncoder.state === 'configured') await videoEncoder.flush();
-                videoEncoder.close();
-                console.log("[V15] Video cerrado correctamente.");
-            } catch (e) {
-                console.warn("[V15 Warning] Error cerrando Video (se intentará guardar igual):", e);
-            }
-
-            // 3. Intentar cerrar Audio (Prioridad Media - Aquí es donde suele fallar)
-            // Envolvemos esto en su propio try/catch para que si falla, NO impida guardar el archivo.
-            try {
-                // Liberar el lock del stream antes de flushear suele ayudar en Android
-                try { await audioReader.cancel(); } catch(err) { /* Ignorar si ya estaba cerrado */ }
-
                 if (audioEncoder.state === 'configured') await audioEncoder.flush();
+                videoEncoder.close();
                 audioEncoder.close();
-                console.log("[V15] Audio cerrado correctamente.");
-            } catch (e) {
-                console.warn("[V15 Warning] Error cerrando Audio (Ignorado para salvar el archivo):", e);
-                // NO lanzamos el error (throw), solo lo logueamos y seguimos.
-            }
+            } catch (e) { console.error("Error cerrando:", e); }
 
-            // 4. Limpieza del Shadow Player (Matar al clon)
-            if (stState.shadowAudio) {
-                stState.shadowAudio.pause();
-                stState.shadowAudio.src = "";
-                stState.shadowAudio.load();
-                stState.shadowAudio = null;
-                console.log("[V15] Shadow Player eliminado.");
-            }
-
-            // 5. GUARDAR LO QUE TENGAMOS (Muxer Finalize)
-            // Incluso si el flush de audio falló, el muxer tiene el 99% de los datos.
-            try {
-                muxer.finalize();
-                const buffer = muxer.target.buffer;
-                console.log("[V15] Muxer finalizado. Bytes totales:", buffer.byteLength);
-
-                if (buffer.byteLength > 0) {
-                    stState.finalBlob = new Blob([buffer], { type: 'video/mp4' });
-                    stShowFinalUI();
-                } else {
-                    throw new Error("El archivo generado está vacío (0 bytes).");
-                }
-            } catch (finalErr) {
-                console.error("[V15 FATAL] Error al generar el Blob final:", finalErr);
-                alert("Error crítico al guardar el archivo.");
-                resetModule();
-            }
+            muxer.finalize();
+            stState.finalBlob = new Blob([muxer.target.buffer], { type: 'video/mp4' });
+            stShowFinalUI();
         }
+
         // --- UTILS (Gráficos) ---
         function roundRect(ctx, x, y, w, h, r) {
             if (w < 2 * r) r = w / 2; if (h < 2 * r) r = h / 2;
