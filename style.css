@@ -777,6 +777,44 @@ input:checked + .st-slider:before { transform: translateX(18px); }
     padding: 8px 20px; border-radius: 20px; font-size: 12px; cursor: pointer;
 }
 
+/* NEW */
+
+/* Contenedor de controles en fila */
+.st-controls-row {
+    display: flex;
+    justify-content: space-between; /* Separados a los extremos */
+    align-items: center;
+    margin-bottom: 25px;
+    background: rgba(255,255,255,0.05);
+    padding: 10px 15px;
+    border-radius: 30px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.st-control-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Estilo del Select (Dropdown) */
+.st-select {
+    background: #333;
+    color: white;
+    border: 1px solid #444;
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    outline: none;
+}
+.st-select:focus {
+    border-color: #1DB954;
+}
+
 /* ==========================================================================
    [MODULE END] VLOITZ STORY GENERATOR (Integración Estilos)
    ========================================================================== */
