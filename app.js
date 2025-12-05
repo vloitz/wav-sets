@@ -1,1701 +1,741 @@
-document.addEventListener('DOMContentLoaded', () => {
-    console.log("DOM listo. Iniciando aplicación..."); // LOG INICIAL
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Vloitz - High Quality Sets</title>
+    <link rel="stylesheet" href="style.css">
 
-    // --- TEST FASE 2 ---
-    // Esto debería leer 'null' ahora, o valores si cambias la URL manualmente
-    setTimeout(() => {
-        if (typeof URLController !== 'undefined') {
-            URLController.getParams();
+
+    <link rel="apple-touch-icon" sizes="180x180" href="favicon/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="favicon/web-app-manifest-512x512.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="favicon/web-app-manifest-192x192.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="favicon/favicon-96x96.png">
+    <link rel="icon" type="image/svg+xml" href="favicon/favicon.svg">
+    <link rel="icon" type="image/x-icon" href="favicon/favicon.ico">
+
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1DB954">
+
+    <meta property="og:title" content="Vloitz - High Quality Sets">
+    <meta property="og:description" content="Listen to curated electronic music sets by Vloitz in FLAC/WAV quality.">
+    <meta property="og:url" content="https://vloitz.github.io/wav-sets/">
+    <meta property="og:type" content="website">
+
+    <meta property="og:image" content="https://raw.githubusercontent.com/vloitz/wav-sets/13cd4e385c41b2f2f3ba6bfaec022629a41f898e/perfil/LOGO_1200x1200_COMPRESS.png">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="1200">
+<script src="https://unpkg.com/wavesurfer.js@7.7.5/dist/wavesurfer.min.js"></script>
+    <script src="https://unpkg.com/wavesurfer.js@7.7.5/dist/plugins/regions.min.js"></script>
+</head>
+<body>
+
+    <header class="profile-header">
+        <div class="profile-banner"></div>
+        <div class="profile-info">
+            <img src="" alt="Vloitz Profile" class="profile-pic" id="profile-pic-img">
+
+            <div class="profile-details-container">
+                <h1 class="profile-name">Vloitz</h1>
+                <p class="profile-location">Lima, Peru</p>
+
+                <div class="profile-bio" id="profile-bio-container">
+                    <span id="bio-short">
+                        Desarrollador y Curador Musical (ÉLITE House/Grooves). 🚀 Construyo mis herramientas para una curación técnica. Mi propósito: encontrar sonidos que vibren en la piel y te lleven a un viaje. Enfocado en el 'Future HITS'.                    </span>
+                    <span id="bio-extended" style="display: none;">
+                        <br><br>Esto no es una promesa; es mi propósito. Hubo un momento que redefinió mi camino y me confirmó que esto es lo que debo hacer. Mi pasión es la curación musical.
+                        <br><br>Filtro miles de tracks (House, Tech, Groove) buscando solo aquellos que tienen un propósito: crear una <strong>conexión</strong>.
+                        <br><br>Busco la música que te lleva a un viaje, te ancla al presente o te ayuda a ver el pasado de otra forma. Sonidos que te permiten desconectar para poder conectar contigo mismo.
+                        <br><br>Te ofrezco esta curación en la máxima calidad FLAC, sin costo. Es mi compromiso. Si lo que escuchas te marca... es porque eras parte.
+                    </span>
+                    <span id="bio-toggle" class="bio-toggle-link">... Ver más</span>
+                 </div>
+
+                <div class="profile-socials">
+                    <a href="https://soundcloud.com/vloitz" target="_blank" rel="noopener" class="social-icon soundcloud" title="SoundCloud">
+                        <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>SoundCloud</title><path d="M23.999 14.165c-.052 1.796-1.612 3.169-3.4 3.169h-8.18a.68.68 0 0 1-.675-.683V7.862a.747.747 0 0 1 .452-.724s.75-.513 2.333-.513a5.364 5.364 0 0 1 2.763.755 5.433 5.433 0 0 1 2.57 3.54c.282-.08.574-.121.868-.12.884 0 1.73.358 2.347.992s.948 1.49.922 2.373ZM10.721 8.421c.247 2.98.427 5.697 0 8.672a.264.264 0 0 1-.53 0c-.395-2.946-.22-5.718 0-8.672a.264.264 0 0 1 .53 0ZM9.072 9.448c.285 2.659.37 4.986-.006 7.655a.277.277 0 0 1-.55 0c-.331-2.63-.256-5.02 0-7.655a.277.277 0 0 1 .556 0Zm-1.663-.257c.27 2.726.39 5.171 0 7.904a.266.266 0 0 1-.532 0c-.38-2.69-.257-5.21 0-7.904a.266.266 0 0 1 .532 0Zm-1.647.77a26.108 26.108 0 0 1-.008 7.147.272.272 0 0 1-.542 0 27.955 27.955 0 0 1 0-7.147.275.275 0 0 1 .55 0Zm-1.67 1.769c.421 1.865.228 3.5-.029 5.388a.257.257 0 0 1-.514 0c-.21-1.858-.398-3.549 0-5.389a.272.272 0 0 1 .543 0Zm-1.655-.273c.388 1.897.26 3.508-.01 5.412-.026.28-.514.283-.54 0-.244-1.878-.347-3.54-.01-5.412a.283.283 0 0 1 .56 0Zm-1.668.911c.4 1.268.257 2.292-.026 3.572a.257.257 0 0 1-.514 0c-.241-1.262-.354-2.312-.023-3.572a.283.283 0 0 1 .563 0Z"/></svg>
+                    </a>
+                    <a href="https://www.youtube.com/@Vloitz" target="_blank" rel="noopener" class="social-icon youtube" title="YouTube">
+                        <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>YouTube</title><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                    </a>
+                    <a href="https://www.instagram.com/italozuta/" target="_blank" rel="noopener" class="social-icon instagram" title="Instagram">
+                        <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>Instagram</title><path d="M7.0301.084c-1.2768.0602-2.1487.264-2.911.5634-.7888.3075-1.4575.72-2.1228 1.3877-.6652.6677-1.075 1.3368-1.3802 2.127-.2954.7638-.4956 1.6365-.552 2.914-.0564 1.2775-.0689 1.6882-.0626 4.947.0062 3.2586.0206 3.6671.0825 4.9473.061 1.2765.264 2.1482.5635 2.9107.308.7889.72 1.4573 1.388 2.1228.6679.6655 1.3365 1.0743 2.1285 1.38.7632.295 1.6361.4961 2.9134.552 1.2773.056 1.6884.069 4.9462.0627 3.2578-.0062 3.668-.0207 4.9478-.0814 1.28-.0607 2.147-.2652 2.9098-.5633.7889-.3086 1.4578-.72 2.1228-1.3881.665-.6682 1.0745-1.3378 1.3795-2.1284.2957-.7632.4966-1.636.552-2.9124.056-1.2809.0692-1.6898.063-4.948-.0063-3.2583-.021-3.6668-.0817-4.9465-.0607-1.2797-.264-2.1487-.5633-2.9117-.3084-.7889-.72-1.4568-1.3876-2.1228C21.2982 1.33 20.628.9208 19.8378.6165 19.074.321 18.2017.1197 16.9244.0645 15.6471.0093 15.236-.005 11.977.0014 8.718.0076 8.31.0215 7.0301.0839m.1402 21.6932c-1.17-.0509-1.8053-.2453-2.2287-.408-.5606-.216-.96-.4771-1.3819-.895-.422-.4178-.6811-.8186-.9-1.378-.1644-.4234-.3624-1.058-.4171-2.228-.0595-1.2645-.072-1.6442-.079-4.848-.007-3.2037.0053-3.583.0607-4.848.05-1.169.2456-1.805.408-2.2282.216-.5613.4762-.96.895-1.3816.4188-.4217.8184-.6814 1.3783-.9003.423-.1651 1.0575-.3614 2.227-.4171 1.2655-.06 1.6447-.072 4.848-.079 3.2033-.007 3.5835.005 4.8495.0608 1.169.0508 1.8053.2445 2.228.408.5608.216.96.4754 1.3816.895.4217.4194.6816.8176.9005 1.3787.1653.4217.3617 1.056.4169 2.2263.0602 1.2655.0739 1.645.0796 4.848.0058 3.203-.0055 3.5834-.061 4.848-.051 1.17-.245 1.8055-.408 2.2294-.216.5604-.4763.96-.8954 1.3814-.419.4215-.8181.6811-1.3783.9-.4224.1649-1.0577.3617-2.2262.4174-1.2656.0595-1.6448.072-4.8493.079-3.2045.007-3.5825-.006-4.848-.0608M16.953 5.5864A1.44 1.44 0 1 0 18.39 4.144a1.44 1.44 0 0 0-1.437 1.4424M5.8385 12.012c.0067 3.4032 2.7706 6.1557 6.173 6.1493 3.4026-.0065 6.157-2.7701 6.1506-6.1733-.0065-3.4032-2.771-6.1565-6.174-6.1498-3.403.0067-6.156 2.771-6.1496 6.1738M8 12.0077a4 4 0 1 1 4.008 3.9921A3.9996 3.9996 0 0 1 8 12.0077"/></svg>
+                    </a>
+                    <a href="https://www.tiktok.com/@vloitz_" target="_blank" rel="noopener" class="social-icon tiktok" title="TikTok">
+                        <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>TikTok</title><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg>
+                    </a>
+                </div>
+            </div>
+
+            <div class="profile-extra-content">
+                <div class="latest-set-highlight">
+                    <h5>Último Set</h5>
+                    <p id="latest-set-title">Cargando...</p>
+                    <span id="latest-set-date"></span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="app-container">
+        <section class="player-card">
+            <img src="" alt="Cover Art" class="player-cover-art" id="current-cover-art">
+            <div class="player-details">
+                <span class="audio-quality-badge">FLAC</span>
+                <h2 id="current-track-title">Cargando...</h2>
+                <h3 id="current-track-artist">Vloitz</h3>
+
+                <div class="waveform-container">
+                    <div id="waveform"></div>
+                </div>
+                    <div class="player-controls">
+
+                        <button id="prevBtn" class="skip-btn" title="Pista Anterior">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M11 18V6l-8.5 6 8.5 6zm.5-6l8.5 6V6l-8.5 6z"/>
+                                <path d="M0 0h24v24H0z" fill="none"/>
+                            </svg>
+                        </button>
+
+                        <button id="playPauseBtn" disabled title="Reproducir/Pausar">
+                            <svg id="playIcon" class="player-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M8 5v14l11-7z"/>
+                                <path d="M0 0h24v24H0z" fill="none"/>
+                            </svg>
+                            <svg id="pauseIcon" class="player-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="display:none;">
+                                <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                                <path d="M0 0h24v24H0z" fill="none"/>
+                            </svg>
+                        </button>
+
+                        <button id="nextBtn" class="skip-btn" title="Siguiente Pista">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M4 18l8.5-6L4 6v12zm9-12v12l8.5-6-8.5-6z"/>
+                                <path d="M0 0h24v24H0z" fill="none"/>
+                            </svg>
+                        </button>
+
+                        <div class="time-display">
+                            <span id="currentTime">0:00</span>
+                            <span class="time-divider">/</span> <span id="totalDuration">0:00</span>
+                        </div>
+
+                        <button id="shareBtn" class="action-btn" title="Compartir Set">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/>
+                            </svg>
+                        </button>
+
+                    </div>
+                <audio id="audio-player" crossorigin="anonymous" style="display: none;"></audio>
+            </div>
+        </section>
+
+        <section class="current-tracklist-container">
+        <div class="current-tracklist-header">
+            <h4>Tracklist del Set</h4>
+
+        <div class="controls-wrapper">
+            <label class="favorites-filter" for="fav-toggle">
+                <input type="checkbox" id="fav-toggle">
+                <span class="star-icon">★</span>
+                <span>Mostrar Favoritos</span>
+            </label>
+
+            <button id="autoLoopBtn" class="auto-loop-button" title="Activar/Desactivar Auto-Bucle de Favoritos">
+                <svg width="800px" height="800px" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" class="iconify iconify--noto" preserveAspectRatio="xMidYMid meet"><path d="M116 4H12c-4.42 0-8 3.58-8 8v104c0 4.42 3.58 8 8 8h104c4.42 0 8-3.58 8-8V12c0-4.42-3.58-8-8-8z" fill="#f77e00"></path><path d="M109.7 4H11.5A7.555 7.555 0 0 0 4 11.5v97.9c-.01 4.14 3.34 7.49 7.48 7.5H109.6c4.14.01 7.49-3.34 7.5-7.48V11.5c.09-4.05-3.13-7.41-7.18-7.5h-.22z" fill="#ff9800"></path><path d="M39.7 12.9c0-2.3-1.6-3-10.8-2.7c-7.7.3-11.5 1.2-13.8 4s-2.9 8.5-3 15.3c0 4.8 0 9.3 2.5 9.3c3.4 0 3.4-7.9 6.2-12.3c5.4-8.7 18.9-10.6 18.9-13.6z" opacity=".75" fill="#ffbd52"></path><path d="M83.6 67a3.996 3.996 0 0 1-5.64-.44c-.61-.71-.95-1.62-.96-2.56V50c0-1.1-.9-2-2-2H41c-4.8 0-11.5 1.5-12 12L14.2 73.3A36.01 36.01 0 0 1 13 64c0-17.7 12.5-32 28-32h34c1.1 0 2-.9 2-2V16a4 4 0 0 1 6.6-3l24 24a3.994 3.994 0 0 1 .35 5.65c-.11.13-.23.24-.35.35l-24 24z" fill="#fafafa"></path><path d="M38.4 61a3.996 3.996 0 0 1 5.64.44c.61 .71-.95 1.62-.96 2.56v14c0 1.1.9 2 2 2h34c4.8 0 11.6-1.5 12-12l14.8-13.3c.81 3.03 1.21 6.16 1.2 9.3c0 17.7-12.5 32-28 32H47c-1.1 0-2 .9-2 2v14a4 4 0 0 1-6.6 3l-24-24a3.994 3.994 0 0 1-.35-5.65c.11-.13.23-.24.35-.35l24-24z" fill="#fafafa"></path></svg>
+                <span>Auto-Bucle</span>
+            </button>
+
+            <button id="spectrumBtn" class="auto-loop-button" title="Activar/Desactivar Colores">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
+                </svg>
+                <span>Espectro</span>
+            </button>
+
+        </div>
+            </div>
+            <ul id="current-tracklist" class="current-tracklist">
+                <li>Cargando tracklist...</li>
+            </ul>
+        </section>
+
+        <section class="tracklist-container">
+            <h3>Todos los Sets (FLAC/WAV)</h3>
+            <ul id="tracklist" class="tracklist"></ul>
+        </section>
+    </main>
+
+    <div id="share-modal-overlay" class="share-modal-overlay" style="display: none;">
+        <div class="share-modal-content">
+            <div class="share-modal-header">
+                <h3>Compartir</h3>
+                <button id="closeShareBtn" class="share-modal-close">&times;</button>
+            </div>
+
+            <div class="share-modal-body">
+
+                <div class="share-social-row">
+                    <a id="shareWaBtn" href="#" target="_blank" class="social-share-btn wa" title="Compartir en WhatsApp">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+                    </a>
+
+                    <a id="shareFbBtn" href="#" target="_blank" class="social-share-btn fb" title="Compartir en Facebook">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.101 23.691v-7.98H6.627v-3.667h2.474v-1.58c0-4.085 1.848-5.978 5.858-5.978.401 0 .955.042 1.468.103a8.68 8.68 0 0 1 1.141.195v3.325a8.623 8.623 0 0 0-.653-.036c-2.148 0-2.797 1.603-2.797 2.87v1.101h4.188l-.582 3.667h-3.606v7.98H9.101Z"/></svg>
+                    </a>
+
+                    <a id="shareXBtn" href="#" target="_blank" class="social-share-btn x" title="Compartir en X">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                    </a>
+
+                    <button class="story-trigger-btn" id="stOpenBtn" title="Crear Story">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" display="none"/> <path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
+                        </svg>
+                    </button>
+
+                </div>
+
+                <div class="share-input-group">
+                    <input type="text" id="shareUrlInput" readonly value="https://vloitz.github.io/...">
+                    <button id="copyShareUrlBtn">Copiar</button>
+                </div>
+
+                <div class="share-option-row">
+                    <label class="share-checkbox-label">
+                        <input type="checkbox" id="shareTimeCheckbox">
+                        <span class="checkmark"></span>
+                        <span id="shareTimeLabel">Iniciar en 0:00</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <div id="pwa-toast" class="pwa-toast" style="display: none;">
+        <div class="pwa-content">
+            <div class="pwa-text">
+                <strong>Instalar Vloitz App</strong>
+                <span>Mejor rendimiento y pantalla completa.</span>
+            </div>
+            <div class="pwa-actions">
+                <button id="pwaDismissBtn">Ahora no</button>
+                <button id="pwaInstallBtn">Instalar</button>
+            </div>
+            <div class="pwa-progress-container">
+                <div id="pwaProgressFill" class="pwa-progress-fill"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js')
+                .then(() => console.log('[PWA] Service Worker Registrado Correctamente'))
+                .catch(err => console.error('[PWA] Error al registrar SW:', err));
         }
-    }, 1000);
-    // -------------------
-
-    // --- Referencias ---
-    const waveformContainer = document.getElementById('waveform');
-    const playPauseBtn = document.getElementById('playPauseBtn');
-    const playIcon = document.getElementById('playIcon');   // <-- NUEVO
-    const pauseIcon = document.getElementById('pauseIcon'); // <-- NUEVO
-    const currentTimeEl = document.getElementById('currentTime');
-    const totalDurationEl = document.getElementById('totalDuration');
-    const currentCoverArt = document.getElementById('current-cover-art');
-    const currentTrackTitle = document.getElementById('current-track-title');
-    const tracklistElement = document.getElementById('tracklist');
-    const profilePicImg = document.getElementById('profile-pic-img');
-    const profileBanner = document.querySelector('.profile-banner');
-    const currentTracklistElement = document.getElementById('current-tracklist'); // Referencia al nuevo <ul>
-
-    // Referencias para el "Latest Set" (prototipo v4)
-    const latestSetTitle = document.getElementById('latest-set-title');
-    const latestSetDate = document.getElementById('latest-set-date');
-    // Referencia para el filtro de favoritos (prototipo v4)
-    const favToggleCheckbox = document.getElementById('fav-toggle');
-
-    // Referencias para la biografía (prototipo v5)
-    const profileBioContainer = document.getElementById('profile-bio-container');
-    const bioExtended = document.getElementById('bio-extended');
-    const bioToggle = document.getElementById('bio-toggle');
-    const autoLoopBtn = document.getElementById('autoLoopBtn');
-
-    const spectrumBtn = document.getElementById('spectrumBtn');
-
-    const prevBtn = document.getElementById('prevBtn'); // <-- AÑADE ESTA LÍNEA
-    const nextBtn = document.getElementById('nextBtn'); // <-- AÑADE ESTA LÍNEA
-
-
-    let currentTrackNameForNotification = null;
-
-
-    let allSets = [];
-    let currentSetIndex = 0;
-    let isAutoLoopActive = false;
-
-    // Configuración Espectro (Fase 8)
-    // Por defecto TRUE, a menos que el usuario lo haya desactivado antes
-    let isSpectrumActive = localStorage.getItem('vloitz_spectrum') !== 'false';
-
-    let isSeekingViaAutoLoop = false;
-    let previousTimeForAutoLoop = -1; // <-- AÑADIR: Guarda el tiempo anterior
-
-    // Cargar un OBJETO de favoritos (v2)
-    let allFavorites = JSON.parse(localStorage.getItem('vloitz_favorites') || '{}'); // Reusamos la clave original
-    let currentSetFavorites = new Set(); // Este 'Set' guardará los favoritos SÓLO del set actual
-    console.log("[Fav PorSet] Datos maestros de favoritos cargados:", allFavorites); // LOG
-
-    let currentLoadedSet = null; // Para saber qué set está cargado
-    let wavesurfer = null; // Declarar wavesurfer aquí
-
-    let wsRegions = null; // Referencia al plugin de regiones
-
-
-    // --- INICIO: Módulo URLController (Fase 2 - Deep Linking) ---
-    const URLController = (() => {
-        // Función privada para leer parámetros
-        const getParams = () => {
-            const params = new URLSearchParams(window.location.search);
-            const setId = params.get('set'); // captura ?set=...
-            const timestamp = params.get('t'); // captura &t=...
-
-        // Log de diagnóstico (Regla 5)
-            console.log(`[URLController] Params detectados -> ID: ${setId}, Time: ${timestamp}`);
-
-            return {
-                setId: setId ? setId : null, // <--- CORREGIDO: Respeta mayúsculas/minúsculas exactas
-                timestamp: timestamp ? parseInt(timestamp, 10) : null
-            };
-        };
-
-        return {
-            getParams: getParams
-        };
-
-    })();
-    // --- FIN: Módulo URLController ---
-
-
-    // --- INICIO: Módulo ShareController (Fase 5 - Lógica Compartir) ---
-    const ShareController = (() => {
-        // Referencias DOM
-        const modalOverlay = document.getElementById('share-modal-overlay');
-        const closeBtn = document.getElementById('closeShareBtn');
-        const urlInput = document.getElementById('shareUrlInput');
-        const copyBtn = document.getElementById('copyShareUrlBtn');
-        const timeCheckbox = document.getElementById('shareTimeCheckbox');
-        const timeLabel = document.getElementById('shareTimeLabel');
-        const shareBtn = document.getElementById('shareBtn');
-
-        // Referencias Fase 6
-        const waBtn = document.getElementById('shareWaBtn');
-        const fbBtn = document.getElementById('shareFbBtn');
-        const xBtn = document.getElementById('shareXBtn');
-
-        // Inicializar listeners
-        const init = () => {
-            if (!shareBtn || !modalOverlay) {
-                console.warn("[ShareController] Elementos UI no encontrados. Saltando init.");
-                return;
-            }
-
-            // 1. Abrir Modal
-            shareBtn.addEventListener('click', openModal);
-
-            // 2. Cerrar Modal (Botón X y Clic fuera)
-            closeBtn.addEventListener('click', closeModal);
-            modalOverlay.addEventListener('click', (e) => {
-                if (e.target === modalOverlay) closeModal();
-            });
-
-            // 3. Actualizar URL al cambiar checkbox
-            timeCheckbox.addEventListener('change', updateUrl);
-
-            // 4. Copiar al portapapeles
-            copyBtn.addEventListener('click', copyToClipboard);
-
-            console.log("[ShareController] Módulo inicializado.");
-        };
-
-        const openModal = () => {
-            if (!currentLoadedSet || !wavesurfer) return;
-
-            // Actualizar etiqueta de tiempo
-            const currentTime = wavesurfer.getCurrentTime();
-            timeLabel.textContent = `Iniciar en ${formatTime(currentTime)}`;
-
-            // Resetear checkbox a false por defecto al abrir
-            timeCheckbox.checked = false;
-
-            // Generar URL base
-            updateUrl();
-
-            // Mostrar modal
-            modalOverlay.style.display = 'flex';
-            console.log(`[ShareController] Abriendo modal para SetID: ${currentLoadedSet.id}`);
-        };
-
-        const closeModal = () => {
-            modalOverlay.style.display = 'none';
-        };
-
-        const updateUrl = () => {
-            // --- INICIO: Generación de URL Limpia (Opción B) ---
-            const rootUrl = window.location.origin + window.location.pathname.replace('index.html', '');
-            const cleanRoot = rootUrl.endsWith('/') ? rootUrl : rootUrl + '/';
-
-            // Apuntar a la carpeta generada
-            let finalUrl = `${cleanRoot}share/${currentLoadedSet.id}/`;
-
-            if (timeCheckbox.checked) {
-                const seconds = Math.floor(wavesurfer.getCurrentTime());
-                finalUrl += `?t=${seconds}`;
-            }
-
-            // --- FASE 6: Actualizar Botones Sociales ---
-            const encodedUrl = encodeURIComponent(finalUrl);
-            const titleText = encodeURIComponent(`Escucha este set de Vloitz: ${currentLoadedSet.title}`);
-
-            // WhatsApp: https://wa.me/?text=[URL]
-            if (waBtn) waBtn.href = `https://wa.me/?text=${titleText}%20${encodedUrl}`;
-
-            // Facebook: https://www.facebook.com/sharer/sharer.php?u=[URL]
-            if (fbBtn) fbBtn.href = `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`;
-
-            // X (Twitter): https://twitter.com/intent/tweet?url=[URL]&text=[TEXT]
-            if (xBtn) xBtn.href = `https://twitter.com/intent/tweet?text=${titleText}&url=${encodedUrl}`;
-            // -------------------------------------------
-
-            urlInput.value = finalUrl;
-            // --- FIN: Generación de URL Limpia ---
-        };
-
-        const copyToClipboard = () => {
-            urlInput.select();
-            urlInput.setSelectionRange(0, 99999); // Para móviles
-
-            navigator.clipboard.writeText(urlInput.value).then(() => {
-                // Feedback visual en el botón
-                const originalText = copyBtn.textContent;
-                copyBtn.textContent = "¡Copiado!";
-                copyBtn.style.backgroundColor = "#1DB954"; // Verde marca
-
-                setTimeout(() => {
-                    copyBtn.textContent = originalText;
-                    copyBtn.style.backgroundColor = ""; // Restaurar color original
-                }, 2000);
-
-                console.log("[ShareController] URL copiada: ", urlInput.value);
-            }).catch(err => {
-                console.error("[ShareController] Error al copiar: ", err);
-            });
-        };
-
-        return { init };
-    })();
-    // --- FIN: Módulo ShareController ---
-
-    // --- INICIO: Módulo ColorController (Fase 7 - Paleta Dinámica) ---
-    const ColorController = (() => {
-        let palette = [];
-
-        // Generador de paleta profesional (Portado de segmentos.html)
-        const generatePalette = () => {
-            const baseTones = [
-                [230, 0, 0],   [0, 200, 80],   [0, 120, 255], [255, 190, 0], [220, 0, 200],
-                [0, 190, 200], [255, 100, 0],  [140, 0, 220], [120, 220, 0], [255, 50, 100]
-            ];
-            const variations = ['Vibrante', 'Muteado', 'Profundo'];
-
-            baseTones.forEach(([r, g, b]) => {
-                variations.forEach(variant => {
-                    let finalR = r, finalG = g, finalB = b;
-
-                    if (variant === 'Muteado') {
-                        const intensity = 0.6;
-                        const gray = (r + g + b) / 3;
-                        finalR = Math.round(r * intensity + gray * (1 - intensity));
-                        finalG = Math.round(g * intensity + gray * (1 - intensity));
-                        finalB = Math.round(b * intensity + gray * (1 - intensity));
-                    } else if (variant === 'Profundo') {
-                        finalR = Math.round(r * 0.5);
-                        finalG = Math.round(g * 0.5);
-                        finalB = Math.round(b * 0.5);
-                    }
-
-                    // Guardamos rgba para la onda (transparente) y rgb para el texto (solido)
-                    palette.push({
-                        waveColor: `rgba(${finalR}, ${finalG}, ${finalB}, 0.25)`, // 25% opacidad para fondo
-                        textColor: `rgb(${finalR}, ${finalG}, ${finalB})`         // 100% opacidad para texto
-                    });
-                });
-            });
-            console.log(`[ColorController] Paleta generada con ${palette.length} tonos.`);
-        };
-
-        // Obtener color (con loop infinito si index > 30)
-        const getColor = (index) => {
-            if (palette.length === 0) generatePalette();
-            return palette[index % palette.length];
-        };
-
-        return { getColor };
-    })();
-
-
-    // --- FUNCIÓN DE PINTADO (Fase 7) ---
-    function paintWaveformRegions() {
-        if (!wsRegions || !currentLoadedSet || !currentLoadedSet.tracklist) return;
-
-        console.log("[Regions] Iniciando pintado de espectro...");
-        wsRegions.clearRegions(); // Limpiar anteriores
-
-        const tracks = currentLoadedSet.tracklist;
-        const totalDuration = wavesurfer.getDuration();
-
-        tracks.forEach((track, index) => {
-            // 1. Obtener tiempo de inicio (convertir "MM:SS" a segundos)
-            const timeParts = track.time.split(':');
-            const startTime = parseInt(timeParts[0], 10) * 60 + parseInt(timeParts[1], 10);
-
-            // 2. Calcular tiempo de fin (Inicio del siguiente track o Final del audio)
-            let endTime = totalDuration;
-            if (index < tracks.length - 1) {
-                const nextParts = tracks[index + 1].time.split(':');
-                endTime = parseInt(nextParts[0], 10) * 60 + parseInt(nextParts[1], 10);
-            }
-
-            // 3. Obtener color de la paleta
-            const colors = ColorController.getColor(index);
-
-            // 4. Dibujar región
-            wsRegions.addRegion({
-                start: startTime,
-                end: endTime,
-                color: colors.waveColor, // Color transparente para la onda
-                drag: false,
-                resize: false
-            });
-        });
-        console.log(`[Regions] ${tracks.length} regiones dibujadas.`);
-    }
-
-    // --- FIN: Módulo ColorController ---
-
-
-    // --- Variables para lógica táctil v6 Final ---
-let isDraggingWaveformTouch = false;
-let longTouchTimer = null;
-const LONG_TOUCH_THRESHOLD = 200;
-let wasPlayingBeforeDrag = false; // Para saber si pausar/reanudar
-
-    // --- Inicializar WaveSurfer ---
-    try {
-        console.log("Inicializando WaveSurfer..."); // LOG
-        wavesurfer = WaveSurfer.create({
-            container: '#waveform',
-            // --- Matching Prototype Visuals ---
-            waveColor: 'rgba(255, 255, 255, 0.60)', // Match prototype
-            progressColor: 'rgba(255, 255, 255, 0.60)', // Match prototype
-            height: 128,                          // Match prototype
-            barWidth: 3,                          // Match prototype
-            barGap: 1,                           // Match prototype
-            // barRadius: 0, // Default in prototype, can omit or set explicitly
-            // normalize: false, // Default in prototype, ensure it's not true
-            // --- End Matching ---
-
-            plugins: [WaveSurfer.Regions.create()], // Activar plugin
-
-            cursorColor: "#ffffff", // Keep your preferred cursor color
-            cursorWidth: 1,         // Keep your preferred cursor width
-            responsive: true,
-            backend: 'MediaElement',
-            media: document.getElementById('audio-player')
-        });
-        console.log("WaveSurfer inicializado correctamente."); // LOG
-        // Hacer accesible globalmente para depuración desde la consola
-        window.wavesurfer = wavesurfer;
-
-        wsRegions = wavesurfer.plugins[0]; // Guardar referencia para usarla luego
-
-        console.log("Instancia de WaveSurfer asignada a window.wavesurfer para depuración."); // LOG
-    } catch (error) {
-         console.error("Error CRÍTICO al inicializar WaveSurfer:", error); // LOG ERROR
-         currentTrackTitle.textContent = "Error al iniciar reproductor";
-         playPauseBtn.textContent = '❌';
-         return; // Detener si WaveSurfer no se puede crear
-    }
-
-    // --- Cargar sets.json ---
-    console.log("Cargando sets.json..."); // LOG
-    fetch('sets.json')
-        .then(response => {
-            if (!response.ok) { // LOG ERROR RED
-                throw new Error(`Error HTTP! status: ${response.status}`);
-            }
-            return response.json();
-         })
-        .then(data => {
-            console.log("sets.json cargado:", data); // LOG ÉXITO
-
-            // --- VERIFICACIÓN FASE 1 ---
-            if (data.sets && data.sets.length > 0) {
-                console.log("[Fase 1 Check] ID del primer set:", data.sets[0].id);
-            }
-            // ---------------------------
-
-            // Cargar perfil
-            if (data.profile) {
-                profilePicImg.src = data.profile.profile_pic_url;
-                profileBanner.style.backgroundImage = `url('${data.profile.banner_url}')`;
-                console.log("Perfil cargado."); // LOG
-            }
-            // Cargar sets
-            allSets = data.sets;
-            allSets.sort((a, b) => new Date(b.date) - new Date(a.date)); // Ordenar
-            populateTracklist(allSets);
-            if (allSets.length > 0) {
-
-                // --- INICIO: Lógica Deep Linking (Fase 3.1) ---
-                const params = URLController.getParams();
-                let targetIndex = 0; // Por defecto: el último set (índice 0)
-
-                if (params.setId) {
-                    // Buscar índice del set que coincida con el ID
-                    const foundIndex = allSets.findIndex(set => set.id === params.setId);
-                    if (foundIndex !== -1) {
-                        targetIndex = foundIndex;
-                        console.log(`[DeepLink] ✅ Set encontrado por ID: "${params.setId}" (Index: ${targetIndex})`);
-                    } else {
-                        console.warn(`[DeepLink] ⚠️ ID "${params.setId}" no encontrado. Cargando set más reciente.`);
-                    }
-                }
-
-                // Cargar el set decidido (Por URL o por defecto)
-                loadTrack(allSets[targetIndex], targetIndex);
-                // --- FIN: Lógica Deep Linking ---
-
-
-                // --- Poblar "Latest Set" (prototipo v4) ---
-                if (latestSetTitle && latestSetDate) {
-                    console.log("Poblando 'Latest Set' box..."); // LOG
-                    latestSetTitle.textContent = allSets[0].title;
-                    latestSetDate.textContent = allSets[0].date;
-                }
-
-            } else {
-                currentTrackTitle.textContent = "No hay sets para mostrar.";
-                console.warn("No se encontraron sets en sets.json"); // LOG ADVERTENCIA
-            }
-        })
-        .catch(error => {
-            console.error('Error FATAL al cargar o parsear sets.json:', error); // LOG ERROR
-            currentTrackTitle.textContent = "Error al cargar datos de sets.";
-        });
-
-    // --- Poblar la lista ---
-    function populateTracklist(sets) {
-        console.log("Poblando tracklist..."); // LOG
-        tracklistElement.innerHTML = '';
-        sets.forEach((set, index) => {
-            const li = document.createElement('li');
-            li.className = 'track-item';
-            li.dataset.index = index;
-            li.innerHTML = `
-                <img src="${set.cover_art_url}" alt="${set.title} cover" class="track-item-cover">
-                <span class="track-item-title">${set.title}</span>
-                <span class="track-item-date">${set.date}</span>
-            `;
-            tracklistElement.appendChild(li);
-        });
-        console.log(`Tracklist poblado con ${sets.length} items.`); // LOG
-    }
-
-    // --- Cargar un set ---
-    function loadTrack(set, index) {
-
-        // --- AGREGA ESTO AQUÍ (INICIO) ---
-        const audioEl = document.getElementById('audio-player');
-        audioEl.crossOrigin = "anonymous";
-        // --- FIN DEL AGREGADO ---
-
-        console.log(`Cargando track ${index}: ${set.title}`); // LOG
-        currentCoverArt.src = set.cover_art_url;
-        currentTrackTitle.textContent = `Cargando: ${set.title}...`;
-        currentSetIndex = index;
-
-        // Resetear UI del reproductor
-        totalDurationEl.textContent = '0:00';
-        currentTimeEl.textContent = '0:00';
-        playPauseBtn.disabled = true;
-
-        // --- INICIO: CÓDIGO FALTANTE (Establecer icono inicial) ---
-        if (playIcon) playIcon.style.display = 'block';   // Asegura que se muestre el icono de Play al cargar
-        if (pauseIcon) pauseIcon.style.display = 'none'; // Asegura que Pause esté oculto
-        // --- FIN: CÓDIGO FALTANTE ---
-
-        console.log(`WaveSurfer intentará cargar: ${set.audio_url}`); // LOG
-
-        // Lógica para cargar picos
-        if (set.peaks_url) {
-            console.log(`Intentando cargar picos desde: ${set.peaks_url}`); // LOG
-            fetch(set.peaks_url)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`Error HTTP al cargar picos! status: ${response.status}`);
-                    }
-                    return response.json();
-                })
-                .then(peaksData => {
-                    const peaksArray = peaksData.data;
-                    if (peaksArray && Array.isArray(peaksArray)) {
-                        console.log(`Picos cargados (${peaksArray.length} puntos). Cargando audio con picos...`); // LOG
-                        wavesurfer.load(set.audio_url, peaksArray);
-                    } else {
-                        console.warn("El JSON de picos no tiene un array 'data' válido. Cargando solo audio..."); // LOG ADVERTENCIA
-                        wavesurfer.load(set.audio_url);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error al cargar o parsear el JSON de picos:', error); // LOG ERROR
-                    console.warn("Fallback: Cargando solo audio debido a error con picos..."); // LOG ADVERTENCIA
-                    wavesurfer.load(set.audio_url);
-                });
-        } else {
-            console.log("No se encontró peaks_url. Cargando solo audio..."); // LOG
-            wavesurfer.load(set.audio_url);
-        }
-
-        currentLoadedSet = set;
-        window.currentLoadedSet = set; // <--- ¡ESTA ES LA LÍNEA QUE FALTABA!
-        updateMediaSessionMetadata(set);
-        currentTrackNameForNotification = null;
-
-        // --- Cargar favoritos para ESTE set (v2) ---
-        const setKey = currentLoadedSet.title; // Usar el título del set como clave
-        if (!allFavorites[setKey]) {
-            allFavorites[setKey] = []; // Inicializar si no existe
-            console.log(`[Fav v2] Creando nueva entrada de favoritos para: ${setKey}`); // LOG
-        }
-        // Cargar los favoritos de este set en el 'Set' de memoria actual
-        currentSetFavorites = new Set(allFavorites[setKey]);
-        console.log(`[Fav v2] Favoritos cargados para "${setKey}":`, currentSetFavorites); // LOG
-        // --- Fin carga favoritos v2 ---
-
-        displayTracklist(set.tracklist || []);
-        TrackNavigator.prepareTimestamps(set.tracklist || [], currentSetFavorites); // <-- AÑADIR ESTA LÍNEA
-        updatePlayingHighlight();
-    }
-
-    // --- INICIO: Media Session API (Fase 3 - Modificada para Track Actual) ---
-    function updateMediaSessionMetadata(set, currentTrackName = null) { // <-- MODIFICADO: Añadir currentTrackName
-        if ('mediaSession' in navigator && set) {
-            const trackTitle = currentTrackName || "Loading Track..."; // <-- AÑADIDO: Título por defecto si no hay track
-            console.log(`[MediaSession] Actualizando metadatos. Set: "${set.title}", Track: "${trackTitle}"`); // LOG MODIFICADO
-
-            navigator.mediaSession.metadata = new MediaMetadata({
-                title: set.title, // El título principal sigue siendo el del Set
-                artist: currentTrackName ? '' : 'Vloitz',
-                album: trackTitle, // <-- MODIFICADO: Usamos 'album' para el nombre del track actual
-                artwork: [
-                    { src: set.cover_art_url, sizes: '500x500', type: 'image/png' }, // Asume PNG, ajusta si es necesario
-                ]
-            });
-            console.log("[MediaSession] Metadatos aplicados."); // LOG
-        } else {
-            console.log("[MediaSession] API no soportada o 'set' no válido."); // LOG
-        }
-    }
-
-    // --- FIN: Media Session API (Fase 3) ---
-
-    // --- Resaltar activo ---
-    function updatePlayingHighlight() {
-        tracklistElement.querySelectorAll('.track-item').forEach(item => {
-            item.classList.remove('playing');
-        });
-        const activeItem = tracklistElement.querySelector(`.track-item[data-index="${currentSetIndex}"]`);
-        if (activeItem && wavesurfer && wavesurfer.isPlaying()) {
-            activeItem.classList.add('playing');
-            console.log(`Resaltando track ${currentSetIndex} como activo.`); // LOG
-        }
-    }
-
-    // Formatear tiempo
-    function formatTime(seconds) {
-        seconds = Number(seconds);
-        if (isNaN(seconds) || seconds < 0) {
-            seconds = 0;
-        }
-        const minutes = Math.floor(seconds / 60);
-        const secs = Math.floor(seconds % 60);
-        return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
-    }
-
-    // --- Mostrar el tracklist del set actual ---
-    function displayTracklist(tracklistData) {
-        console.log("Mostrando tracklist para el set actual..."); // LOG
-        currentTracklistElement.innerHTML = ''; // Limpiar lista anterior
-
-        if (!tracklistData || tracklistData.length === 0) {
-            currentTracklistElement.innerHTML = '<li>No hay tracklist disponible para este set.</li>';
-            console.warn("No se encontró tracklist en los datos del set."); // LOG ADVERTENCIA
-            return;
-        }
-
-        tracklistData.forEach((track, index) => {
-
-            // Obtener el color asignado a este track (Texto Sólido)
-            const trackColors = ColorController.getColor(index);
-
-            const li = document.createElement('li');
-
-            // Guardamos el color en el elemento para usarlo luego
-            li.dataset.activeColor = trackColors.textColor;
-
-            li.className = 'current-tracklist-item';
-            li.dataset.time = track.time;
-            li.dataset.index = index;
-
-            const timeParts = track.time.split(':');
-            let totalSeconds = 0;
-            if (timeParts.length === 2 && !isNaN(parseInt(timeParts[0], 10)) && !isNaN(parseInt(timeParts[1], 10))) {
-                 totalSeconds = parseInt(timeParts[0], 10) * 60 + parseInt(timeParts[1], 10);
-            } else {
-                 console.warn(`Timestamp inválido en tracklist: ${track.time}`); // LOG ADVERTENCIA
-            }
-
-            const isFavorited = currentSetFavorites.has(totalSeconds); // v2: Comprobar contra el Set del set actual
-
-            li.innerHTML = `
-                <span class="track-time">${track.time}</span>
-                <span class="track-emoji">${track.emoji || ''}</span>
-                <span class="track-title">${track.title}</span>
-                <button class="favorite-btn ${isFavorited ? 'favorited' : ''}" data-seconds="${totalSeconds}" title="Añadir/Quitar Favorito">
-                    ${isFavorited ? '★' : '☆'}
+    </script>
+
+    <script src="app.js"></script>
+
+<div id="storyOverlay">
+        <button class="story-close-global" id="stCloseBtn">&times;</button>
+
+        <div class="story-card-wrapper">
+            <div id="stViewIntro">
+                <img src="" class="st-album-art" id="stUiCover">
+                <h2 class="st-title" id="stUiTitle">Cargando...</h2>
+                <p class="st-artist">Vloitz • Audio Story</p>
+
+            <div class="st-controls-row">
+                <div class="st-control-group">
+                    <label class="st-switch">
+                        <input type="checkbox" id="stHqToggle">
+                        <span class="st-slider round"></span>
+                    </label>
+                    <span id="stQualityText" class="st-quality-label">Modo Seguro</span>
+                </div>
+
+                <div class="st-control-group">
+                    <select id="stDurationSelect" class="st-select">
+                        <option value="15" selected>15 seg</option>
+                        <option value="30">30 seg</option>
+                        <option value="45">45 seg</option>
+                        <option value="60">60 seg (Riesgo)</option>
+                    </select>
+                </div>
+            </div>
+
+                <button class="st-create-btn" id="stStartBtn">
+                    CREAR STORY
                 </button>
-            `;
-            currentTracklistElement.appendChild(li);
+            </div>
+
+            <div id="stViewProcess">
+                <canvas id="storyCanvas" width="360" height="640"></canvas>
+
+                <div class="st-process-ui" id="stLoadingUI">
+                    <div class="st-status-text" id="stStatusText">Iniciando motor...</div>
+                    <div class="st-progress-bg"><div class="st-progress-fill" id="stProgressFill"></div></div>
+                </div>
+
+                <div id="stFinalActions">
+                    <button class="st-wa-btn" id="stShareWaBtn">Enviar a WhatsApp</button>
+                    <div class="st-secondary-actions">
+                        <div style="font-size: 11px; color:#666;">Clip listo</div>
+                        <button class="st-download-link" id="stDlManualBtn">Descargar archivo manual</button>
+                        <button class="st-retry-btn" id="stRetryBtn">Reintentar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script type="module">
+        import { Muxer, ArrayBufferTarget } from 'https://esm.sh/mp4-muxer@5.1.0';
+
+        console.log("[STORY MODULE] V11: Unified Live Engine (Lightweight)");
+
+        const stDOM = {
+            openBtn: document.getElementById('stOpenBtn'),
+            closeBtn: document.getElementById('stCloseBtn'),
+            overlay: document.getElementById('storyOverlay'),
+            viewIntro: document.getElementById('stViewIntro'),
+            viewProcess: document.getElementById('stViewProcess'),
+            startBtn: document.getElementById('stStartBtn'),
+            retryBtn: document.getElementById('stRetryBtn'),
+            hqToggle: document.getElementById('stHqToggle'),
+            qualityText: document.getElementById('stQualityText'),
+            statusText: document.getElementById('stStatusText'),
+            progressFill: document.getElementById('stProgressFill'),
+            loadingUI: document.getElementById('stLoadingUI'),
+            finalActions: document.getElementById('stFinalActions'),
+            shareWaBtn: document.getElementById('stShareWaBtn'),
+            dlManualBtn: document.getElementById('stDlManualBtn'),
+            canvas: document.getElementById('storyCanvas'),
+            uiTitle: document.getElementById('stUiTitle'),
+            uiCover: document.getElementById('stUiCover')
+        };
+
+        const stCtx = stDOM.canvas.getContext('2d', { alpha: false, desynchronized: true });
+
+        const stState = {
+            isEncoding: false,
+            finalBlob: null,
+            audioData: new Array(20).fill(5),
+            staticCanvas: null,
+            config: {},
+            currentSetData: null,
+            startTime: 0,
+            currentTrackTitle: "",
+            audioContext: null,
+            mediaStreamDest: null,
+            sourceNode: null,
+            gainNode: null
+        };
+
+        const stCoverImg = new Image();
+        stCoverImg.crossOrigin = "Anonymous";
+
+        // --- AUDIO SETUP (BRIDGE) ---
+        // Vital para Android: Crea una ruta de audio que evita que el sistema silencie la grabación
+        function setupAudioCapture() {
+            if (!stState.audioContext) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                stState.audioContext = new AudioContext();
+            }
+
+            const audioEl = document.getElementById('audio-player');
+
+            // 1. Crear Source (Solo una vez)
+            if (!stState.sourceNode) {
+                stState.sourceNode = stState.audioContext.createMediaElementSource(audioEl);
+            }
+
+            // 2. Crear Bridge (GainNode) - El "Truco" para Android
+            if (!stState.gainNode) {
+                stState.gainNode = stState.audioContext.createGain();
+                stState.gainNode.gain.value = 1.0;
+
+                // Conectar: Source -> Bridge -> Speakers (Para que suene)
+                stState.sourceNode.connect(stState.gainNode);
+                stState.gainNode.connect(stState.audioContext.destination);
+            }
+
+            // 3. Crear Destino de Grabación
+            if (stState.mediaStreamDest) {
+                // Desconectar viejo para limpiar
+                try { stState.gainNode.disconnect(stState.mediaStreamDest); } catch(e){}
+            }
+            stState.mediaStreamDest = stState.audioContext.createMediaStreamDestination();
+
+            // Conectar: Bridge -> Grabadora
+            stState.gainNode.connect(stState.mediaStreamDest);
+
+            console.log(`[AUDIO SETUP] Bridge activo. SampleRate: ${stState.audioContext.sampleRate}`);
+        }
+
+        // --- UI EVENTS ---
+        if(stDOM.hqToggle) {
+            stDOM.hqToggle.addEventListener('change', () => {
+                stDOM.qualityText.innerText = stDOM.hqToggle.checked ? "Alta Calidad" : "Modo Seguro";
+                stDOM.qualityText.style.color = stDOM.hqToggle.checked ? "#fff" : "#1DB954";
+            });
+        }
+
+        if(stDOM.openBtn) {
+            stDOM.openBtn.addEventListener('click', () => {
+                const realSet = window.currentLoadedSet;
+                const wave = window.wavesurfer;
+                if (realSet && wave) {
+                    stState.currentSetData = realSet;
+                    stState.startTime = wave.getCurrentTime();
+
+                    let activeTrackName = realSet.title;
+                    if (realSet.tracklist) {
+                        for (let i = realSet.tracklist.length - 1; i >= 0; i--) {
+                            const t = realSet.tracklist[i];
+                            const parts = t.time.split(':');
+                            const tSecs = parseInt(parts[0])*60 + parseInt(parts[1]);
+                            if (stState.startTime >= tSecs) {
+                                activeTrackName = t.title;
+                                break;
+                            }
+                        }
+                    }
+                    stState.currentTrackTitle = activeTrackName;
+                    stDOM.uiTitle.innerText = activeTrackName;
+                    stDOM.uiCover.src = realSet.cover_art_url;
+                    stCoverImg.src = realSet.cover_art_url;
+                }
+                stDOM.overlay.classList.add('active');
+                resetModule();
+            });
+        }
+
+        stDOM.closeBtn.addEventListener('click', () => {
+            stDOM.overlay.classList.remove('active');
+            stState.isEncoding = false;
         });
-        console.log(`Tracklist mostrado con ${tracklistData.length} items.`); // LOG
+        stDOM.retryBtn.addEventListener('click', resetModule);
 
-        filterFavoritesDisplay(); // Aplicar filtro al mostrar el tracklist
-
-    }
-
-// --- Función SeekWaveform (Requerida por Drag Logic) ---
-const seekWaveform = (clientX, rect, eventType) => {
-    console.log(`[Drag v6 Final Corrected] seekWaveform llamado desde: ${eventType}`); // LOG (Prefijo actualizado)
-    if (!wavesurfer) { console.warn("[Drag v6 Final Corrected] Seek ignorado: WS no inicializado."); return false; }
-    const x = Math.max(0, clientX - rect.left); const width = rect.width;
-    if (width === 0) { console.warn("[Drag v6 Final Corrected] Seek abortado: Ancho 0."); return false; }
-    const progress = Math.max(0, Math.min(1, x / width));
-    try {
-        // --- INICIO CORRECCIÓN ---
-        // Eliminamos check isReady aquí para permitir seek durante drag
-        // if (wavesurfer.isReady) {
-            wavesurfer.seekTo(progress);
-            const duration = wavesurfer.getDuration();
-            if (duration > 0 && currentTimeEl) { currentTimeEl.textContent = formatTime(progress * duration); }
-            console.log(`[Drag v6 Final Corrected] Seek executed: progress=${progress.toFixed(4)}`); return true;
-        // } else {
-        //      console.warn("[Drag v6 Final Corrected] Seek abortado DENTRO: WS no listo."); return false;
-        // }
-        // --- FIN CORRECCIÓN ---
-    } catch (error) {
-        console.error(`[Drag v6 Final Corrected] Error en seekTo(${progress.toFixed(4)}):`, error); return false;
-    }
-};
-
-
-// --- Handlers Globales para Arrastre Táctil (Definidos Fuera) ---
-const handleWaveformTouchMove = (moveEvent) => {
-    console.log("[Drag v7 Refactored] handleWaveformTouchMove INICIO."); // LOG
-    if (!isDraggingWaveformTouch) { console.log("[Drag v7 Refactored] Move ignorado: isDragging false."); return; }
-    moveEvent.preventDefault(); // Prevenir scroll
-    if (moveEvent.touches && moveEvent.touches.length > 0) {
-        const wavesurferElement = wavesurfer.getWrapper(); const rect = wavesurferElement.getBoundingClientRect();
-        seekWaveform(moveEvent.touches[0].clientX, rect, "touchmove"); // Llamar a seekWaveform
-    } else { console.warn("[Drag v7 Refactored] Touch Move: No 'touches'."); }
-    console.log("[Drag v7 Refactored] handleWaveformTouchMove FIN."); // LOG
-};
-
-const handleWaveformTouchEnd = (endEvent) => {
-    console.log(`[Drag v7 Refactored] handleWaveformTouchEnd (Global) INICIO. isDragging: ${isDraggingWaveformTouch}. Tipo: ${endEvent.type}`); // LOG
-    if (!isDraggingWaveformTouch) { console.log("[Drag v7 Refactored] End (Global) ignorado: isDragging false."); return; }
-    isDraggingWaveformTouch = false; // Resetear bandera
-
-                // --- INICIO: Reanudar al finalizar drag ---
-                if (wasPlayingBeforeDrag) {
-                    wavesurfer.play();
-                    console.log("[Drag v7 Pause] Audio reanudado al finalizar arrastre."); // LOG
-                }
-                wasPlayingBeforeDrag = false; // Resetear estado guardado
-                // --- FIN: Reanudar al finalizar drag ---
-
-    console.log("[Drag v7 Refactored] Bandera isDragging reseteada (Global)."); // LOG
-    console.log("[Drag v7 Refactored] Removiendo listeners GLOBALES..."); // LOG
-    window.removeEventListener('touchmove', handleWaveformTouchMove);
-    window.removeEventListener('touchend', handleWaveformTouchEnd);
-    window.removeEventListener('touchcancel', handleWaveformTouchEnd);
-    console.log("[Drag v7 Refactored] handleWaveformTouchEnd (Global) FIN."); // LOG
-};
-// --- Fin Handlers Globales ---
-
-    // --- INICIO: Configuración de Acciones Media Session (Repurposed Seek) ---
-    if ('mediaSession' in navigator) {
-        // LOG MODIFICADO para reflejar los nuevos handlers
-        console.log("[MediaSession] Configurando manejadores de acciones (play/pause y seek como skip).");
-        try {
-            navigator.mediaSession.setActionHandler('play', () => {
-                console.log("[MediaSession] Acción 'play' recibida."); // LOG
-                if(wavesurfer) wavesurfer.play();
-            });
-            navigator.mediaSession.setActionHandler('pause', () => {
-                console.log("[MediaSession] Acción 'pause' recibida."); // LOG
-                if(wavesurfer) wavesurfer.pause();
-            });
-
-            // --- INICIO: REEMPLAZO - Usar Seek para Saltar Pista ---
-            // ELIMINAMOS setActionHandler('nexttrack', ...)
-            // ELIMINAMOS setActionHandler('previoustrack', ...)
-
-            // AÑADIMOS seekforward para llamar a goToNext
-            navigator.mediaSession.setActionHandler('seekforward', () => {
-                console.log("[MediaSession] Acción 'seekforward' (usada como next) recibida."); // LOG MODIFICADO
-                TrackNavigator.goToNext();
-            });
-            // AÑADIMOS seekbackward para llamar a goToPrevious
-            navigator.mediaSession.setActionHandler('seekbackward', () => {
-                console.log("[MediaSession] Acción 'seekbackward' (usada como previous) recibida."); // LOG MODIFICADO
-                TrackNavigator.goToPrevious();
-            });
-            // --- FIN: REEMPLAZO ---
-
-        } catch (error) {
-            console.error("[MediaSession] Error al configurar manejadores:", error); //LOG ERROR
+        function resetModule() {
+            stDOM.viewIntro.style.display = 'block';
+            stDOM.viewProcess.style.display = 'none';
+            stDOM.loadingUI.style.display = 'flex';
+            stDOM.finalActions.style.display = 'none';
+            stState.isEncoding = false;
         }
-    }
-    // --- FIN: Configuración de Acciones Media Session ---
 
-    // --- Eventos de WaveSurfer ---
+        // --- START BUTTON ---
+        stDOM.startBtn.addEventListener('click', async () => {
+            if (stState.isEncoding) return;
 
-    wavesurfer.on('ready', () => {
+            // 1. Inicializar Audio Context (Gesture required)
+            setupAudioCapture();
+            if (stState.audioContext.state === 'suspended') await stState.audioContext.resume();
 
-        const duration = wavesurfer.getDuration();
-        totalDurationEl.textContent = formatTime(duration);
-        currentTimeEl.textContent = formatTime(0);
-        playPauseBtn.disabled = false;
-        if (playIcon) playIcon.style.display = 'block';
-        if (pauseIcon) pauseIcon.style.display = 'none';
-        currentTrackTitle.textContent = allSets[currentSetIndex]?.title || "Set Listo";
-        console.log("WaveSurfer listo para track:", allSets[currentSetIndex]?.title); // LOG ÉXITO
+            // 2. Asegurar que la música suena
+            const audioEl = document.getElementById('audio-player');
+            if (audioEl.paused) audioEl.play();
 
-        // --- FASE 8: Inicializar Espectro según preferencia ---
-        toggleSpectrumState(); // Esto llamará a paintWaveformRegions si es true
+            // 3. Sincronizar tiempo exacto
+            if (window.wavesurfer) stState.startTime = window.wavesurfer.getCurrentTime();
 
-        // --- INICIO: Lógica Deep Linking Time Seek (Fase 3.2) ---
-        // Verificamos si hay un tiempo pendiente en la URL Y si es la primera carga (para no saltar en loops)
-        const params = URLController.getParams();
+            // 4. Preparar UI
+            stDOM.viewIntro.style.display = 'none';
+            stDOM.viewProcess.style.display = 'block';
+            stState.isEncoding = true;
 
-        // Solo saltamos si el tiempo NO es nulo, es >= 0, y el ID coincide
-        if (params.timestamp !== null && params.timestamp >= 0 && params.setId === currentLoadedSet.id) {
+            const isHQ = stDOM.hqToggle.checked;
+            stState.config = {
+                width: 360, height: 640, duration: 15,
+                fps: isHQ ? 30 : 24, bitrate: isHQ ? 2500000 : 1000000
+            };
 
-            // Hack de seguridad: Verificamos si ya "saltamos" para no hacerlo infinitamente si el usuario da play/pause
-            if (!window.hasDeepLinkSeeked) {
-                const duration = wavesurfer.getDuration();
-                if (duration > 0) {
-                    const progress = params.timestamp / duration;
-                    console.log(`[DeepLink] 🚀 Saltando al segundo ${params.timestamp} (Progreso: ${progress.toFixed(4)})`);
-                    wavesurfer.seekTo(progress);
+            stDOM.statusText.innerText = "Configurando...";
+            stPrepareStaticLayer();
 
-                    // Intento de Auto-Play (puede ser bloqueado por el navegador)
-                    wavesurfer.play().catch(e => console.warn("[DeepLink] Auto-Play bloqueado por navegador:", e));
-
-                    window.hasDeepLinkSeeked = true; // Marcar como "saltado" para esta sesión
-                }
+            try { await runRealTimeEncoding(); }
+            catch (e) {
+                console.error(e);
+                stState.isEncoding = false;
+                alert("Error: " + e.message);
+                resetModule();
             }
-        }
-        // --- FIN: Lógica Deep Linking Time Seek ---
+        });
 
-    });
+        // --- ENGINE UNIFICADO (PC & MÓVIL) ---
+        async function runRealTimeEncoding() {
+            console.log("[ENGINE] Iniciando grabación en vivo...");
 
-     wavesurfer.on('loading', (percent) => {
-         console.log(`WaveSurfer cargando: ${percent}%`); // LOG PROGRESO
-         currentTrackTitle.textContent = `Cargando: ${allSets[currentSetIndex]?.title || 'Set'} (${percent}%)`;
-    });
+            // Detectar Sample Rate REAL del dispositivo
+            // Esto soluciona el "Silencio" en móvil y el "Error Buffer" en PC
+            const deviceSampleRate = stState.audioContext.sampleRate;
+            console.log("Device Sample Rate detectado:", deviceSampleRate);
 
-    wavesurfer.on('error', (err) => {
-        console.error('Error de WaveSurfer al cargar audio:', err); // LOG ERROR
-        currentTrackTitle.textContent = `Error: ${err.message || err}`;
-        playPauseBtn.textContent = '❌';
-        playPauseBtn.disabled = true;
-    });
+            stDOM.statusText.innerText = "Grabando...";
 
-    wavesurfer.on('timeupdate', (currentTime) => {
-        currentTimeEl.textContent = formatTime(currentTime);
+            // 1. Configurar Muxer
+            let muxer = new Muxer({
+                target: new ArrayBufferTarget(),
+                video: { codec: 'avc', width: stState.config.width, height: stState.config.height },
+                audio: { codec: 'aac', numberOfChannels: 2, sampleRate: deviceSampleRate }, // <--- DINÁMICO
+                fastStart: 'in-memory',
+                firstTimestampBehavior: 'offset'
+            });
 
-        // --- INICIO: Lógica para actualizar track en Media Session ---
-        if (currentLoadedSet && currentLoadedSet.tracklist && currentLoadedSet.tracklist.length > 0) {
-            let foundTrackName = null;
-            let foundTrackIndex = null;
-            // Iterar tracklist para encontrar el track actual
-            // Importante: Asumimos que tracklist está ordenado por tiempo
-            for (let i = currentLoadedSet.tracklist.length - 1; i >= 0; i--) {
-                const track = currentLoadedSet.tracklist[i];
-                const timeParts = track.time.split(':');
-                let trackStartTimeSeconds = 0;
-                if (timeParts.length === 2) {
-                    trackStartTimeSeconds = parseInt(timeParts[0], 10) * 60 + parseInt(timeParts[1], 10);
-                }
+            // 2. Configurar Video Encoder
+            let videoEncoder = new VideoEncoder({
+                output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+                error: e => console.error("Video Encode Error:", e)
+            });
+            videoEncoder.configure({
+                codec: 'avc1.42001E',
+                width: stState.config.width,
+                height: stState.config.height,
+                bitrate: stState.config.bitrate,
+                framerate: stState.config.fps
+            });
 
-                if (currentTime >= trackStartTimeSeconds) {
-                    foundTrackName = track.title;
-                    foundTrackIndex = i;
-                    break; // Salir del bucle una vez encontrado
-                }
-            }
+            // 3. Configurar Audio Encoder (CRÍTICO)
+            let audioEncoder = new AudioEncoder({
+                output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
+                error: e => console.error("Audio Encode Error:", e)
+            });
 
-            // Si encontramos un track y es diferente al último mostrado, actualizamos
-            if (foundTrackName && foundTrackName !== currentTrackNameForNotification) {
-                console.log(`[MediaSession TimeUpdate] Cambio de track detectado: "${foundTrackName}"`); // LOG
-                currentTrackNameForNotification = foundTrackName; // Guardar el nuevo nombre
-                updateMediaSessionMetadata(currentLoadedSet, currentTrackNameForNotification); // Actualizar notificación
+            // Usamos EXACTAMENTE la frecuencia del dispositivo
+            audioEncoder.configure({
+                codec: 'mp4a.40.2',
+                numberOfChannels: 2,
+                sampleRate: deviceSampleRate,
+                bitrate: 128000
+            });
 
-                // --- INICIO: NUEVO CÓDIGO DE RESALTADO ---
+            // 4. Obtener Stream de Audio del "Puente"
+            const audioStreamTrack = stState.mediaStreamDest.stream.getAudioTracks()[0];
+            const trackProcessor = new MediaStreamTrackProcessor({ track: audioStreamTrack });
+            const audioReader = trackProcessor.readable.getReader();
 
-                // 1. Limpiar todos los resaltados anteriores (Clase y Color)
-                currentTracklistElement.querySelectorAll('.track-title.track-title-playing').forEach(el => {
-                    el.classList.remove('track-title-playing');
-                    el.style.color = ''; // Quitar color forzado
-                });
+            // --- BUCLES DE PROCESO ---
 
-                // 2. Aplicar el nuevo resaltado usando el índice que guardamos
-                const newActiveItem = currentTracklistElement.querySelector(`.current-tracklist-item[data-index="${foundTrackIndex}"]`);
-                if (newActiveItem) {
-
-                    const titleElement = newActiveItem.querySelector('.track-title');
-                    if (titleElement) {
-                        titleElement.classList.add('track-title-playing');
-                        // Aplicar el color específico del track
-                        // Solo aplicar color si el modo Espectro está activo
-                        if (isSpectrumActive && newActiveItem.dataset.activeColor) {
-                            titleElement.style.color = newActiveItem.dataset.activeColor;
-                        }
-                        console.log(`[Highlight] Resaltando track: ${foundTrackName}`);
-                    }
-
-                    // --- INICIO: Auto-Scroll al track activo (v5: Center Align) ---
+            // A. Bucle de Audio
+            const processAudio = async () => {
+                while (stState.isEncoding) {
                     try {
-                        const container = currentTracklistElement; // El <ul>
-                        const item = newActiveItem; // El <li>
+                        const result = await audioReader.read();
+                        if (result.done) break;
 
-                        // --- INICIO: Verificación de Viewport ---
-                        const rect = container.getBoundingClientRect();
-                        const isContainerPartiallyVisible = rect.top < (window.innerHeight || document.documentElement.clientHeight) && rect.bottom > 0;
-
-                        if (!isContainerPartiallyVisible) {
-                            console.log("[AutoScroll v5] Contenedor no está visible en pantalla. Scroll omitido."); // LOG
-                            return; // Salir si el contenedor no está en el viewport
+                        if (audioEncoder.state === 'configured') {
+                            audioEncoder.encode(result.value);
                         }
-                        // --- FIN: Verificación de Viewport ---
-
-                        console.log(`[AutoScroll v5] Enfocando item (Center Align): ${foundTrackName}`); // LOG
-
-                        // --- INICIO: Cálculo de Alineación Central ---
-                        const itemTopRelativeToContainer = item.offsetTop - container.offsetTop;
-                        const containerHeight = container.clientHeight;
-                        const itemHeight = item.clientHeight;
-
-                        // Calculamos la posición para centrar el item:
-                        // 1. itemTopRelativeToContainer (mueve el item al tope)
-                        // 2. - (containerHeight / 2) (sube el scroll a la mitad del contenedor)
-                        // 3. + (itemHeight / 2) (baja el scroll la mitad de la altura del item)
-                        const scrollToTop = itemTopRelativeToContainer - (containerHeight / 2) + (itemHeight / 2);
-
-                        console.log(`[AutoScroll v5] itemTopRel: ${itemTopRelativeToContainer.toFixed(2)}, containerH/2: ${(containerHeight / 2).toFixed(2)}, itemH/2: ${(itemHeight / 2).toFixed(2)}`); // LOG
-                        console.log(`[AutoScroll v5] Scrolleando contenedor a: ${scrollToTop.toFixed(2)}`); // LOG
-                        // --- FIN: Cálculo de Alineación Central ---
-
-                        // Ejecutar el scroll *solo* en el contenedor
-                        container.scrollTo({
-                            top: scrollToTop,
-                            behavior: 'smooth'
-                        });
-
-                    } catch (scrollError) {
-                        console.error("[AutoScroll v5] Error durante el scroll manual:", scrollError); // LOG ERROR
+                        result.value.close();
+                    } catch (e) {
+                        console.error("Audio Read Loop:", e);
+                        break;
                     }
-                    // --- FIN: Auto-Scroll ---
-
                 }
-                // --- FIN: NUEVO CÓDIGO DE RESALTADO ---
+            };
+            processAudio();
 
-            } else if (!foundTrackName && currentTrackNameForNotification !== null) {
-                // Caso borde: Si el tiempo es menor al primer track (ej: intro), reseteamos
-                console.log("[MediaSession TimeUpdate] Reseteando nombre de track (intro?)"); // LOG
-                currentTrackNameForNotification = null;
-                updateMediaSessionMetadata(currentLoadedSet, null); // Actualizar notificación
+            // B. Bucle de Video
+            const startTime = performance.now();
+            const durationMs = stState.config.duration * 1000;
+            let frameCount = 0;
 
-                // --- AÑADE ESTO PARA LIMPIAR EL RESALTADO ---
-                currentTracklistElement.querySelectorAll('.track-title.track-title-playing').forEach(el => {
-                    el.classList.remove('track-title-playing');
-                });
+            await new Promise((resolve) => {
+                const drawFrame = async (now) => {
+                    if (!stState.isEncoding) { resolve(); return; }
 
-            }
-        }
-        // --- FIN: Lógica Media Session ---
+                    const elapsed = now - startTime;
 
-            // --- INICIO: Nueva Función Auto-Loop (Refactorización v6) ---
-            function handleAutoLoopJump(currentTime) {
-                const isFavoritesModeActive = favToggleCheckbox && favToggleCheckbox.checked;
+                    if (elapsed >= durationMs) {
+                        stState.isEncoding = false;
+                        resolve();
+                        return;
+                    }
 
-                // Solo actuar si AMBOS botones están activos, Nav está listo Y no estamos ya saltando
-                if (isAutoLoopActive && isFavoritesModeActive && TrackNavigator.isReady() && !isSeekingViaAutoLoop) {
+                    // UI Update
+                    stDOM.progressFill.style.width = (elapsed / durationMs) * 100 + "%";
 
-                    const currentFavStartTime = TrackNavigator.getCurrentTrackStartTime(currentTime, true);
+                    // Render Canvas
+                    stUpdateAudioSimulation(frameCount);
+                    stCtx.drawImage(stState.staticCanvas, 0, 0);
+                    stDrawDynamicLayer(elapsed / 1000);
 
-                    if (currentFavStartTime !== null) {
-                        const trackEndTime = TrackNavigator.getTrackEndTime(currentFavStartTime, wavesurfer.getDuration());
+                    // Create Frame
+                    const vFrame = new VideoFrame(stDOM.canvas, {
+                        timestamp: now * 1000, // Sync con reloj del sistema
+                        duration: (1000 / stState.config.fps) * 1000
+                    });
 
-                        if (trackEndTime !== null) {
-                            const calculatedJumpTime = trackEndTime - TrackNavigator.AUTOLOOP_JUMP_SECONDS_BEFORE_END;
+                    // Flow Control (Suave para móvil)
+                    // Permitimos cola de 4 en móvil para evitar tirones
+                    if (videoEncoder.encodeQueueSize < 4) {
+                        if (videoEncoder.state === 'configured') {
+                            videoEncoder.encode(vFrame, { keyFrame: frameCount % 30 === 0 });
+                        }
+                    }
+                    vFrame.close();
 
-                            // CONDICIÓN: Verificar si estamos DENTRO de la ventana de salto
-                            if (currentTime >= calculatedJumpTime) {
-                                console.log(`%c[AutoLoop Trigger v6] Condición Cumplida! Time:${currentTime.toFixed(4)} >= JumpAt:${calculatedJumpTime.toFixed(4)}`, "color: lightgreen; font-weight: bold;"); // Log Mantenido
-
-                                const nextFavTimestamp = TrackNavigator.findNextTimestamp(currentFavStartTime, true);
-                                console.log(`[AL FoundNext] NextFav: ${nextFavTimestamp !== null ? nextFavTimestamp.toFixed(2)+'s' : 'null'}`); // Log Mantenido
-
-                                if (nextFavTimestamp !== null && nextFavTimestamp !== currentFavStartTime) {
-                                    console.log(`[AL Set Seeking TRUE] Antes de llamar a seekToTimestamp.`); // Log Mantenido
-                                    isSeekingViaAutoLoop = true;
-                                    console.log(`[AL ---> Saltando a ${nextFavTimestamp.toFixed(2)}s <---]`); // Log Mantenido
-                                    TrackNavigator.seekToTimestamp(nextFavTimestamp);
-                                } else {
-                                    console.warn(`[AL No Jump] nextFav es null o igual a currentFav.`); // Log Mantenido
-                                }
-                            } // Fin if currentTime >= calculatedJumpTime
-                        } // Fin if trackEndTime
-                    } // Fin if currentFavStartTime
-                } // Fin if AutoLoop Activo
-            }
-            // --- FIN: Nueva Función Auto-Loop ---
-
-            // --- INICIO: Llamada a Lógica Auto-Bucle (Refactorización v6) ---
-            handleAutoLoopJump(currentTime);
-            // --- FIN: Llamada a Lógica Auto-Bucle ---
-
-            // Actualizar el tiempo anterior SIEMPRE al final del bloque timeupdate
-            previousTimeForAutoLoop = currentTime;
-
-
-
-    }); // Fin de timeupdate
-
-    wavesurfer.on('seeking', (currentTime) => {
-         currentTimeEl.textContent = formatTime(currentTime);
-         console.log(`Seeking a: ${formatTime(currentTime)}`); // LOG
-    });
-
-    // --- INICIO: Resetear Bandera de AutoLoop (Fase 4 Corrección) ---
-    wavesurfer.on('seek', () => {
-        // Log SIEMPRE que ocurra un seek
-        const timeAfterSeek = wavesurfer.getCurrentTime();
-        console.log(`[Event SEEK] Seek completado. Tiempo actual AHORA: ${timeAfterSeek.toFixed(4)}s. Bandera Seeking ERA: ${isSeekingViaAutoLoop}`);
-
-        if (isSeekingViaAutoLoop) {
-            console.log("[Event SEEK - AutoLoop] Era un salto automático. Reseteando bandera isSeekingViaAutoLoop a FALSE.");
-            isSeekingViaAutoLoop = false; // <-- Resetear bandera DESPUÉS del salto
-            // Verificamos el tiempo otra vez por si acaso cambió mínimamente
-            const timeAfterReset = wavesurfer.getCurrentTime();
-            console.log(`[Event SEEK - AutoLoop] Bandera reseteada. Tiempo actual DESPUÉS del reseteo: ${timeAfterReset.toFixed(4)}s`);
-        }
-    });
-    // --- FIN: Resetear Bandera ---
-
-    wavesurfer.on('play', () => {
-        if (playIcon) playIcon.style.display = 'none';    // Oculta Play
-        if (pauseIcon) pauseIcon.style.display = 'block'; // Muestra Pause
-        updatePlayingHighlight();
-        console.log("Evento: Play"); // LOG
-    });
-    wavesurfer.on('pause', () => {
-        if (playIcon) playIcon.style.display = 'block';   // Muestra Play
-        if (pauseIcon) pauseIcon.style.display = 'none';  // Oculta Pause
-        updatePlayingHighlight(); // Quitar resaltado
-        console.log("Evento: Pause"); // LOG
-    });
-
-    wavesurfer.on('finish', () => {
-        console.log("Evento: Finish (track terminado)"); // LOG
-        if (playIcon) playIcon.style.display = 'block';
-        if (pauseIcon) pauseIcon.style.display = 'none';
-        const nextIndex = (currentSetIndex + 1) % allSets.length;
-        console.log(`Cargando siguiente track: ${nextIndex}`); // LOG
-        if (allSets.length > 0) {
-            loadTrack(allSets[nextIndex], nextIndex);
-            wavesurfer.once('ready', () => {
-                console.log("Siguiente track listo, reproduciendo..."); // LOG
-                wavesurfer.play();
+                    frameCount++;
+                    requestAnimationFrame(drawFrame);
+                };
+                requestAnimationFrame(drawFrame);
             });
-        }
-    });
 
-// --- NUEVO v6 Stable Final (Merged): Lógica Drag-to-Seek ---
-const waveformInteractionElement = document.getElementById('waveform');
+            // --- FASE 5: CIERRE Y GUARDADO ---
+            stDOM.statusText.innerText = "Finalizando...";
 
-if (waveformInteractionElement && wavesurfer) {
-    console.log("[Drag v6 Final Merged] Añadiendo listeners TÁCTILES v6."); // LOG
-
-    // Variables ya definidas arriba
-
-    // Listener para INICIO TÁCTIL
-    waveformInteractionElement.addEventListener('touchstart', (event) => {
-        console.log("[Drag v6 Final Merged] Evento: touchstart INICIO.");
-        if (event.target.closest('button')) { console.warn("[Drag v6 Final Merged] Touch Start ignorado: botón."); return; }
-        console.log("[Drag v6 Final Merged] Touch Start ACEPTADO.");
-
-        clearTimeout(longTouchTimer);
-
-        let touchStartTime = 0;
-        if (wavesurfer && typeof wavesurfer.getCurrentTime === 'function') { try { touchStartTime = wavesurfer.getCurrentTime(); } catch (e) {} }
-        if (touchStartTime === 0 && wavesurfer && wavesurfer.getMediaElement()) { touchStartTime = wavesurfer.getMediaElement().currentTime || 0; }
-        const formattedTouchStartTime = formatTime(touchStartTime);
-        console.log(`[Drag v6 Final Merged] Tiempo inicio toque: ${formattedTouchStartTime}`);
-
-        // --- Llamar a seekWaveform en touchstart ---
-        console.log("[Drag v6 Final Merged] Intentando seek inicial en touchstart...");
-        if (event.touches && event.touches.length > 0) {
-            const wavesurferElement = wavesurfer.getWrapper(); const rect = wavesurferElement.getBoundingClientRect();
-            seekWaveform(event.touches[0].clientX, rect, "touchstart-initial");
-        } else { console.warn("[Drag v6 Final Merged] Touch Start: No 'touches' para seek inicial."); }
-        // --- FIN Llamar a seekWaveform ---
-
-        // Iniciar temporizador
-        longTouchTimer = setTimeout(() => {
-            console.warn(`[Drag v6 Final Merged] ¡TOQUE LARGO DETECTADO! en ${formattedTouchStartTime}`);
-
-            // --- INICIO: Pausar al iniciar drag ---
-            wasPlayingBeforeDrag = wavesurfer.isPlaying(); // Guardar estado actual
-            if (wasPlayingBeforeDrag) {
-                wavesurfer.pause();
-                console.log("[Drag v7 Pause] Audio pausado al iniciar arrastre."); // LOG
-            }
-            // --- FIN: Pausar al iniciar drag ---
-
-            isDraggingWaveformTouch = true; // Activar bandera de arrastre (después de pausar)
-
-            console.log("[Drag v6 Final Merged] isDragging=TRUE. Añadiendo listeners GLOBALES.");
-
-            // --- Definir Handlers Globales ---
-
-            // --- FIN Definir Handlers ---
-
-            // Añadir listeners globales
-            window.addEventListener('touchmove', handleWaveformTouchMove, { passive: false });
-            window.addEventListener('touchend', handleWaveformTouchEnd);
-            window.addEventListener('touchcancel', handleWaveformTouchEnd);
-
-        }, LONG_TOUCH_THRESHOLD);
-
-        console.log(`[Drag v6 Final Merged] touchstart FIN (Timer iniciado).`);
-    });
-
-    // Listener para CLIC SIMPLE de RATÓN (PC)
-    waveformInteractionElement.addEventListener('click', (event) => {
-        // Mantenemos el check isReady aquí para el clic simple
-        if (!isDraggingWaveformTouch && wavesurfer && wavesurfer.isReady && !event.target.closest('button')) {
-            console.log("[Drag v6 Final Merged] Clic simple (Mouse) detectado.");
-            const wavesurferElement = wavesurfer.getWrapper(); const rect = wavesurferElement.getBoundingClientRect();
-            seekWaveform(event.clientX, rect, "click"); // Llamada a seek
-        } else {
-             console.log(`[Drag v6 Final Merged] Clic ignorado. isDragging: ${isDraggingWaveformTouch}, WS ready: ${wavesurfer ? wavesurfer.isReady : 'N/A'}`);
-        }
-    });
-
-    // Listener LOCAL para FIN de toque (SOLO para cancelar timer en TAP rápido)
-    const handleWaveformTapEnd = (event) => {
-        console.log(`[Drag v7 Refactored] Evento LOCAL: ${event.type} detectado.`); // LOG
-        // Solo necesitamos cancelar el timer aquí
-        if (longTouchTimer) {
-            clearTimeout(longTouchTimer);
-            console.log("[Drag v7 Refactored] Timer cancelado (TAP rápido)."); // LOG
-            // Reseteamos longTouchTimer a null para evitar cancelaciones múltiples
-            longTouchTimer = null;
-        }
-        // NO manejamos la bandera ni los listeners globales aquí.
-    };
-    waveformInteractionElement.addEventListener('touchend', handleWaveformTapEnd);
-    waveformInteractionElement.addEventListener('touchcancel', handleWaveformTapEnd);
-
-} else {
-     console.error("[Drag v6 Final Merged] No se pudo añadir lógica de interacción."); // LOG ERROR
-}
-// --- FIN NUEVO BLOQUE v6 Stable Final ---
-
-    // --- Manejar clics en el tracklist actual ---
-    currentTracklistElement.addEventListener('click', (e) => {
-        const target = e.target;
-
-        // Caso 1: Clic en el botón de favorito
-        if (target.classList.contains('favorite-btn')) {
-            const seconds = parseInt(target.dataset.seconds, 10);
-            if (isNaN(seconds)) return;
-            toggleFavorite(seconds, target);
-            console.log(`Clic en botón favorito para t=${seconds}s.`); // LOG
-        }
-        // Caso 2: Clic en cualquier otra parte del item (para saltar)
-        else {
-            const listItem = target.closest('.current-tracklist-item');
-            if (!listItem || !listItem.dataset.time) return;
-
-            const timeString = listItem.dataset.time;
-            const timeParts = timeString.split(':');
-            let timeInSeconds = 0;
-            if (timeParts.length === 2 && !isNaN(parseInt(timeParts[0], 10)) && !isNaN(parseInt(timeParts[1], 10))) {
-                 timeInSeconds = parseInt(timeParts[0], 10) * 60 + parseInt(timeParts[1], 10);
-            } else {
-                 console.warn(`Timestamp inválido al hacer clic: ${timeString}`);
-                 return;
-            }
-
-            console.log(`Clic en tracklist item: ${timeString} (${timeInSeconds}s). Intentando buscar...`); // LOG
-            console.log("Objeto wavesurfer DENTRO del listener:", wavesurfer); // Log de depuración
+            // Soltar lock de audio (Suave)
+            try { await audioReader.cancel(); } catch(e) {}
 
             try {
-                if (wavesurfer && typeof wavesurfer.getDuration === 'function' && typeof wavesurfer.seekTo === 'function') {
-                    const duration = wavesurfer.getDuration();
-                    if (duration > 0) {
-                        const progress = timeInSeconds / duration;
-                        const clampedProgress = Math.max(0, Math.min(1, progress));
-                        console.log(`Calculando progreso: ${timeInSeconds}s / ${duration.toFixed(2)}s = ${clampedProgress.toFixed(4)}`); // LOG
-                        wavesurfer.seekTo(clampedProgress);
-                        console.log(`Ejecutado wavesurfer.seekTo(${clampedProgress.toFixed(4)})`); // LOG
-                    } else {
-                        console.warn("La duración es 0, no se puede calcular el progreso para seekTo."); // LOG ADVERTENCIA
-                    }
+                // Flush encoders
+                if (videoEncoder.state === 'configured') await videoEncoder.flush();
+                if (audioEncoder.state === 'configured') await audioEncoder.flush();
 
-                    if (typeof wavesurfer.isPlaying === 'function' && !wavesurfer.isPlaying()) {
-                         if (typeof wavesurfer.play === 'function') {
-                             wavesurfer.play();
-                         } else {
-                              console.warn("wavesurfer.play no es una función");
-                         }
-                    }
-                } else {
-                    console.error("El objeto wavesurfer no está correctamente inicializado o le faltan métodos en este punto."); // LOG ERROR
-                }
-            } catch (error) {
-                 console.error("Error al intentar buscar (seekTo) o reproducir:", error); // LOG ERROR
+                videoEncoder.close();
+                audioEncoder.close();
+
+            } catch (e) { console.error("Error al cerrar:", e); }
+
+            muxer.finalize();
+            stState.finalBlob = new Blob([muxer.target.buffer], { type: 'video/mp4' });
+            stShowFinalUI();
+        }
+
+        // --- UTILS ---
+        function roundRect(ctx, x, y, w, h, r) {
+            if (w < 2 * r) r = w / 2; if (h < 2 * r) r = h / 2;
+            ctx.moveTo(x+r, y); ctx.arcTo(x+w, y, x+w, y+h, r);
+            ctx.arcTo(x+w, y+h, x, y+h, r); ctx.arcTo(x, y+h, x, y, r);
+            ctx.arcTo(x, y, x+w, y, r); ctx.closePath();
+        }
+
+        function drawFitText(ctx, text, x, y, maxWidth, initialSize) {
+            let size = initialSize;
+            ctx.font = "900 " + size + "px Inter, sans-serif";
+            while (ctx.measureText(text).width > maxWidth && size > 10) {
+                size--;
+                ctx.font = "900 " + size + "px Inter, sans-serif";
             }
-        }
-    });
-
-// --- Lógica Filtro Favoritos (prototipo v4) ---
-function filterFavoritesDisplay() {
-    if (!favToggleCheckbox || !currentTracklistElement) return; // Salir si no existen
-
-    const showOnlyFavorites = favToggleCheckbox.checked;
-    console.log(`[Filter] Cambiando filtro. Mostrar solo favoritos: ${showOnlyFavorites}`); // LOG
-
-    const items = currentTracklistElement.querySelectorAll('.current-tracklist-item');
-    let visibleCount = 0;
-
-    items.forEach(item => {
-        const favButton = item.querySelector('.favorite-btn');
-        const isFavorited = favButton && favButton.classList.contains('favorited');
-
-        if (showOnlyFavorites) {
-            if (isFavorited) {
-                item.style.display = 'flex'; // Mostrar
-                visibleCount++;
-            } else {
-                item.style.display = 'none'; // Ocultar
-            }
-        } else {
-            item.style.display = 'flex'; // Mostrar todos
-            visibleCount++;
-        }
-    });
-    console.log(`[Filter] Filtro aplicado. Items visibles: ${visibleCount} de ${items.length}`); // LOG
-}
-
-// Listener para el checkbox
-if (favToggleCheckbox) {
-    favToggleCheckbox.addEventListener('change', filterFavoritesDisplay);
-    console.log("Listener para el filtro de favoritos añadido."); // LOG
-}
-// --- Fin Lógica Filtro (prototipo v4) ---
-
-
-
-// --- Añadir/Quitar Favorito (v2: por set) ---
-function toggleFavorite(seconds, buttonElement) {
-    if (!currentLoadedSet) {
-        console.error("[Fav v2] Error: No hay 'currentLoadedSet' para guardar el favorito.");
-        return;
-    }
-
-    const setKey = currentLoadedSet.title;
-    console.log(`[Fav v2] Toggle favorito para set: "${setKey}", tiempo: ${seconds}s`); // LOG
-
-    // 1. Actualizar el 'Set' en memoria (currentSetFavorites)
-    if (currentSetFavorites.has(seconds)) {
-        currentSetFavorites.delete(seconds);
-        buttonElement.classList.remove('favorited');
-        buttonElement.innerHTML = '☆';
-        console.log(`[Fav v2] Favorito eliminado de la memoria.`); // LOG
-    } else {
-        currentSetFavorites.add(seconds);
-        buttonElement.classList.add('favorited');
-        buttonElement.innerHTML = '★';
-        console.log(`[Fav v2] Favorito añadido a la memoria.`); // LOG
-    }
-
-    // 2. Actualizar el objeto 'allFavorites' con el array convertido del Set
-    allFavorites[setKey] = Array.from(currentSetFavorites);
-
-    // 3. Guardar el objeto 'allFavorites' completo en Local Storage
-    try {
-        console.log("[Fav PorSet] VERIFICANDO: Objeto a punto de guardar:", JSON.stringify(allFavorites));
-        localStorage.setItem('vloitz_favorites', JSON.stringify(allFavorites));
-        filterFavoritesDisplay(); // Re-aplicar filtro al cambiar un favorito
-        console.log("[Fav PorSet] Base de datos de favoritos guardada en Local Storage:", allFavorites); // LOG
-
-        // --- INICIO: Actualizar Navegador (Corrección Loop Favoritos) ---
-        if (currentLoadedSet) { // Asegurarse de que el set está cargado
-             TrackNavigator.prepareTimestamps(currentLoadedSet.tracklist || [], currentSetFavorites);
-             console.log("[Nav Sync] Timestamps del Navegador actualizados tras cambio de favorito."); // LOG
-        }
-        // --- FIN: Actualizar Navegador ---
-
-    } catch (error) {
-        console.error("[Fav v2] Error al guardar favoritos en Local Storage:", error); // LOG ERROR
-    }
-}
-
-    // --- Clic en lista general de sets ---
-    tracklistElement.addEventListener('click', e => {
-        const clickedItem = e.target.closest('.track-item');
-        if (!clickedItem) return;
-
-        const trackIndex = parseInt(clickedItem.dataset.index);
-        console.log(`Clic en lista general de sets, item: ${trackIndex}`); // LOG
-        if (trackIndex !== currentSetIndex && allSets[trackIndex]) {
-            loadTrack(allSets[trackIndex], trackIndex);
-            wavesurfer.once('ready', () => {
-                console.log("Track seleccionado de lista general listo, reproduciendo..."); // LOG
-                wavesurfer.play();
-            });
-        } else if (trackIndex === currentSetIndex) {
-            console.log("Clic en track actual de lista general, ejecutando playPause..."); // LOG
-            wavesurfer.playPause();
-        }
-    });
-
-    // --- Botón Play/Pause Principal ---
-    playPauseBtn.addEventListener('click', () => {
-        console.log("Clic Play/Pause");
-        // SIN check isReady aquí (como en v6 estable)
-        if (wavesurfer && typeof wavesurfer.playPause === 'function') {
-            wavesurfer.playPause();
-        } else {
-            console.warn("[Play/Pause] Ignorado: WS no inicializado.");
-        }
-    });
-
-
-    // --- Lógica de Biografía Expandible (prototipo v5) ---
-    if (profileBioContainer && bioExtended && bioToggle) {
-        console.log("Biografía expandible inicializada."); // LOG
-
-        // Función para colapsar la biografía
-        const collapseBio = () => {
-            // Solo colapsar si está expandida
-            if (bioExtended.style.display !== 'none') {
-                console.log("[Bio] Colapsando biografía."); // LOG
-                bioExtended.style.display = 'none';
-                bioToggle.textContent = '... Ver más';
-            }
-        };
-
-        // Función para expandir la biografía
-        const expandBio = () => {
-            console.log("[Bio] Expandiendo biografía."); // LOG
-            bioExtended.style.display = 'inline'; // 'inline' funciona bien con <span>
-            bioToggle.textContent = 'Ver menos';
-        };
-
-        // 1. Listener para el botón "Ver más / Ver menos"
-        bioToggle.addEventListener('click', (e) => {
-            e.stopPropagation(); // ¡Importante! Evita que el clic se propague al 'window'
-
-            const isExpanded = bioExtended.style.display !== 'none';
-            console.log(`[Bio] Clic en Toggle. ¿Estaba expandido? ${isExpanded}`); // LOG
-
-            if (isExpanded) {
-                collapseBio();
-            } else {
-                expandBio();
-            }
-        });
-
-        // 2. Listener para cerrar al hacer clic "fuera"
-        window.addEventListener('click', (e) => {
-            // Comprobar si la bio está expandida Y si el clic NO fue dentro del contenedor
-            if (bioExtended.style.display !== 'none' && !profileBioContainer.contains(e.target)) {
-                console.log("[Bio] Clic detectado fuera del contenedor. Colapsando."); // LOG
-                collapseBio();
-            }
-        });
-
-    } else {
-        console.warn("No se encontraron los elementos de la biografía expandible (prototipo v5)."); // LOG
-    }
-    // --- Fin Lógica Biografía ---
-
-    // --- INICIO: Módulo de Navegación por Tracks (v1) ---
-    const TrackNavigator = (() => {
-        const RESTART_THRESHOLD = 3; // Segundos para decidir si reiniciar o ir al anterior
-        const AUTOLOOP_JUMP_SECONDS_BEFORE_END = 5;
-        let sortedTrackTimestamps = [];
-        let sortedFavoriteTimestamps = [];
-
-        // Verifica si los timestamps han sido preparados
-        function isReady() {
-            return sortedTrackTimestamps.length > 0;
+            ctx.fillText(text, x, y);
         }
 
-        // Prepara las listas de timestamps (en segundos) cuando se carga un set
-        function prepareTimestamps(tracklistData, currentFavoritesSet) {
-            console.log("[Nav] Preparando timestamps..."); // LOG
-            sortedTrackTimestamps = tracklistData
-                .map(track => {
-                    const parts = track.time.split(':');
-                    if (parts.length === 2) {
-                        return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
-                    }
-                    return -1; // Marcar como inválido si el formato es incorrecto
-                })
-                .filter(seconds => seconds >= 0) // Filtrar inválidos
-                .sort((a, b) => a - b);
+        function stPrepareStaticLayer() {
+            stState.staticCanvas = document.createElement('canvas');
+            stState.staticCanvas.width = stState.config.width;
+            stState.staticCanvas.height = stState.config.height;
+            const sCtx = stState.staticCanvas.getContext('2d');
+            const w = stState.config.width; const h = stState.config.height;
 
-            sortedFavoriteTimestamps = Array.from(currentFavoritesSet)
-                .sort((a, b) => a - b);
+            sCtx.fillStyle = '#000000'; sCtx.fillRect(0, 0, w, h);
 
-            console.log("[Nav] Timestamps de tracks:", sortedTrackTimestamps); // LOG
-            console.log("[Nav] Timestamps de favoritos:", sortedFavoriteTimestamps); // LOG
+            const cardW = w * 0.90; const cardH = h * 0.75;
+            const cardX = (w - cardW) / 2; const cardY = (h - cardH) / 2;
+            sCtx.shadowColor = 'rgba(29, 185, 84, 0.6)'; sCtx.shadowBlur = 80;
+            sCtx.fillStyle = '#121212';
+            sCtx.beginPath(); roundRect(sCtx, cardX, cardY, cardW, cardH, 20); sCtx.fill();
+            sCtx.shadowBlur = 0; sCtx.strokeStyle = '#282828'; sCtx.lineWidth = 1; sCtx.stroke();
+
+            const imgSize = cardW * 0.85; const imgX = (w - imgSize) / 2; const imgY = cardY + 25;
+            sCtx.save(); sCtx.beginPath(); roundRect(sCtx, imgX, imgY, imgSize, imgSize, 8);
+            sCtx.clip();
+            try { sCtx.drawImage(stCoverImg, imgX, imgY, imgSize, imgSize); }
+            catch(e) { sCtx.fillStyle = "#333"; sCtx.fillRect(imgX, imgY, imgSize, imgSize); }
+            sCtx.restore();
+
+            const title = stState.currentTrackTitle || "Track Desconocido";
+            const artist = stState.currentSetData ? stState.currentSetData.title : "Vloitz Set";
+            const textX = imgX; let cursorY = imgY + imgSize + 25;
+
+            sCtx.textAlign = "left"; sCtx.fillStyle = "#1DB954"; sCtx.font = "700 10px Inter, sans-serif";
+            sCtx.fillText("NOW PLAYING 🎵", textX, cursorY);
+
+            cursorY += 20; sCtx.fillStyle = "#FFFFFF";
+            drawFitText(sCtx, title, textX, cursorY, imgSize, 20);
+
+            cursorY += 18; sCtx.fillStyle = "#B3B3B3"; sCtx.font = "500 12px Inter, sans-serif";
+            sCtx.fillText(artist, textX, cursorY);
+
+            const cardBottom = cardY + cardH;
+            sCtx.textAlign = "center"; sCtx.fillStyle = "#333"; sCtx.font = "400 9px Inter, sans-serif";
+            sCtx.fillText("Escúchalo en vloitz.github.io/wav-sets", w/2, cardBottom - 15);
         }
 
-        // Encuentra el timestamp de inicio del track (favorito o no) que contiene currentTime
-        function getCurrentTrackStartTime(currentTime, useFavorites) {
-            const timestamps = useFavorites ? sortedFavoriteTimestamps : sortedTrackTimestamps;
-            if (!timestamps || timestamps.length === 0) return null;
-
-            // --- INICIO: Log Interno ---
-            console.log(`[Nav Internal] getCurrentTrackStartTime called. Time: ${currentTime.toFixed(4)}, UseFavs: ${useFavorites}`);
-            // --- FIN: Log ---
-
-            for (let i = timestamps.length - 1; i >= 0; i--) {
-                if (timestamps[i] <= currentTime) {
-                    return timestamps[i];
-                }
-            }
-            return null; // Antes del primer track?
-        }
-
-        // Encuentra el siguiente timestamp válido
-        function findNextTimestamp(currentTime, useFavorites) {
-            const timestamps = useFavorites ? sortedFavoriteTimestamps : sortedTrackTimestamps;
-            if (!timestamps || timestamps.length === 0) return null;
-
-            for (let i = 0; i < timestamps.length; i++) {
-                if (timestamps[i] > currentTime + 0.5) { // +0.5s para evitar saltos accidentales inmediatos
-                    console.log(`[Nav] Siguiente timestamp encontrado (${useFavorites ? 'Fav' : 'All'}): ${timestamps[i]}s`); // LOG
-                    return timestamps[i];
-                }
-            }
-
-            // --- INICIO: Lógica de Loop para Favoritos ---
-                if (useFavorites && timestamps.length > 0) {
-                    // Si estamos en modo favoritos y llegamos al final, volvemos al primero
-                    console.log("[Nav Debug] Fin de favoritos alcanzado, loopeando al primero."); // LOG (Ya estaba)
-                    // --- INICIO: LOGS ADICIONALES ---
-                    console.log(`[Nav Debug] Devolviendo primer favorito: ${timestamps[0]}`);
-                    // --- FIN: LOGS ADICIONALES ---
-                    return timestamps[0]; // Devuelve el primer favorito
-                } else {
-                    // Si no estamos en modo favoritos, o no hay favoritos, no hay siguiente
-                    console.log(`[Nav Debug] No se encontró siguiente timestamp (${useFavorites ? 'Fav' : 'All'}).`); // LOG (Modificado)
-                    // --- INICIO: LOGS ADICIONALES ---
-                    console.log("[Nav Debug] Devolviendo null (sin loop o sin siguiente).");
-                    // --- FIN: LOGS ADICIONALES ---
-                    return null; // Comportamiento original: no hay siguiente
-                }
-                // --- FIN: Lógica de Loop ---
-
-        }
-
-        // Encuentra el timestamp de fin para un track que empieza en 'trackStartTime'
-        // El fin es el inicio del SIGUIENTE track en la lista COMPLETA, o la duración total
-        function getTrackEndTime(trackStartTime, totalDuration) {
-            if (!sortedTrackTimestamps || sortedTrackTimestamps.length === 0 || trackStartTime === null) return null;
-
-            const currentIndex = sortedTrackTimestamps.indexOf(trackStartTime);
-            if (currentIndex === -1) return null; // No debería pasar si trackStartTime vino de getCurrentTrackStartTime
-
-            if (currentIndex < sortedTrackTimestamps.length - 1) {
-                // Si NO es el último track, el fin es el inicio del siguiente
-                return sortedTrackTimestamps[currentIndex + 1];
-            } else {
-                // Si ES el último track, el fin es la duración total
-                return totalDuration;
+        function stUpdateAudioSimulation(frame) {
+            const isKick = frame % (stState.config.fps === 15 ? 12 : 24) === 0;
+            for (let i = 0; i < 20; i++) {
+                let targetHeight = 5 + Math.abs(Math.sin(frame * 0.2 + i) * 15) + Math.random() * 10;
+                if (isKick && i < 6) targetHeight += 30;
+                if (i > 6 && i < 14) targetHeight += Math.random() * 15;
+                if (targetHeight > stState.audioData[i]) stState.audioData[i] = targetHeight;
+                else stState.audioData[i] *= 0.85;
             }
         }
 
-        // Encuentra el timestamp anterior válido (o reinicia el actual)
-        function findPreviousTimestamp(currentTime, useFavorites) {
-            const timestamps = useFavorites ? sortedFavoriteTimestamps : sortedTrackTimestamps;
-            if (!timestamps || timestamps.length === 0) return null;
+        function stDrawDynamicLayer(secondsElapsed) {
+            const w = stState.config.width; const h = stState.config.height;
+            const cardW = w * 0.90; const cardH = h * 0.75;
+            const startX = (w - (w * 0.90 * 0.85)) / 2;
+            const imgSize = w * 0.90 * 0.85;
 
-            let previousTimestamp = null;
-            let currentTrackStartTimestamp = null;
+            const cardY = (h - cardH) / 2;
+            const cursorY = (cardY + 25) + imgSize + 25 + 20 + 18;
+            const barsBaseY = cursorY + 40;
+            const gap = 3; const barWidth = (imgSize - (19*gap)) / 20;
 
-            // Buscar el inicio del track actual y el inicio del anterior
-            for (let i = timestamps.length - 1; i >= 0; i--) {
-                if (timestamps[i] <= currentTime) {
-                    currentTrackStartTimestamp = timestamps[i];
-                    if (i > 0) {
-                        previousTimestamp = timestamps[i-1];
-                    }
-                    break;
-                }
+            for(let i=0; i < 20; i++) {
+                let height = Math.max(4, stState.audioData[i]);
+                if (i === 13) stCtx.fillStyle = "#1DB954"; else stCtx.fillStyle = "#3E3E3E";
+                stCtx.fillRect(startX + (i * (barWidth + gap)), barsBaseY - height, barWidth, height);
             }
 
-            // Si estamos cerca del inicio (menos de RESTART_THRESHOLD segundos), vamos al anterior
-            if (currentTrackStartTimestamp !== null && (currentTime - currentTrackStartTimestamp < RESTART_THRESHOLD)) {
-                if (previousTimestamp !== null) {
-                    console.log(`[Nav] Cerca del inicio, yendo al anterior (${useFavorites ? 'Fav' : 'All'}): ${previousTimestamp}s`); // LOG
-                    return previousTimestamp;
-                } else {
-                    console.log(`[Nav] Cerca del inicio, pero es el primero. Reiniciando a 0s (${useFavorites ? 'Fav' : 'All'}).`); // LOG
-                    return 0; // Si es el primer track, reinicia a 0
-                }
-            }
-            // Si no, reiniciamos el track actual
-            else if (currentTrackStartTimestamp !== null) {
-                console.log(`[Nav] Reiniciando track actual (${useFavorites ? 'Fav' : 'All'}): ${currentTrackStartTimestamp}s`); // LOG
-                return currentTrackStartTimestamp;
-            }
+            const progY = barsBaseY + 10;
+            stCtx.fillStyle = "#333"; stCtx.fillRect(startX, progY, imgSize, 3);
+            const progress = Math.min(1, secondsElapsed / stState.config.duration);
+            stCtx.fillStyle = "#1DB954"; stCtx.fillRect(startX, progY, imgSize * progress, 3);
+            stCtx.beginPath(); stCtx.arc(startX + (imgSize * progress), progY + 1.5, 3, 0, Math.PI*2); stCtx.fill();
 
-            console.log(`[Nav] No se pudo determinar timestamp anterior/reinicio (${useFavorites ? 'Fav' : 'All'}). Volviendo a 0s.`); // LOG
-            return 0; // Fallback: ir al inicio del audio
+            const timeY = barsBaseY + 10 + 15;
+            stCtx.fillStyle = "#666"; stCtx.font = "400 9px Inter, sans-serif"; stCtx.textAlign = "left";
+
+            const currentTotalSecs = Math.floor(stState.startTime + secondsElapsed);
+            const m = Math.floor(currentTotalSecs / 60); const s = currentTotalSecs % 60;
+            stCtx.fillText(`${m}:${s.toString().padStart(2,'0')}`, startX, timeY);
+            stCtx.textAlign = "right"; stCtx.fillText("HIFI", startX + imgSize, timeY);
+
+            const badgeY = timeY + 5;
+            stCtx.textAlign = "center"; stCtx.strokeStyle = "#1DB954"; stCtx.lineWidth = 1;
+            stCtx.strokeRect((w - 60)/2, badgeY, 60, 16);
+            stCtx.fillStyle = "#1DB954"; stCtx.font = "700 9px Inter, sans-serif";
+            stCtx.fillText("FLAC • HIFI", w/2, badgeY + 11);
         }
 
-        // Función principal para saltar (llamada desde fuera)
-        function seekToTimestamp(targetSeconds) {
-            if (wavesurfer && typeof wavesurfer.getDuration === 'function') {
-                const duration = wavesurfer.getDuration();
-                if (duration > 0 && targetSeconds !== null && targetSeconds <= duration) {
-                    const progress = targetSeconds / duration;
-                    console.log(`[Nav] Saltando a ${targetSeconds}s (Progreso: ${progress.toFixed(4)})`); // LOG
-                    wavesurfer.seekTo(progress);
+        function stShowFinalUI() {
+            stDOM.loadingUI.style.display = 'none';
+            stDOM.finalActions.style.display = 'block';
+            console.log("[STORY MODULE] Grabación finalizada. Size:", stState.finalBlob.size);
 
-            // --- INICIO: Resetear Bandera INMEDIATAMENTE ---
-            if (isSeekingViaAutoLoop) {
-                console.log(`[Nav seekToTimestamp] Reseteando isSeekingViaAutoLoop a FALSE inmediatamente después de llamar a seekTo.`);
-                isSeekingViaAutoLoop = false;
-            }
-            // --- FIN: Resetear Bandera ---
-
-                    // Asegurarse de reproducir si estaba pausado por el salto
-                    if (!wavesurfer.isPlaying()) {
-                        wavesurfer.play();
-                    }
-                } else {
-                    console.warn(`[Nav] No se pudo saltar. Duración: ${duration}, Target: ${targetSeconds}`); // LOG
-                }
-            }
+            stDOM.shareWaBtn.onclick = async () => {
+                if (!stState.finalBlob) return;
+                const file = new File([stState.finalBlob], "story.mp4", { type: 'video/mp4' });
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    try { await navigator.share({ files: [file] }); } catch (e) {}
+                } else { alert("Usa descargar manual."); }
+            };
+            stDOM.dlManualBtn.onclick = () => {
+                if (!stState.finalBlob) return;
+                const url = URL.createObjectURL(stState.finalBlob);
+                const a = document.createElement('a'); a.href = url; a.download = "story.mp4";
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            };
         }
+    </script>
 
-        // Función PÚBLICA para ir al siguiente
-        function goToNext() {
-            if (!wavesurfer) return;
-            const currentTime = wavesurfer.getCurrentTime();
-            const useFavorites = favToggleCheckbox && favToggleCheckbox.checked;
-            console.log(`[Nav] goToNext llamado. Tiempo actual: ${currentTime.toFixed(2)}s, Usar Favoritos: ${useFavorites}`); // LOG
-            const nextTimestamp = findNextTimestamp(currentTime, useFavorites);
-            if (nextTimestamp !== null) {
-                seekToTimestamp(nextTimestamp);
-            }
-        }
-
-        // Función PÚBLICA para ir al anterior
-        function goToPrevious() {
-            if (!wavesurfer) return;
-            const currentTime = wavesurfer.getCurrentTime();
-            const useFavorites = favToggleCheckbox && favToggleCheckbox.checked;
-            console.log(`[Nav] goToPrevious llamado. Tiempo actual: ${currentTime.toFixed(2)}s, Usar Favoritos: ${useFavorites}`); // LOG
-            const previousTimestamp = findPreviousTimestamp(currentTime, useFavorites);
-            if (previousTimestamp !== null) {
-                seekToTimestamp(previousTimestamp);
-            }
-        }
-
-        // Exponer la función para ser llamada desde fuera
-        return {
-            prepareTimestamps: prepareTimestamps,
-            goToNext: goToNext,
-            goToPrevious: goToPrevious,
-            findNextTimestamp: findNextTimestamp,
-            isReady: isReady, // <-- AÑADIR
-            getCurrentTrackStartTime: getCurrentTrackStartTime, // <-- AÑADIR
-            getTrackEndTime: getTrackEndTime, // <-- AÑADIR
-            AUTOLOOP_JUMP_SECONDS_BEFORE_END: AUTOLOOP_JUMP_SECONDS_BEFORE_END, // <-- AÑADIR (Exponer umbral)
-            seekToTimestamp: seekToTimestamp // <-- LÍNEA AÑADIDA
-        };
-    })();
-
-    window.TrackNavigator = TrackNavigator; // <-- ADD THIS LINE TO EXPOSE GLOBALLY
-    // --- FIN: Módulo de Navegación ---
-
-    // --- INICIO: Lógica Botón Auto-Bucle (Fase 2) ---
-    if (autoLoopBtn) {
-        autoLoopBtn.addEventListener('click', () => {
-            isAutoLoopActive = !isAutoLoopActive; // Alternar estado
-            autoLoopBtn.classList.toggle('active', isAutoLoopActive); // Alternar clase CSS
-            console.log(`[AutoLoop] Modo Auto-Bucle ${isAutoLoopActive ? 'ACTIVADO' : 'DESACTIVADO'}.`); // LOG
-
-            // Opcional: Podríamos guardar este estado en localStorage también si quisiéramos que se recuerde
-             localStorage.setItem('vloitz_auto_loop', isAutoLoopActive);
-            // Y cargarlo al inicio:
-             isAutoLoopActive = localStorage.getItem('vloitz_auto_loop') === 'true'; autoLoopBtn.classList.toggle('active', isAutoLoopActive);
-        });
-
-        // Cargar estado inicial (si decidimos guardarlo en localStorage)
-         isAutoLoopActive = localStorage.getItem('vloitz_auto_loop') === 'true';
-        autoLoopBtn.classList.toggle('active', isAutoLoopActive);
-
-    } else {
-        console.warn("[AutoLoop] Botón Auto-Bucle no encontrado."); // LOG
-    }
-    // --- FIN: Lógica Botón ---
-
-    // --- LÓGICA MODO ESPECTRO (Fase 8 - Corregida) ---
-    function toggleSpectrumState() {
-        // 1. Actualizar UI del botón
-        if (spectrumBtn) {
-            spectrumBtn.classList.toggle('active', isSpectrumActive);
-        }
-
-        // 2. Gestionar la Onda y el Playlist
-        if (isSpectrumActive) {
-            // ACTIVAR: Pintar regiones
-            paintWaveformRegions();
-
-            // --- NUEVO: Restaurar color del texto ACTIVO inmediatamente ---
-            const activeTitle = document.querySelector('.track-title.track-title-playing');
-            if (activeTitle) {
-                const activeItem = activeTitle.closest('.current-tracklist-item');
-                if (activeItem && activeItem.dataset.activeColor) {
-                    activeTitle.style.color = activeItem.dataset.activeColor;
-                }
-            }
-            // -------------------------------------------------------------
-
-            console.log("[Spectrum] Activado.");
-        } else {
-            // DESACTIVAR: Borrar regiones y limpiar colores de texto
-            if (wsRegions) wsRegions.clearRegions();
-
-            // Limpiar colores forzados en el playlist
-            const allTracks = document.querySelectorAll('.current-tracklist-item .track-title');
-            allTracks.forEach(el => el.style.color = '');
-
-            console.log("[Spectrum] Desactivado.");
-        }
-
-        // 3. Guardar preferencia
-        localStorage.setItem('vloitz_spectrum', isSpectrumActive);
-    }
-
-    // Listener del botón
-    if (spectrumBtn) {
-        spectrumBtn.addEventListener('click', () => {
-            isSpectrumActive = !isSpectrumActive;
-            toggleSpectrumState();
-        });
-        // Estado inicial visual del botón
-        spectrumBtn.classList.toggle('active', isSpectrumActive);
-    }
-
-    // --- INICIO: Listeners para Skip Buttons ---
-    if (prevBtn) {
-        prevBtn.addEventListener('click', () => {
-            console.log("Clic Previous");
-            TrackNavigator.goToPrevious(); // <-- Llama a tu lógica existente
-        });
-    }
-
-    if (nextBtn) {
-        nextBtn.addEventListener('click', () => {
-            console.log("Clic Next");
-            TrackNavigator.goToNext(); // <-- Llama a tu lógica existente
-        });
-    }
-    // --- FIN: Listeners para Skip Buttons ---
-
-    // --- INICIO: Inicialización ShareController (Fase 5) ---
-    if (typeof ShareController !== 'undefined') {
-        ShareController.init();
-    }
-    // --- FIN: Inicialización ShareController ---
-
-
-    console.log("Aplicación inicializada y listeners configurados."); // LOG FINAL INIT
-
-
-// --- FASE 12/13: Estrategia "Sticky + Random Ghost" (MODO PRUEBAS) ---
-let deferredPrompt;
-let ghostTimer;
-const progressFill = document.getElementById('pwaProgressFill');
-
-// --- VARIABLES DE CONTROL (MODO RÁPIDO) ---
-const PWA_CONFIG = {
-    INITIAL_DELAY: 5000,        // 5 seg: Primer aviso (Sticky)
-    // ¡OJO! Aquí usaremos SEGUNDOS para probar (0.2 = 12 segundos aprox)
-    // Cuando verifiques que funciona, cambias esto a [1, 2, 3]
-    GHOST_INTERVALS_MIN: [4, 9, 15, 25],
-    GHOST_DURATION: 5000        // 5 seg: Duración del fantasma
-};
-
-window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    console.log("[PWA] Evento capturado.");
-
-    // 1. Primer Impacto: AVISO FIJO
-    setTimeout(() => {
-        showStickyPrompt();
-    }, PWA_CONFIG.INITIAL_DELAY);
-});
-
-// Función 1: Aviso Fijo
-function showStickyPrompt() {
-    const pwaToast = document.getElementById('pwa-toast');
-    if (!pwaToast) return;
-
-    pwaToast.style.display = 'block';
-    if (progressFill) {
-        progressFill.style.transition = 'none';
-        progressFill.style.width = '0%';
-    }
-    setupButtons(pwaToast, true); // true = Modo Sticky
-}
-
-// Función 2: Programar Fantasma
-function scheduleNextGhost() {
-    // Elegir tiempo al azar
-    const minutes = PWA_CONFIG.GHOST_INTERVALS_MIN[Math.floor(Math.random() * PWA_CONFIG.GHOST_INTERVALS_MIN.length)];
-
-    // CONVERSIÓN: minutos * 60 * 1000
-    // Con 0.1 minutos -> son 6 segundos. Con 0.2 -> 12 segundos.
-    const delayMs = minutes * 60 * 1000;
-
-    console.log(`[PWA] Próximo fantasma en ${(delayMs/1000).toFixed(0)} segundos.`);
-
-    if (ghostTimer) clearTimeout(ghostTimer);
-    ghostTimer = setTimeout(() => {
-        triggerGhost();
-    }, delayMs);
-}
-
-// Función 3: El Fantasma (Con Barra)
-function triggerGhost() {
-    const pwaToast = document.getElementById('pwa-toast');
-    if (!pwaToast) return;
-
-    // Reset barra
-    if (progressFill) {
-        progressFill.style.transition = 'none';
-        progressFill.style.width = '100%';
-    }
-
-    pwaToast.style.display = 'block';
-    setupButtons(pwaToast, false); // false = Modo Fantasma
-
-    // Animar barra
-    setTimeout(() => {
-        if (progressFill) {
-            progressFill.style.transition = `width ${PWA_CONFIG.GHOST_DURATION}ms linear`;
-            progressFill.style.width = '0%';
-        }
-    }, 50);
-
-    // Auto-Desvanecer
-    setTimeout(() => {
-        if (pwaToast.style.display === 'block') {
-            pwaToast.style.display = 'none';
-            console.log("[PWA] Fantasma desvanecido. Reprogramando...");
-            scheduleNextGhost(); // <--- EL BUCLE CONTINÚA
-        }
-    }, PWA_CONFIG.GHOST_DURATION);
-}
-
-// Configuración de botones
-function setupButtons(pwaToast, isStickyMode) {
-    const installBtn = document.getElementById('pwaInstallBtn');
-    const dismissBtn = document.getElementById('pwaDismissBtn');
-
-    // INSTALAR
-    installBtn.onclick = async () => {
-        pwaToast.style.display = 'none';
-        if (ghostTimer) clearTimeout(ghostTimer);
-        if (deferredPrompt) {
-            deferredPrompt.prompt();
-            const { outcome } = await deferredPrompt.userChoice;
-            console.log(`[PWA] Decisión: ${outcome}`);
-            deferredPrompt = null;
-        }
-    };
-
-    // AHORA NO
-    dismissBtn.onclick = () => {
-        pwaToast.style.display = 'none';
-
-        if (isStickyMode) {
-            console.log("[PWA] Cerró Sticky. Inicia ciclo fantasma.");
-            scheduleNextGhost();
-        } else {
-            console.log("[PWA] Cerró Fantasma manual. Reprogramando.");
-            scheduleNextGhost();
-        }
-    };
-}
-
-window.addEventListener('appinstalled', () => {
-    const pwaToast = document.getElementById('pwa-toast');
-    if(pwaToast) pwaToast.style.display = 'none';
-    if (ghostTimer) clearTimeout(ghostTimer);
-});
-
-
-});
+</body>
+</html>
