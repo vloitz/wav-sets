@@ -297,7 +297,7 @@
 <script type="module">
     import { Muxer, ArrayBufferTarget } from 'https://esm.sh/mp4-muxer@5.1.0';
 
-    console.log("[STORY MODULE] V17: Silence Detector + Gesture Keep-Alive");
+    console.log("[STORY MODULE] V18: Timestamp Sync Fix");
 
     const stDOM = {
         openBtn: document.getElementById('stOpenBtn'),
@@ -309,7 +309,7 @@
         retryBtn: document.getElementById('stRetryBtn'),
         hqToggle: document.getElementById('stHqToggle'),
         qualityText: document.getElementById('stQualityText'),
-        statusText: document.getElementById('stStatusText'), // Usaremos esto para el diagnóstico
+        statusText: document.getElementById('stStatusText'),
         progressFill: document.getElementById('stProgressFill'),
         loadingUI: document.getElementById('stLoadingUI'),
         finalActions: document.getElementById('stFinalActions'),
@@ -336,13 +336,14 @@
         sourceNode: null,
         shadowAudio: null,
         blobUrl: null,
-        analyserNode: null // Nuevo: Para el diagnóstico
+        analyserNode: null,
+        keepAliveOsc: null
     };
 
     const stCoverImg = new Image();
     stCoverImg.crossOrigin = "Anonymous";
 
-    // --- UI SETUP ---
+    // --- UI EVENTS ---
     if(stDOM.hqToggle) {
         stDOM.hqToggle.addEventListener('change', () => {
             stDOM.qualityText.innerText = stDOM.hqToggle.checked ? "Alta Calidad" : "Modo Seguro";
@@ -357,7 +358,7 @@
             if (realSet && wave) {
                 stState.currentSetData = realSet;
                 stState.startTime = wave.getCurrentTime();
-                // Lógica de título
+
                 let activeTrackName = realSet.title;
                 if (realSet.tracklist) {
                     for (let i = realSet.tracklist.length - 1; i >= 0; i--) {
@@ -392,6 +393,7 @@
         stState.isEncoding = false;
         stDOM.startBtn.disabled = false;
         stDOM.startBtn.innerText = "CREAR STORY";
+        stDOM.statusText.innerText = "Esperando...";
         cleanupAudio();
     }
 
@@ -405,60 +407,62 @@
             URL.revokeObjectURL(stState.blobUrl);
             stState.blobUrl = null;
         }
-        if (stState.audioContext && stState.audioContext.state !== 'closed') {
-            // No cerramos el contexto para reusarlo, pero desconectamos nodos si es necesario
+        if (stState.keepAliveOsc) {
+            try { stState.keepAliveOsc.stop(); stState.keepAliveOsc.disconnect(); } catch(e){}
+            stState.keepAliveOsc = null;
         }
+        // Nota: NO cerramos el AudioContext para mantenerlo caliente, pero desconectamos nodos viejos
+        if (stState.sourceNode) { try { stState.sourceNode.disconnect(); } catch(e){} }
     }
 
-    // --- START BUTTON (Blob + Diagnostic) ---
+    // --- START BUTTON ---
     stDOM.startBtn.addEventListener('click', async () => {
         if (stState.isEncoding) return;
 
         stDOM.startBtn.disabled = true;
-        stDOM.startBtn.innerText = "Descargando audio...";
+        stDOM.startBtn.innerText = "Descargando audio (20s)...";
 
-        // 1. Pausar Main
         const mainAudio = document.getElementById('audio-player');
         if (!mainAudio.paused) mainAudio.pause();
 
         try {
-            // 2. Fetch Blob (Nuclear CORS fix)
-            console.log("[BLOB] Descargando...");
-            const response = await fetch(stState.currentSetData.audio_url);
-            if (!response.ok) throw new Error("Error red descarga");
-            const blob = await response.blob();
-            stState.blobUrl = URL.createObjectURL(blob);
-            console.log("[BLOB] OK.");
+            // 1. Fetch Blob
+            if (!stState.blobUrl) { // Solo descargar si no tenemos uno ya
+                console.log("[BLOB] Descargando...");
+                const response = await fetch(stState.currentSetData.audio_url);
+                if (!response.ok) throw new Error("Error red descarga");
+                const blob = await response.blob();
+                stState.blobUrl = URL.createObjectURL(blob);
+                console.log("[BLOB] Descarga completa.");
+            }
 
-            // 3. Setup Audio Context
+            // 2. Setup Context (Si no existe)
             const AudioContext = window.AudioContext || window.webkitAudioContext;
-            // IMPORTANTE: Crear el contexto ANTES de cualquier otra cosa async larga
             if (!stState.audioContext) stState.audioContext = new AudioContext({ latencyHint: 'playback' });
             if (stState.audioContext.state === 'suspended') await stState.audioContext.resume();
+
+            // 3. Crear Destino Fresco (Para resetear timestamps)
+            stState.mediaStreamDest = stState.audioContext.createMediaStreamDestination();
 
             // 4. Setup Shadow Player
             stState.shadowAudio = new Audio();
             stState.shadowAudio.src = stState.blobUrl;
             stState.shadowAudio.currentTime = stState.startTime;
             stState.shadowAudio.volume = 1.0;
-            // Aunque es blob local, esto a veces ayuda en Chrome
             stState.shadowAudio.crossOrigin = "anonymous";
 
-            // 5. Conexiones
+            // 5. Conectar Shadow -> Destino
             stState.sourceNode = stState.audioContext.createMediaElementSource(stState.shadowAudio);
-            stState.mediaStreamDest = stState.audioContext.createMediaStreamDestination();
 
-            // --- DIAGNÓSTICO: Analyser Node ---
+            // Diagnóstico
             stState.analyserNode = stState.audioContext.createAnalyser();
-            stState.analyserNode.fftSize = 256; // Pequeño para rendimiento
+            stState.analyserNode.fftSize = 256;
 
-            // source -> analyser -> dest
             stState.sourceNode.connect(stState.analyserNode);
-            stState.analyserNode.connect(stState.mediaStreamDest);
-            // source -> speakers (monitor)
-            stState.sourceNode.connect(stState.audioContext.destination);
+            stState.analyserNode.connect(stState.mediaStreamDest); // Grabar
+            stState.sourceNode.connect(stState.audioContext.destination); // Escuchar
 
-            // 6. Oscilador Anti-Sleep (Keep Alive)
+            // 6. Oscilador Anti-Sleep
             const osc = stState.audioContext.createOscillator();
             const gain = stState.audioContext.createGain();
             osc.frequency.value = 1;
@@ -468,13 +472,13 @@
             osc.start();
             stState.keepAliveOsc = osc;
 
-            // 7. Play (Crucial: Hacerlo justo después del resume)
+            // 7. PLAY
             await stState.shadowAudio.play();
             console.log("[AUDIO] Playing Blob.");
 
         } catch (e) {
             console.error(e);
-            alert("Error audio: " + e.message);
+            alert("Error: " + e.message);
             resetModule();
             return;
         }
@@ -483,7 +487,7 @@
         stDOM.viewIntro.style.display = 'none';
         stDOM.viewProcess.style.display = 'block';
         stState.isEncoding = true;
-        stDOM.statusText.innerHTML = "Iniciando..."; // Reset texto
+        stDOM.statusText.innerHTML = "Iniciando...";
 
         const isHQ = stDOM.hqToggle.checked;
         stState.config = {
@@ -503,7 +507,6 @@
     });
 
     async function runRealTimeEncoding() {
-        // Fix Sample Rate
         const realSampleRate = stState.audioContext.sampleRate;
         console.log("[ENGINE] Hz:", realSampleRate);
 
@@ -512,7 +515,7 @@
             video: { codec: 'avc', width: stState.config.width, height: stState.config.height },
             audio: { codec: 'aac', numberOfChannels: 2, sampleRate: realSampleRate },
             fastStart: 'in-memory',
-            firstTimestampBehavior: 'offset'
+            firstTimestampBehavior: 'offset' // Esto debería alinear el audio al 0:00
         });
 
         let videoEncoder = new VideoEncoder({
@@ -525,7 +528,11 @@
         });
 
         let audioEncoder = new AudioEncoder({
-            output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
+            output: (chunk, meta) => {
+                // LOG DE DEPURACIÓN: Si esto sale en consola, estamos grabando audio
+                // console.log("[AUDIO CHUNK OK]", chunk.byteLength);
+                muxer.addAudioChunk(chunk, meta);
+            },
             error: e => console.error("Audio Error:", e)
         });
         audioEncoder.configure({
@@ -548,11 +555,10 @@
         };
         processAudio();
 
+        // Video Loop
         const startTime = performance.now();
         const durationMs = stState.config.duration * 1000;
         let frameCount = 0;
-
-        // Array para el chequeo de silencio
         const dataArray = new Uint8Array(stState.analyserNode.frequencyBinCount);
 
         await new Promise((resolve) => {
@@ -565,20 +571,13 @@
                     return;
                 }
 
-                // --- DIAGNÓSTICO EN TIEMPO REAL ---
-                // Verificamos si hay señal de audio cada 10 frames para no saturar
-                if (frameCount % 10 === 0 && stState.analyserNode) {
+                // Diagnóstico Visual
+                if (frameCount % 15 === 0 && stState.analyserNode) {
                     stState.analyserNode.getByteFrequencyData(dataArray);
-                    // Sumamos valores. Si suma > 0, hay sonido.
                     const volume = dataArray.reduce((a, b) => a + b, 0);
-
-                    if (volume > 0) {
-                        stDOM.statusText.innerHTML = `<span style="color:#0f0;">🔊 AUDIO OK (${volume})</span>`;
-                    } else {
-                        stDOM.statusText.innerHTML = `<span style="color:#f00;">🔇 SILENCIO (Android Block)</span>`;
-                    }
+                    if (volume > 0) stDOM.statusText.innerHTML = `<span style="color:#0f0;">🔊 Grabando Audio (${volume})</span>`;
+                    else stDOM.statusText.innerHTML = `<span style="color:#f00;">🔇 Esperando audio...</span>`;
                 }
-                // ----------------------------------
 
                 stDOM.progressFill.style.width = (elapsed / durationMs) * 100 + "%";
                 stUpdateAudioSimulation(frameCount);
@@ -600,7 +599,7 @@
             requestAnimationFrame(drawFrame);
         });
 
-        // Finalizar Blindado
+        // Finalizar
         stDOM.statusText.innerText = "Finalizando...";
         try { await audioReader.cancel(); } catch(e) {}
 
@@ -632,7 +631,7 @@
         }
     }
 
-    // UTILS (Sin cambios)
+    // --- UTILS ---
     function roundRect(ctx, x, y, w, h, r) {
         if (w < 2 * r) r = w / 2; if (h < 2 * r) r = h / 2;
         ctx.moveTo(x+r, y); ctx.arcTo(x+w, y, x+w, y+h, r);
