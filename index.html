@@ -359,7 +359,7 @@
             if (!stState.gainNode) {
                 stState.gainNode = stState.audioContext.createGain();
                 stState.gainNode.gain.value = 1.0;
-
+                
                 // Conectar: Source -> Bridge -> Speakers
                 stState.sourceNode.connect(stState.gainNode);
                 stState.gainNode.connect(stState.audioContext.destination);
@@ -430,11 +430,11 @@
         // --- START BUTTON ---
         stDOM.startBtn.addEventListener('click', async () => {
             if (stState.isEncoding) return;
-
+            
             // Inicializar Audio Context en interacción de usuario
             setupAudioCapture();
             if (stState.audioContext.state === 'suspended') await stState.audioContext.resume();
-
+            
             // Asegurar reproducción
             const audioEl = document.getElementById('audio-player');
             if (audioEl.paused) audioEl.play();
@@ -485,23 +485,23 @@
                     // 1. Descargar
                     const response = await fetch(stState.currentSetData.audio_url);
                     const arrayBuffer = await response.arrayBuffer();
-
+                    
                     // 2. Crear contexto temporal
                     mobileAudioContext = new (window.AudioContext || window.webkitAudioContext)();
                     finalSampleRate = mobileAudioContext.sampleRate; // OBTENER SR REAL
-
+                    
                     const audioBuffer = await mobileAudioContext.decodeAudioData(arrayBuffer);
 
                     // 3. Crear nodo fuente
                     const source = mobileAudioContext.createBufferSource();
                     source.buffer = audioBuffer;
-
+                    
                     const dest = mobileAudioContext.createMediaStreamDestination();
                     source.connect(dest);
-
+                    
                     // 4. Iniciar reproducción interna
-                    source.start(0, stState.startTime);
-
+                    source.start(0, stState.startTime); 
+                    
                     audioStreamTrack = dest.stream.getAudioTracks()[0];
                     console.log(`[MOBILE AUDIO] Listo. SR: ${finalSampleRate}`);
 
@@ -531,10 +531,10 @@
                 error: e => console.error("Video Encode Error:", e)
             });
             videoEncoder.configure({
-                codec: 'avc1.42001E',
-                width: stState.config.width,
+                codec: 'avc1.42001E', 
+                width: stState.config.width, 
                 height: stState.config.height,
-                bitrate: stState.config.bitrate,
+                bitrate: stState.config.bitrate, 
                 framerate: stState.config.fps
             });
 
@@ -542,17 +542,17 @@
                 output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
                 error: e => console.error("Audio Encode Error:", e)
             });
-
+            
             // CONFIGURAR CON EL SAMPLE RATE REAL DETECTADO
             audioEncoder.configure({
-                codec: 'mp4a.40.2',
-                numberOfChannels: 2,
-                sampleRate: finalSampleRate,
+                codec: 'mp4a.40.2', 
+                numberOfChannels: 2, 
+                sampleRate: finalSampleRate, 
                 bitrate: 128000
             });
 
             // --- FASE 3: BUCLES DE PROCESO ---
-
+            
             // A. Audio Loop
             const trackProcessor = new MediaStreamTrackProcessor({ track: audioStreamTrack });
             const audioReader = trackProcessor.readable.getReader();
@@ -562,19 +562,19 @@
                     try {
                         const result = await audioReader.read();
                         if (result.done) break;
-
+                        
                         // Verificar estado antes de codificar
                         if (audioEncoder.state === 'configured') {
                             audioEncoder.encode(result.value);
                         }
                         result.value.close();
-                    } catch (e) {
-                        console.error("Audio Read Loop:", e);
-                        break;
+                    } catch (e) { 
+                        console.error("Audio Read Loop:", e); 
+                        break; 
                     }
                 }
             };
-            processAudio();
+            processAudio(); 
 
             // B. Video Loop
             const startTime = performance.now();
@@ -584,7 +584,7 @@
             await new Promise((resolve) => {
                 const drawFrame = async (now) => {
                     if (!stState.isEncoding) { resolve(); return; }
-
+                    
                     const elapsed = now - startTime;
 
                     if (elapsed >= durationMs) {
@@ -614,7 +614,7 @@
                         }
                     }
                     vFrame.close();
-
+                    
                     frameCount++;
                     requestAnimationFrame(drawFrame);
                 };
@@ -626,14 +626,14 @@
 
             try {
                 // Detener lector
-                await audioReader.cancel();
+                await audioReader.cancel(); 
             } catch(e) {}
 
             try {
                 // Flush encoders
                 if (videoEncoder.state === 'configured') await videoEncoder.flush();
                 if (audioEncoder.state === 'configured') await audioEncoder.flush();
-
+                
                 videoEncoder.close();
                 audioEncoder.close();
 
