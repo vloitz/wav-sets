@@ -341,44 +341,41 @@
         stCoverImg.crossOrigin = "Anonymous";
 
         // --- AUDIO SETUP (El Puente "Anti-Silencio") ---
+// --- AUDIO SETUP ROBUSTO ---
         function setupAudioCapture() {
-            // SI YA EXISTE, SOLO RESUMIR (Para Android)
-            if (stState.audioContext) {
-                if (stState.audioContext.state === 'suspended') {
-                    stState.audioContext.resume();
+            try {
+                // 1. Si ya existe, solo intentamos despertarlo
+                if (stState.audioContext) {
+                    if (stState.audioContext.state === 'suspended') {
+                        stState.audioContext.resume();
+                    }
+                    return;
                 }
-                return;
+
+                // 2. Crear nueva instancia
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                stState.audioContext = new AudioContext(); // Sin configs raras por ahora
+
+                // 3. Conectar el elemento de audio de la página
+                const audioEl = document.getElementById('audio-player');
+                if (!audioEl.crossOrigin) audioEl.crossOrigin = "anonymous";
+
+                if (!stState.sourceNode) {
+                    stState.sourceNode = stState.audioContext.createMediaElementSource(audioEl);
+                }
+
+                stState.mediaStreamDest = stState.audioContext.createMediaStreamDestination();
+
+                // Conexiones
+                stState.sourceNode.connect(stState.mediaStreamDest);
+                stState.sourceNode.connect(stState.audioContext.destination);
+
+                console.log("[AUDIO] Captura configurada correctamente.");
+
+            } catch (e) {
+                console.error("[SETUP ERROR]", e);
+                alert("Error al iniciar el motor de audio: " + e.message);
             }
-
-            const audioEl = document.getElementById('audio-player');
-
-            // 2. Crear Source (Solo una vez)
-            if (!stState.sourceNode) {
-                stState.sourceNode = stState.audioContext.createMediaElementSource(audioEl);
-            }
-
-            // 3. Crear Bridge (GainNode)
-            // Esto engaña a Android: Pasamos el audio por un nodo de ganancia (volumen 1)
-            // para que crea que estamos "editando" el audio y no lo silencie.
-            if (!stState.gainNode) {
-                stState.gainNode = stState.audioContext.createGain();
-                stState.gainNode.gain.value = 1.0;
-
-                // Conectar: Source -> Bridge -> Speakers (Para que oigas la música)
-                stState.sourceNode.connect(stState.gainNode);
-                stState.gainNode.connect(stState.audioContext.destination);
-            }
-
-            // 4. Crear Destino de Grabación
-            if (stState.mediaStreamDest) {
-                try { stState.gainNode.disconnect(stState.mediaStreamDest); } catch(e){}
-            }
-            stState.mediaStreamDest = stState.audioContext.createMediaStreamDestination();
-
-            // Conectar: Bridge -> Grabadora
-            stState.gainNode.connect(stState.mediaStreamDest);
-
-            console.log(`[AUDIO SETUP] Bridge activo. Frecuencia del dispositivo: ${stState.audioContext.sampleRate}Hz`);
         }
 
         // --- UI EVENTS ---
@@ -433,67 +430,70 @@
             stState.isEncoding = false;
         }
 
-        // --- START BUTTON ---
+// --- BOTÓN START (CON DIAGNÓSTICO) ---
         stDOM.startBtn.addEventListener('click', async () => {
+            console.log("Boton presionado..."); // LOG 1
+
             if (stState.isEncoding) return;
 
-            // 1. Iniciar Audio
-            setupAudioCapture();
-            if (stState.audioContext.state === 'suspended') await stState.audioContext.resume();
+            try {
+                // 1. Iniciar Audio Context (Gesto de usuario requerido)
+                setupAudioCapture();
+                if (stState.audioContext && stState.audioContext.state === 'suspended') {
+                    await stState.audioContext.resume();
+                }
 
-            // 2. Asegurar Play
-            const audioEl = document.getElementById('audio-player');
-            if (audioEl.paused) audioEl.play();
+                // 2. Asegurar que haya música sonando
+                const audioEl = document.getElementById('audio-player');
+                if (audioEl.paused) {
+                    console.log("Audio pausado, intentando reproducir...");
+                    await audioEl.play();
+                }
 
-            // 3. Sync Tiempo
-            if (window.wavesurfer) stState.startTime = window.wavesurfer.getCurrentTime();
+                // 3. Sincronizar tiempo (Vital para Wavesurfer)
+                if (window.wavesurfer) stState.startTime = window.wavesurfer.getCurrentTime();
 
-            // UI
-            stDOM.viewIntro.style.display = 'none';
-            stDOM.viewProcess.style.display = 'block';
-            stState.isEncoding = true;
+                // 4. CAMBIAR INTERFAZ (Si esto no pasa, el error ocurrió antes)
+                stDOM.viewIntro.style.display = 'none';
+                stDOM.viewProcess.style.display = 'block';
+                stState.isEncoding = true;
 
-            const isHQ = stDOM.hqToggle.checked;
-            stState.config = {
-                width: 360, height: 640, duration: 15,
-                fps: isHQ ? 30 : 24, bitrate: isHQ ? 2500000 : 1000000
-            };
+                // 5. Configurar Encoder
+                const isHQ = stDOM.hqToggle.checked;
+                stState.config = {
+                    width: 360, height: 640, duration: 15,
+                    fps: isHQ ? 30 : 24, bitrate: isHQ ? 2500000 : 1000000
+                };
 
-            stDOM.statusText.innerText = "Inicializando...";
-            stPrepareStaticLayer();
+                stDOM.statusText.innerText = "Inicializando...";
+                stPrepareStaticLayer();
 
-            try { await runRealTimeEncoding(); }
-            catch (e) {
-                console.error(e);
+                // 6. EJECUTAR GRABACIÓN
+                await runRealTimeEncoding();
+
+            } catch (e) {
+                console.error("ERROR CRÍTICO EN START:", e);
                 stState.isEncoding = false;
-                alert("Error: " + e.message);
-                resetModule();
+                alert("Error al iniciar: " + e.message);
+                resetModule(); // Volver al inicio si falla
             }
         });
-
         // --- ENGINE ESTABLE + FIX FRECUENCIA ---
         async function runRealTimeEncoding() {
-            // 1. OBTENER FRECUENCIA REAL DEL HARDWARE (El cambio crítico)
-            // En lugar de confiar en valores por defecto, leemos lo que el móvil está usando.
-            const realSampleRate = stState.audioContext.sampleRate;
-            console.log("[ENGINE] Hardware Sample Rate detectado:", realSampleRate);
+            // [FIX] Detectar frecuencia real del móvil
+            const realSampleRate = stState.audioContext.sampleRate || 48000;
+            console.log("[ENGINE] Sample Rate:", realSampleRate);
 
-            stDOM.statusText.innerText = "Grabando...";
-
-            // 2. CONFIGURAR MUXER
             let muxer = new Muxer({
                 target: new ArrayBufferTarget(),
                 video: { codec: 'avc', width: stState.config.width, height: stState.config.height },
-                audio: {
-                    codec: 'aac',
-                    numberOfChannels: 2,
-                    sampleRate: realSampleRate // <--- AQUÍ USAMOS LA VARIABLE
-                },
+                // [FIX] Usar realSampleRate aquí
+                audio: { codec: 'aac', numberOfChannels: 2, sampleRate: realSampleRate },
                 fastStart: 'in-memory',
                 firstTimestampBehavior: 'offset'
             });
 
-            // 3. CONFIGURAR VIDEO ENCODER
+            // ... (Configuración de Video Encoder igual que antes) ...
             let videoEncoder = new VideoEncoder({
                 output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
                 error: e => console.error("Video Error:", e)
@@ -503,16 +503,16 @@
                 bitrate: stState.config.bitrate, framerate: stState.config.fps
             });
 
-            // 4. CONFIGURAR AUDIO ENCODER
             let audioEncoder = new AudioEncoder({
                 output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
                 error: e => console.error("Audio Error:", e)
             });
 
+            // [FIX] Usar realSampleRate AQUÍ TAMBIÉN
             audioEncoder.configure({
                 codec: 'mp4a.40.2',
                 numberOfChannels: 2,
-                sampleRate: realSampleRate, // <--- AQUÍ TAMBIÉN (Debe coincidir con Muxer)
+                sampleRate: realSampleRate, // <--- IMPORTANTE
                 bitrate: 128000
             });
 
