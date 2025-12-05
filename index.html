@@ -339,24 +339,47 @@
         const stCoverImg = new Image();
         stCoverImg.crossOrigin = "Anonymous";
 
-        // --- AUDIO SETUP ---
+        // --- AUDIO SETUP MEJORADO (FIX ANDROID SILENCIO) ---
         function setupAudioCapture() {
-            if (stState.audioContext) return;
-            try {
+            // 1. Iniciar Contexto
+            if (!stState.audioContext) {
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
                 stState.audioContext = new AudioContext();
-                const audioEl = document.getElementById('audio-player');
+            }
 
-                if (!audioEl.crossOrigin) audioEl.crossOrigin = "anonymous";
+            const audioEl = document.getElementById('audio-player');
 
-                if (!stState.sourceNode) {
-                    stState.sourceNode = stState.audioContext.createMediaElementSource(audioEl);
-                }
-                stState.mediaStreamDest = stState.audioContext.createMediaStreamDestination();
-                stState.sourceNode.connect(stState.mediaStreamDest);
-                stState.sourceNode.connect(stState.audioContext.destination);
-                console.log("[AUDIO] Conectado.");
-            } catch (e) { console.warn(e); }
+            // 2. Crear el Source Node (SOLO UNA VEZ)
+            // OJO: createMediaElementSource solo se puede llamar 1 vez por elemento en la vida de la página.
+            if (!stState.sourceNode) {
+                stState.sourceNode = stState.audioContext.createMediaElementSource(audioEl);
+            }
+
+            // 3. Crear nodo "Puente" (GainNode)
+            // Esto es el truco: Android no ignora el audio si pasa por un nodo de proceso.
+            if (!stState.gainNode) {
+                stState.gainNode = stState.audioContext.createGain();
+                stState.gainNode.gain.value = 1.0; // Volumen intacto
+
+                // Conectar: Fuente -> Puente
+                stState.sourceNode.connect(stState.gainNode);
+
+                // Conectar: Puente -> Altavoces (Para que lo sigas oyendo)
+                stState.gainNode.connect(stState.audioContext.destination);
+            }
+
+            // 4. Crear destino del Stream (Grabadora)
+            // Lo recreamos cada vez para asegurar que esté fresco
+            if (stState.mediaStreamDest) {
+                // Si existe uno viejo, desconectarlo para evitar doble grabación
+                try { stState.gainNode.disconnect(stState.mediaStreamDest); } catch(e){}
+            }
+            stState.mediaStreamDest = stState.audioContext.createMediaStreamDestination();
+
+            // Conectar: Puente -> Grabadora
+            stState.gainNode.connect(stState.mediaStreamDest);
+
+            console.log("[AUDIO SETUP] Sistema de audio 'Bridge' activo para Android.");
         }
 
         // --- UI EVENTS ---
