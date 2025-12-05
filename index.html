@@ -589,19 +589,22 @@ function setupAudioCapture() {
                 requestAnimationFrame(drawFrame);
             });
 
-            // --- FINALIZAR CON LIMPIEZA KEEP-ALIVE ---
+// --- FINALIZAR Y LIMPIAR SHADOW PLAYER ---
             stDOM.statusText.innerText = "Finalizando...";
 
-            try { audioReader.releaseLock(); } catch(e) {}
-
-            // Apagar el oscilador fantasma
-            if (stState.keepAliveOsc) {
-                try {
-                    stState.keepAliveOsc.stop();
-                    stState.keepAliveOsc.disconnect();
-                    stState.keepAliveOsc = null;
-                } catch(e) {}
+            // Detener el Shadow Player
+            if (stState.shadowAudio) {
+                stState.shadowAudio.pause();
+                stState.shadowAudio.src = ""; // Liberar memoria
+                stState.shadowAudio = null;
+                console.log("[AUDIO] Shadow Player destruido.");
             }
+
+            // Reactivar el reproductor principal (Opcional, si quieres que la música vuelva)
+            // const mainAudio = document.getElementById('audio-player');
+            // mainAudio.play();
+
+            try { audioReader.releaseLock(); } catch(e) {}
 
             try {
                 if (videoEncoder.state === 'configured') await videoEncoder.flush();
