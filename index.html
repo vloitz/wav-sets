@@ -297,7 +297,7 @@
 <script type="module">
     import { Muxer, ArrayBufferTarget } from 'https://esm.sh/mp4-muxer@5.1.0';
 
-    const version = "V23: DOM Attach + Input Debugger";
+    const version = "V24: Auto-Config Adaptativo (Fix E=0)";
     console.log(`[STORY MODULE] CARGANDO ${version}`);
 
     const stDOM = {
@@ -331,7 +331,6 @@
         config: {},
         currentSetData: null,
         startTime: 0,
-        currentTrackTitle: "",
         audioContext: null,
         mediaStreamDest: null,
         sourceNode: null,
@@ -358,18 +357,7 @@
             if (realSet && wave) {
                 stState.currentSetData = realSet;
                 stState.startTime = wave.getCurrentTime();
-                
-                let activeTrackName = realSet.title;
-                if (realSet.tracklist) {
-                    for (let i = realSet.tracklist.length - 1; i >= 0; i--) {
-                        const t = realSet.tracklist[i];
-                        const parts = t.time.split(':');
-                        const tSecs = parseInt(parts[0])*60 + parseInt(parts[1]);
-                        if (stState.startTime >= tSecs) { activeTrackName = t.title; break; }
-                    }
-                }
-                stState.currentTrackTitle = activeTrackName;
-                stDOM.uiTitle.innerText = activeTrackName;
+                stDOM.uiTitle.innerText = realSet.title;
                 stDOM.uiCover.src = realSet.cover_art_url;
                 stCoverImg.src = realSet.cover_art_url;
             }
@@ -401,10 +389,7 @@
     function cleanupAudio() {
         if (stState.shadowAudio) {
             stState.shadowAudio.pause();
-            // Remover del DOM si existe
-            if (document.body.contains(stState.shadowAudio)) {
-                document.body.removeChild(stState.shadowAudio);
-            }
+            if (document.body.contains(stState.shadowAudio)) document.body.removeChild(stState.shadowAudio);
             stState.shadowAudio.src = "";
             stState.shadowAudio = null;
         }
@@ -420,16 +405,15 @@
 
     stDOM.startBtn.addEventListener('click', async () => {
         if (stState.isEncoding) return;
-        
         stDOM.startBtn.disabled = true;
-        stDOM.startBtn.innerText = "Iniciando V23...";
+        stDOM.startBtn.innerText = "Iniciando V24...";
 
         const mainAudio = document.getElementById('audio-player');
         if (!mainAudio.paused) mainAudio.pause();
 
         try {
             if (!stState.blobUrl) {
-                console.log("[V23] Descargando...");
+                console.log("[V24] Descargando...");
                 const response = await fetch(stState.currentSetData.audio_url);
                 if (!response.ok) throw new Error("Error red");
                 const blob = await response.blob();
@@ -440,19 +424,17 @@
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             stState.audioContext = new AudioContext({ latencyHint: 'playback' });
             
-            // 1. SHADOW PLAYER AL DOM (Fix Android "Ghosting")
+            // DOM Attach (Corporeal Ghost)
             stState.shadowAudio = new Audio();
             stState.shadowAudio.src = stState.blobUrl;
             stState.shadowAudio.currentTime = stState.startTime;
             stState.shadowAudio.volume = 1.0;
             stState.shadowAudio.crossOrigin = "anonymous";
-            // Truco: Lo agregamos al body pero invisible
             stState.shadowAudio.style.position = 'fixed';
             stState.shadowAudio.style.opacity = '0';
             stState.shadowAudio.style.pointerEvents = 'none';
             document.body.appendChild(stState.shadowAudio);
 
-            // Conexiones
             stState.mediaStreamDest = stState.audioContext.createMediaStreamDestination();
             stState.analyserNode = stState.audioContext.createAnalyser();
             stState.analyserNode.fftSize = 256; 
@@ -463,7 +445,7 @@
             stState.analyserNode.connect(stState.mediaStreamDest);
             stState.sourceNode.connect(stState.audioContext.destination);
 
-            // Oscilador
+            // Keep Alive
             const osc = stState.audioContext.createOscillator();
             const gain = stState.audioContext.createGain();
             osc.frequency.value = 1; gain.gain.value = 0.0001; 
@@ -474,9 +456,9 @@
             stDOM.startBtn.innerText = "Sincronizando...";
             await stState.shadowAudio.play();
 
-            console.log("[V23] Esperando señal...");
+            console.log("[V24] Esperando señal...");
             await waitForAudioSignal();
-            console.log("[V23] Señal OK.");
+            console.log("[V24] Señal OK.");
 
         } catch (e) {
             console.error(e);
@@ -523,13 +505,26 @@
     }
 
     async function runRealTimeEncoding() {
-        const realSampleRate = stState.audioContext.sampleRate;
-        console.log("[ENGINE] Hz:", realSampleRate);
+        // --- AQUÍ ESTÁ EL CAMBIO V24 ---
+        // 1. Preparar lector del stream
+        const trackProcessor = new MediaStreamTrackProcessor({ track: stState.mediaStreamDest.stream.getAudioTracks()[0] });
+        const audioReader = trackProcessor.readable.getReader();
 
+        // 2. Leer PRIMER paquete para ver qué formato trae REALMENTE
+        const firstChunkResult = await audioReader.read();
+        if (firstChunkResult.done) throw new Error("Stream de audio vacío");
+        
+        const firstChunk = firstChunkResult.value;
+        const realChannels = firstChunk.numberOfChannels;
+        const realSampleRate = firstChunk.sampleRate;
+        
+        console.log(`[V24 AUTO-CONFIG] Canales: ${realChannels}, Hz: ${realSampleRate}`);
+
+        // 3. Configurar MUXER con datos reales
         let muxer = new Muxer({
             target: new ArrayBufferTarget(),
             video: { codec: 'avc', width: stState.config.width, height: stState.config.height },
-            audio: { codec: 'aac', numberOfChannels: 2, sampleRate: realSampleRate },
+            audio: { codec: 'aac', numberOfChannels: realChannels, sampleRate: realSampleRate },
             fastStart: 'in-memory',
             firstTimestampBehavior: 'offset'
         });
@@ -543,46 +538,42 @@
             bitrate: stState.config.bitrate, framerate: stState.config.fps
         });
 
-        // --- DEBUGGER DE ENTRADA ---
+        // 4. Configurar ENCODER con datos reales
         let audioChunkCount = 0;
-        let readChunkCount = 0; // Contador de lecturas
+        let readChunkCount = 1; // Ya leímos uno
 
         let audioEncoder = new AudioEncoder({
             output: (chunk, meta) => {
                 audioChunkCount++;
                 muxer.addAudioChunk(chunk, meta);
             },
-            error: e => console.error("Audio Encoder Internal Error:", e)
+            error: e => console.error("Audio Encoder Error:", e)
         });
         
         audioEncoder.configure({
-            codec: 'mp4a.40.2', numberOfChannels: 2, sampleRate: realSampleRate, bitrate: 128000
+            codec: 'mp4a.40.2', 
+            numberOfChannels: realChannels, // <--- ADAPTATIVO
+            sampleRate: realSampleRate,     // <--- ADAPTATIVO
+            bitrate: 128000
         });
 
-        const trackProcessor = new MediaStreamTrackProcessor({ track: stState.mediaStreamDest.stream.getAudioTracks()[0] });
-        const audioReader = trackProcessor.readable.getReader();
+        // 5. Procesar el primer paquete que ya teníamos en la mano
+        audioEncoder.encode(firstChunk);
+        firstChunk.close();
 
+        // 6. Bucle Normal para el resto
         const processAudio = async () => {
             while (stState.isEncoding) {
                 try {
                     const result = await audioReader.read();
-                    if (result.done) {
-                        console.warn("[V23 DEBUG] Audio Reader terminó inesperadamente (done=true).");
-                        break;
-                    }
+                    if (result.done) break;
                     
                     readChunkCount++;
-                    // LOGUEAR CADA 20 PAQUETES PARA VER SI LLEGAN
-                    if (readChunkCount % 20 === 0) console.log(`[V23 READ] Frame ${readChunkCount}, TS: ${result.value.timestamp}`);
-
                     if (audioEncoder.state === 'configured') {
                         audioEncoder.encode(result.value);
                     }
                     result.value.close();
-                } catch (e) { 
-                    console.error("[V23 READ ERROR]", e);
-                    break; 
-                }
+                } catch (e) { break; }
             }
         };
         processAudio();
@@ -605,9 +596,9 @@
                 if (frameCount % 15 === 0) {
                     stState.analyserNode.getByteFrequencyData(dataArray);
                     const vol = dataArray.reduce((a,b)=>a+b,0);
-                    // Muestra: Volumen / Paquetes Leídos / Paquetes Codificados
-                    if (vol > 0) stDOM.statusText.innerHTML = `<span style="color:#0f0">R:${readChunkCount} | E:${audioChunkCount} | Vol:${vol}</span>`;
-                    else stDOM.statusText.innerHTML = `<span style="color:#f00">NO SIGNAL (R:${readChunkCount})</span>`;
+                    // DEBUG EN PANTALLA:
+                    if (vol > 0) stDOM.statusText.innerHTML = `<span style="color:#0f0">R:${readChunkCount} | E:${audioChunkCount} | Config:${realChannels}ch</span>`;
+                    else stDOM.statusText.innerHTML = `<span style="color:#f00">NO SIGNAL</span>`;
                 }
 
                 stDOM.progressFill.style.width = (elapsed / durationMs) * 100 + "%";
@@ -647,9 +638,7 @@
         try {
             muxer.finalize();
             const buffer = muxer.target.buffer;
-            
-            // ANALISIS FINAL
-            console.log(`[V23 REPORT] Read: ${readChunkCount}, Encoded: ${audioChunkCount}`);
+            console.log(`[V24 REPORT] Total Encoded: ${audioChunkCount}`);
             
             if (buffer.byteLength > 0) {
                 stState.finalBlob = new Blob([buffer], { type: 'video/mp4' });
