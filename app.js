@@ -429,6 +429,12 @@ let wasPlayingBeforeDrag = false; // Para saber si pausar/reanudar
 
     // --- Cargar un set ---
     function loadTrack(set, index) {
+
+        // --- AGREGA ESTO AQUÍ (INICIO) ---
+        const audioEl = document.getElementById('audio-player');
+        audioEl.crossOrigin = "anonymous";
+        // --- FIN DEL AGREGADO ---
+
         console.log(`Cargando track ${index}: ${set.title}`); // LOG
         currentCoverArt.src = set.cover_art_url;
         currentTrackTitle.textContent = `Cargando: ${set.title}...`;
