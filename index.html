@@ -611,36 +611,62 @@ async function runRealTimeEncoding() {
                 requestAnimationFrame(drawFrame);
             });
 
-            // --- FINALIZACIÓN SEGURA V14 ---
+        // --- FINALIZACIÓN BLINDADA (V15 FAULT TOLERANT) ---
             stDOM.statusText.innerText = "Finalizando...";
 
-            // 1. PRIMERO: Deja de leer, pero NO mates el audio aún
-            try { await audioReader.cancel(); } catch(e) {}
+            // 1. Detener banderas primero para que los bucles de lectura se detengan suavemente
+            stState.isEncoding = false;
 
-            // 2. SEGUNDO: Vaciar los encoders (Flush)
-            // Si el audio sigue vivo, flush() puede terminar su trabajo
+            // 2. Intentar cerrar Video (Prioridad Alta)
             try {
                 if (videoEncoder.state === 'configured') await videoEncoder.flush();
-                if (audioEncoder.state === 'configured') await audioEncoder.flush();
                 videoEncoder.close();
-                audioEncoder.close();
-                console.log("[V14] Encoders cerrados correctamente.");
+                console.log("[V15] Video cerrado correctamente.");
             } catch (e) {
-                console.error("[V14 Fatal] Error en Flush:", e);
-                throw e; // Esto disparará el alert del catch externo
+                console.warn("[V15 Warning] Error cerrando Video (se intentará guardar igual):", e);
             }
 
-            // 3. TERCERO: AHORA SÍ, matar el Shadow Player
+            // 3. Intentar cerrar Audio (Prioridad Media - Aquí es donde suele fallar)
+            // Envolvemos esto en su propio try/catch para que si falla, NO impida guardar el archivo.
+            try {
+                // Liberar el lock del stream antes de flushear suele ayudar en Android
+                try { await audioReader.cancel(); } catch(err) { /* Ignorar si ya estaba cerrado */ }
+
+                if (audioEncoder.state === 'configured') await audioEncoder.flush();
+                audioEncoder.close();
+                console.log("[V15] Audio cerrado correctamente.");
+            } catch (e) {
+                console.warn("[V15 Warning] Error cerrando Audio (Ignorado para salvar el archivo):", e);
+                // NO lanzamos el error (throw), solo lo logueamos y seguimos.
+            }
+
+            // 4. Limpieza del Shadow Player (Matar al clon)
             if (stState.shadowAudio) {
                 stState.shadowAudio.pause();
                 stState.shadowAudio.src = "";
+                stState.shadowAudio.load();
                 stState.shadowAudio = null;
-                console.log("[V14] Audio limpiado.");
+                console.log("[V15] Shadow Player eliminado.");
             }
 
-            muxer.finalize();
-            stState.finalBlob = new Blob([muxer.target.buffer], { type: 'video/mp4' });
-            stShowFinalUI();
+            // 5. GUARDAR LO QUE TENGAMOS (Muxer Finalize)
+            // Incluso si el flush de audio falló, el muxer tiene el 99% de los datos.
+            try {
+                muxer.finalize();
+                const buffer = muxer.target.buffer;
+                console.log("[V15] Muxer finalizado. Bytes totales:", buffer.byteLength);
+
+                if (buffer.byteLength > 0) {
+                    stState.finalBlob = new Blob([buffer], { type: 'video/mp4' });
+                    stShowFinalUI();
+                } else {
+                    throw new Error("El archivo generado está vacío (0 bytes).");
+                }
+            } catch (finalErr) {
+                console.error("[V15 FATAL] Error al generar el Blob final:", finalErr);
+                alert("Error crítico al guardar el archivo.");
+                resetModule();
+            }
         }
         // --- UTILS (Gráficos) ---
         function roundRect(ctx, x, y, w, h, r) {
