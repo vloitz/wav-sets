@@ -297,7 +297,7 @@
 <script type="module">
     import { Muxer, ArrayBufferTarget } from 'https://esm.sh/mp4-muxer@5.1.0';
 
-    const version = "V26: Timestamp Sanitizer (Fix E=0)";
+    const version = "V27: Stereo Fix (Data Size Repair)";
     console.log(`[STORY MODULE] CARGANDO ${version}`);
 
     const stDOM = {
@@ -357,7 +357,6 @@
             if (realSet && wave) {
                 stState.currentSetData = realSet;
                 stState.startTime = wave.getCurrentTime();
-
                 let activeTrackName = realSet.title;
                 if (realSet.tracklist) {
                     for (let i = realSet.tracklist.length - 1; i >= 0; i--) {
@@ -417,14 +416,14 @@
     stDOM.startBtn.addEventListener('click', async () => {
         if (stState.isEncoding) return;
         stDOM.startBtn.disabled = true;
-        stDOM.startBtn.innerText = "Iniciando V26...";
+        stDOM.startBtn.innerText = "Iniciando V27...";
 
         const mainAudio = document.getElementById('audio-player');
         if (!mainAudio.paused) mainAudio.pause();
 
         try {
             if (!stState.blobUrl) {
-                console.log("[V26] Descargando...");
+                console.log("[V27] Descargando...");
                 const response = await fetch(stState.currentSetData.audio_url);
                 if (!response.ok) throw new Error("Error red");
                 const blob = await response.blob();
@@ -433,7 +432,7 @@
 
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             stState.audioContext = new AudioContext({ latencyHint: 'playback' });
-
+            
             stState.shadowAudio = new Audio();
             stState.shadowAudio.src = stState.blobUrl;
             stState.shadowAudio.currentTime = stState.startTime;
@@ -446,17 +445,17 @@
 
             stState.mediaStreamDest = stState.audioContext.createMediaStreamDestination();
             stState.analyserNode = stState.audioContext.createAnalyser();
-            stState.analyserNode.fftSize = 256;
+            stState.analyserNode.fftSize = 256; 
 
             stState.sourceNode = stState.audioContext.createMediaElementSource(stState.shadowAudio);
-
+            
             stState.sourceNode.connect(stState.analyserNode);
             stState.analyserNode.connect(stState.mediaStreamDest);
             stState.sourceNode.connect(stState.audioContext.destination);
 
             const osc = stState.audioContext.createOscillator();
             const gain = stState.audioContext.createGain();
-            osc.frequency.value = 1; gain.gain.value = 0.0001;
+            osc.frequency.value = 1; gain.gain.value = 0.0001; 
             osc.connect(gain); gain.connect(stState.mediaStreamDest);
             osc.start();
             stState.keepAliveOsc = osc;
@@ -464,9 +463,9 @@
             stDOM.startBtn.innerText = "Sincronizando...";
             await stState.shadowAudio.play();
 
-            console.log("[V26] Esperando señal...");
+            console.log("[V27] Esperando señal...");
             await waitForAudioSignal();
-            console.log("[V26] Señal OK.");
+            console.log("[V27] Señal OK.");
 
         } catch (e) {
             console.error(e);
@@ -478,7 +477,7 @@
         stDOM.viewIntro.style.display = 'none';
         stDOM.viewProcess.style.display = 'block';
         stState.isEncoding = true;
-
+        
         const isHQ = stDOM.hqToggle.checked;
         stState.config = {
             width: 360, height: 640, duration: 15,
@@ -512,23 +511,34 @@
         });
     }
 
-    // --- SANITIZADOR DE AUDIO (FIX E=0) ---
+    // --- SANITIZADOR CORREGIDO V27 (Estéreo Support) ---
     function cloneAndSanitizeAudioChunk(originalChunk, newTimestamp) {
-        // Creamos un buffer del tamaño exacto de los datos
-        // allocationSize devuelve el tamaño total necesario para el formato
-        const size = originalChunk.allocationSize({ planeIndex: 0 });
-        const buffer = new ArrayBuffer(size);
+        // 1. Calcular tamaño de 1 plano (1 canal)
+        const planeSize = originalChunk.allocationSize({ planeIndex: 0 });
+        
+        // 2. Calcular tamaño total (Planos * Canales)
+        const totalSize = planeSize * originalChunk.numberOfChannels;
+        
+        // 3. Crear buffer grande para todos los datos
+        const buffer = new ArrayBuffer(totalSize);
 
-        // Copiamos los datos del chunk original al buffer
-        originalChunk.copyTo(buffer, { planeIndex: 0 });
+        // 4. Copiar cada canal en su lugar
+        // En formato planar, los canales van uno detrás de otro
+        for (let ch = 0; ch < originalChunk.numberOfChannels; ch++) {
+            const offset = ch * planeSize;
+            // Crear una vista en la sección correcta del buffer destino
+            const destView = new Uint8Array(buffer, offset, planeSize);
+            // Copiar el canal 'ch' ahí
+            originalChunk.copyTo(destView, { planeIndex: ch });
+        }
 
-        // Creamos un NUEVO chunk con el timestamp corregido
+        // 5. Crear el nuevo AudioData con el buffer completo
         return new AudioData({
-            format: originalChunk.format, // Usamos el mismo formato que trae (f32-planar usualmente)
+            format: originalChunk.format,
             sampleRate: originalChunk.sampleRate,
             numberOfFrames: originalChunk.numberOfFrames,
             numberOfChannels: originalChunk.numberOfChannels,
-            timestamp: newTimestamp, // <--- AQUÍ ESTÁ LA MAGIA (Tiempo desde 0)
+            timestamp: newTimestamp,
             data: buffer
         });
     }
@@ -537,18 +547,15 @@
         const trackProcessor = new MediaStreamTrackProcessor({ track: stState.mediaStreamDest.stream.getAudioTracks()[0] });
         const audioReader = trackProcessor.readable.getReader();
 
-        // 1. LEER PRIMER PAQUETE (Para Configurar)
         const firstChunkResult = await audioReader.read();
         if (firstChunkResult.done) throw new Error("Stream vacío");
         let firstChunk = firstChunkResult.value;
-
+        
         const realChannels = firstChunk.numberOfChannels;
         const realSampleRate = firstChunk.sampleRate;
-
-        // GUARDAMOS EL TIEMPO BASE (El "Cero" relativo)
         const baseAudioTimestamp = firstChunk.timestamp;
 
-        console.log(`[V26] BaseTS: ${baseAudioTimestamp}, Hz: ${realSampleRate}`);
+        console.log(`[V27] Config: ${realChannels}ch, ${realSampleRate}Hz, BaseTS: ${baseAudioTimestamp}`);
 
         let muxer = new Muxer({
             target: new ArrayBufferTarget(),
@@ -577,43 +584,39 @@
             },
             error: e => console.error("Audio Encoder Fatal:", e)
         });
-
+        
         audioEncoder.configure({
-            codec: 'mp4a.40.2',
-            numberOfChannels: realChannels,
+            codec: 'mp4a.40.2', 
+            numberOfChannels: realChannels, 
             sampleRate: realSampleRate,
             bitrate: 128000
         });
 
-        // 2. PROCESAR PRIMER PAQUETE (Sanitizado)
-        // Restamos el tiempo base para que sea 0
-        const sanitizedFirst = cloneAndSanitizeAudioChunk(firstChunk, 0);
+        // Procesar primer paquete (saneado a 0)
+        const sanitizedFirst = cloneAndSanitizeAudioChunk(firstChunk, 0); 
         audioEncoder.encode(sanitizedFirst);
         sanitizedFirst.close();
         firstChunk.close();
 
-        // 3. BUCLE PRINCIPAL (Sanitizando todo)
         const processAudio = async () => {
             while (stState.isEncoding) {
                 try {
                     const result = await audioReader.read();
                     if (result.done) break;
                     readChunkCount++;
-
+                    
                     const original = result.value;
-
+                    
                     if (audioEncoder.state === 'configured') {
-                        // Calculamos tiempo relativo: Tiempo Actual - Tiempo Base
                         const relativeTimestamp = original.timestamp - baseAudioTimestamp;
-
-                        // Si el tiempo es negativo (raro pero posible), lo forzamos a 0 o saltamos
                         if (relativeTimestamp >= 0) {
+                            // AQUÍ LLAMAMOS A LA FUNCIÓN CORREGIDA
                             const sanitized = cloneAndSanitizeAudioChunk(original, relativeTimestamp);
                             audioEncoder.encode(sanitized);
                             sanitized.close();
                         }
                     }
-                    original.close(); // Siempre cerrar el original
+                    original.close();
                 } catch (e) { break; }
             }
         };
@@ -637,10 +640,10 @@
                 if (frameCount % 15 === 0) {
                     stState.analyserNode.getByteFrequencyData(dataArray);
                     const vol = dataArray.reduce((a,b)=>a+b,0);
-
+                    
                     let color = "#f00";
-                    if (audioChunkCount > 0) color = "#0f0"; // VERDE SI CODIFICA
-                    else if (readChunkCount > 5) color = "#ffa500"; // NARANJA SI LEE PERO NO CODIFICA
+                    if (audioChunkCount > 0) color = "#0f0";
+                    else if (readChunkCount > 5) color = "#ffa500";
 
                     stDOM.statusText.innerHTML = `<span style="color:${color}">R:${readChunkCount} | E:${audioChunkCount}</span>`;
                 }
@@ -667,7 +670,7 @@
 
         stDOM.statusText.innerText = "Finalizando...";
         try { await audioReader.cancel(); } catch(e) {}
-
+        
         try {
             if (videoEncoder.state === 'configured') await videoEncoder.flush();
             videoEncoder.close();
@@ -682,10 +685,9 @@
         try {
             muxer.finalize();
             const buffer = muxer.target.buffer;
-
-            console.log(`[V26 END] Read: ${readChunkCount}, Encoded: ${audioChunkCount}`);
-            if (audioChunkCount === 0) alert("ALERTA: Audio leído pero NO codificado (Format Error).");
-
+            
+            console.log(`[V27 END] Read: ${readChunkCount}, Encoded: ${audioChunkCount}`);
+            
             if (buffer.byteLength > 0) {
                 stState.finalBlob = new Blob([buffer], { type: 'video/mp4' });
                 stShowFinalUI();
@@ -697,7 +699,7 @@
         }
     }
 
-    // UTILS (Sin cambios)
+    // UTILS
     function roundRect(ctx, x, y, w, h, r) {
         if (w < 2 * r) r = w / 2; if (h < 2 * r) r = h / 2;
         ctx.moveTo(x+r, y); ctx.arcTo(x+w, y, x+w, y+h, r);
