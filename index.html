@@ -535,7 +535,12 @@
             await videoEncoder.flush();
             await audioEncoder.flush();
             muxer.finalize();
-            audioReader.releaseLock();
+            // Liberar recursos (Protegido contra lecturas pendientes)
+            try {
+                audioReader.releaseLock();
+            } catch (e) {
+                console.log("Lectura de audio finalizada (Clean exit).");
+            }
 
             stState.finalBlob = new Blob([muxer.target.buffer], { type: 'video/mp4' });
             stShowFinalUI();
