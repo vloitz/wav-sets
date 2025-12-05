@@ -281,12 +281,11 @@
         </div>
     </div>
 
-<script type="module">
+    <script type="module">
         import { Muxer, ArrayBufferTarget } from 'https://esm.sh/mp4-muxer@5.1.0';
 
-        console.log("[STORY MODULE] V9: Motor Blindado (CORS + Zero Sync) Iniciado.");
+        console.log("[STORY MODULE] Motor V8 (Audio+Video Sync) Iniciado.");
 
-        // 1. REFERENCIAS DOM
         const stDOM = {
             openBtn: document.getElementById('stOpenBtn'),
             closeBtn: document.getElementById('stCloseBtn'),
@@ -310,7 +309,6 @@
 
         const stCtx = stDOM.canvas.getContext('2d', { alpha: false, desynchronized: true });
 
-        // 2. ESTADO GLOBAL
         const stState = {
             isEncoding: false,
             finalBlob: null,
@@ -328,7 +326,7 @@
         const stCoverImg = new Image();
         stCoverImg.crossOrigin = "Anonymous";
 
-        // 3. SETUP AUDIO (CABLES)
+        // --- 1. CONFIGURACIÓN AUDIO (SPLITTER) ---
         function setupAudioCapture() {
             if (stState.audioContext) return;
 
@@ -337,26 +335,25 @@
                 stState.audioContext = new AudioContext();
                 const audioEl = document.getElementById('audio-player');
 
-                // Asegurar CORS dinámicamente también
-                if (!audioEl.crossOrigin) audioEl.crossOrigin = "anonymous";
-
                 if (!stState.sourceNode) {
                     stState.sourceNode = stState.audioContext.createMediaElementSource(audioEl);
                 }
 
                 stState.mediaStreamDest = stState.audioContext.createMediaStreamDestination();
 
-                // CONEXIÓN EN Y (SPLITTER)
-                stState.sourceNode.connect(stState.mediaStreamDest); // A la grabadora
-                stState.sourceNode.connect(stState.audioContext.destination); // A los parlantes
+                // CABLE 1: Hacia la grabadora (Video)
+                stState.sourceNode.connect(stState.mediaStreamDest);
 
-                console.log("[AUDIO] Cables conectados.");
+                // CABLE 2: Hacia los altavoces (Para que NO se silencie)
+                stState.sourceNode.connect(stState.audioContext.destination);
+
+                console.log("[AUDIO] Sistema conectado (Splitter Activo).");
             } catch (e) {
-                console.warn("[AUDIO] Nota de conexión:", e);
+                console.warn("[AUDIO] Nota:", e);
             }
         }
 
-        // 4. INTERACCIÓN UI
+        // --- 2. UI & EVENTOS ---
         if(stDOM.hqToggle) {
             stDOM.hqToggle.addEventListener('change', () => {
                 stDOM.qualityText.innerText = stDOM.hqToggle.checked ? "Alta Calidad" : "Modo Seguro";
@@ -373,6 +370,7 @@
                     stState.currentSetData = realSet;
                     stState.startTime = wave.getCurrentTime();
 
+                    // Calcular Track Actual
                     let activeTrackName = realSet.title;
                     if (realSet.tracklist) {
                         for (let i = realSet.tracklist.length - 1; i >= 0; i--) {
@@ -387,6 +385,7 @@
                     }
                     stState.currentTrackTitle = activeTrackName;
 
+                    // Actualizar UI
                     stDOM.uiTitle.innerText = activeTrackName;
                     stDOM.uiCover.src = realSet.cover_art_url;
                     stCoverImg.src = realSet.cover_art_url;
@@ -412,7 +411,7 @@
             stState.isEncoding = false;
         }
 
-        // 5. INICIAR
+        // --- 3. INICIAR ---
         stDOM.startBtn.addEventListener('click', async () => {
             if (stState.isEncoding) return;
 
@@ -432,29 +431,30 @@
                 fps: isHQ ? 30 : 24, bitrate: isHQ ? 2500000 : 1000000
             };
 
-            stDOM.statusText.innerText = "Grabando Clip (15s)...";
+            stDOM.statusText.innerText = "Grabando... (Espera 15s)";
             stPrepareStaticLayer();
 
             try { await runRealTimeEncoding(); }
             catch (e) {
-                console.error(e); alert("Error al grabar.");
+                console.error(e); alert("Error. Revisa consola.");
                 stState.isEncoding = false; resetModule();
             }
         });
 
-        // 6. MOTOR DE GRABACIÓN (MANUAL TIMESTAMPING)
+        // --- 4. MOTOR DE GRABACIÓN (CORREGIDO) ---
         async function runRealTimeEncoding() {
-            // Muxer: Sin offset automático, lo haremos manual
+            // CONFIGURACIÓN MUXER CON FIX DE TIMESTAMP
             let muxer = new Muxer({
                 target: new ArrayBufferTarget(),
                 video: { codec: 'avc', width: stState.config.width, height: stState.config.height },
                 audio: { codec: 'aac', numberOfChannels: 2, sampleRate: stState.audioContext.sampleRate },
-                fastStart: 'in-memory'
+                fastStart: 'in-memory',
+                firstTimestampBehavior: 'offset' // <--- ¡ESTA LÍNEA ARREGLA EL ERROR!
             });
 
             let videoEncoder = new VideoEncoder({
                 output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
-                error: e => console.error("V-Enc Error:", e)
+                error: e => console.error("Video Fail:", e)
             });
             videoEncoder.configure({
                 codec: 'avc1.42001E', width: stState.config.width, height: stState.config.height,
@@ -463,95 +463,59 @@
 
             let audioEncoder = new AudioEncoder({
                 output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
-                error: e => console.error("A-Enc Error:", e)
+                error: e => console.error("Audio Fail:", e)
             });
             audioEncoder.configure({
                 codec: 'mp4a.40.2', numberOfChannels: 2, sampleRate: stState.audioContext.sampleRate, bitrate: 128000
             });
 
-            // Preparar Audio Reader
+            // LEER AUDIO DEL STREAM
             const audioTrack = stState.mediaStreamDest.stream.getAudioTracks()[0];
             const trackProcessor = new MediaStreamTrackProcessor({ track: audioTrack });
             const audioReader = trackProcessor.readable.getReader();
 
-            // Variables de control de tiempo
-            let startTimeOffset = null; // Para guardar el primer timestamp de audio
-            const microSec = 1000000;
-
-            // --- Loop de Audio (Procesa AudioData) ---
+            // PROCESAR AUDIO EN PARALELO
             let stopAudio = false;
             const processAudio = async () => {
                 while (!stopAudio && stState.isEncoding) {
                     const result = await audioReader.read();
                     if (result.done) break;
-
-                    let chunk = result.value;
-
-                    // TRUCO DE SINCRONIZACIÓN:
-                    // Capturamos el timestamp del primer chunk de audio y se lo restamos a todos.
-                    // Así el audio empieza matemáticamente en 0.
-                    if (startTimeOffset === null) {
-                        startTimeOffset = chunk.timestamp;
+                    // Enviamos el chunk de audio tal cual llega
+                    // Gracias a 'firstTimestampBehavior: offset', el muxer ajustará el tiempo a 0.
+                    if (result.value) {
+                        audioEncoder.encode(result.value);
+                        result.value.close();
                     }
-
-                    // Clonar el chunk con el nuevo timestamp ajustado a 0
-                    const adjustedTimestamp = chunk.timestamp - startTimeOffset;
-
-                    if (adjustedTimestamp >= 0) {
-                        const newChunk = new AudioData({
-                            format: chunk.format,
-                            sampleRate: chunk.sampleRate,
-                            numberOfFrames: chunk.numberOfFrames,
-                            numberOfChannels: chunk.numberOfChannels,
-                            timestamp: adjustedTimestamp, // Tiempo relativo (empieza en 0)
-                            data: chunk // Los datos crudos se copian automáticamente al constructor
-                        });
-
-                        // Importante: Copiar los datos del buffer
-                        chunk.copyTo(newChunk);
-
-                        audioEncoder.encode(newChunk);
-                        newChunk.close();
-                    }
-
-                    chunk.close();
                 }
             };
             processAudio();
 
-            // --- Loop de Video (Procesa Frames) ---
-            // Usamos un contador matemático exacto: 0, 1/30, 2/30...
-            // Esto garantiza que video y audio (que ajustamos arriba) empiecen en 0.
+            // LOOP VISUAL (Sincronizado por Reloj Real)
+            const startTime = performance.now();
             const durationMs = stState.config.duration * 1000;
-            const startTimePerf = performance.now();
             let frameCount = 0;
 
             await new Promise((resolve) => {
                 const drawFrame = async (now) => {
                     if (!stState.isEncoding) { resolve(); return; }
-
-                    const elapsed = now - startTimePerf;
+                    const elapsed = now - startTime;
                     if (elapsed >= durationMs) {
                         stState.isEncoding = false;
                         resolve();
                         return;
                     }
 
-                    // UI
+                    // Actualizar UI y Barras
                     stDOM.progressFill.style.width = (elapsed / durationMs) * 100 + "%";
-
-                    // Dibujar
                     stUpdateAudioSimulation(frameCount);
                     stCtx.drawImage(stState.staticCanvas, 0, 0);
                     stDrawDynamicLayer(elapsed / 1000);
 
-                    // Encode Video (Matemático)
-                    // timestamp = (frame / fps) * 1,000,000 (microsegundos)
-                    const videoTS = (frameCount * microSec) / stState.config.fps;
-
+                    // Generar Frame de Video
+                    // Usamos 'now' (tiempo absoluto) para que coincida con el reloj del audio
                     const vFrame = new VideoFrame(stDOM.canvas, {
-                        timestamp: videoTS,
-                        duration: microSec / stState.config.fps
+                        timestamp: now * 1000, // microsegundos
+                        duration: (1000 / stState.config.fps) * 1000
                     });
 
                     if (videoEncoder.encodeQueueSize < 2) {
@@ -565,8 +529,8 @@
                 requestAnimationFrame(drawFrame);
             });
 
-            // CIERRE
-            stDOM.statusText.innerText = "Procesando...";
+            // FINALIZAR
+            stDOM.statusText.innerText = "Procesando archivo...";
             stopAudio = true;
             await videoEncoder.flush();
             await audioEncoder.flush();
@@ -577,10 +541,12 @@
             stShowFinalUI();
         }
 
-        // 7. DIBUJO
+        // --- 5. DIBUJO ---
         function roundRect(ctx, x, y, w, h, r) {
             if (w < 2 * r) r = w / 2; if (h < 2 * r) r = h / 2;
-            ctx.moveTo(x+r, y); ctx.arcTo(x+w, y, x+w, y+h, r); ctx.arcTo(x+w, y+h, x, y+h, r); ctx.arcTo(x, y+h, x, y, r); ctx.arcTo(x, y, x+w, y, r); ctx.closePath();
+            ctx.moveTo(x+r, y); ctx.arcTo(x+w, y, x+w, y+h, r);
+            ctx.arcTo(x+w, y+h, x, y+h, r); ctx.arcTo(x, y+h, x, y, r);
+            ctx.arcTo(x, y, x+w, y, r); ctx.closePath();
         }
 
         function stPrepareStaticLayer() {
@@ -592,6 +558,7 @@
 
             sCtx.fillStyle = '#000000'; sCtx.fillRect(0, 0, w, h);
 
+            // Tarjeta
             const cardW = w * 0.90; const cardH = h * 0.75;
             const cardX = (w - cardW) / 2; const cardY = (h - cardH) / 2;
             sCtx.shadowColor = 'rgba(29, 185, 84, 0.6)'; sCtx.shadowBlur = 80;
@@ -599,6 +566,7 @@
             sCtx.beginPath(); roundRect(sCtx, cardX, cardY, cardW, cardH, 20); sCtx.fill();
             sCtx.shadowBlur = 0; sCtx.strokeStyle = '#282828'; sCtx.lineWidth = 1; sCtx.stroke();
 
+            // Cover
             const imgSize = cardW * 0.85; const imgX = (w - imgSize) / 2; const imgY = cardY + 25;
             sCtx.save(); sCtx.beginPath(); roundRect(sCtx, imgX, imgY, imgSize, imgSize, 8);
             sCtx.clip();
@@ -606,6 +574,7 @@
             catch(e) { sCtx.fillStyle = "#333"; sCtx.fillRect(imgX, imgY, imgSize, imgSize); }
             sCtx.restore();
 
+            // Textos
             const title = stState.currentTrackTitle || "Track Desconocido";
             const artist = stState.currentSetData ? stState.currentSetData.title : "Vloitz Set";
             const textX = imgX; let cursorY = imgY + imgSize + 25;
@@ -629,7 +598,6 @@
             for (let i = 0; i < 20; i++) {
                 let targetHeight = 5 + Math.abs(Math.sin(frame * 0.2 + i) * 15) + Math.random() * 10;
                 if (isKick && i < 6) targetHeight += 30;
-                if (i > 6 && i < 14) targetHeight += Math.random() * 15;
                 if (targetHeight > stState.audioData[i]) stState.audioData[i] = targetHeight;
                 else stState.audioData[i] *= 0.85;
             }
@@ -640,6 +608,8 @@
             const cardW = w * 0.90; const cardH = h * 0.75;
             const startX = (w - (w * 0.90 * 0.85)) / 2;
             const imgSize = w * 0.90 * 0.85;
+
+            // Barras y Progreso
             const cardY = (h - cardH) / 2;
             const cursorY = (cardY + 25) + imgSize + 25 + 20 + 18;
             const barsBaseY = cursorY + 40;
@@ -657,6 +627,7 @@
             stCtx.fillStyle = "#1DB954"; stCtx.fillRect(startX, progY, imgSize * progress, 3);
             stCtx.beginPath(); stCtx.arc(startX + (imgSize * progress), progY + 1.5, 3, 0, Math.PI*2); stCtx.fill();
 
+            // Tiempo
             const timeY = barsBaseY + 10 + 15;
             stCtx.fillStyle = "#666"; stCtx.font = "400 9px Inter, sans-serif"; stCtx.textAlign = "left";
             const currentTotalSecs = Math.floor(stState.startTime + secondsElapsed);
@@ -664,6 +635,7 @@
             stCtx.fillText(`${m}:${s.toString().padStart(2,'0')}`, startX, timeY);
             stCtx.textAlign = "right"; stCtx.fillText("HIFI", startX + imgSize, timeY);
 
+            // Badge
             const badgeY = timeY + 5;
             stCtx.textAlign = "center"; stCtx.strokeStyle = "#1DB954"; stCtx.lineWidth = 1;
             stCtx.strokeRect((w - 60)/2, badgeY, 60, 16);
@@ -689,7 +661,7 @@
                 document.body.appendChild(a); a.click(); document.body.removeChild(a);
             };
         }
-</script>
+    </script>
 
 </body>
 </html>
