@@ -524,21 +524,40 @@
                 requestAnimationFrame(drawFrame);
             });
 
+
+            // --- BLOQUE DE FINALIZACIÓN CORREGIDO ---
             stDOM.statusText.innerText = "Finalizando...";
             stopAudio = true;
 
-            // LIMPIEZA DE LECTOR DE AUDIO (SOLUCIÓN AL ERROR)
+            // 1. Detener lectura de audio (Importante hacerlo antes de tocar los encoders)
             try {
-                await audioReader.cancel(); // Primero cancelamos
-                audioReader.releaseLock();  // Luego soltamos
+                await audioReader.cancel();
+                audioReader.releaseLock();
             } catch(e) { console.log("Audio reader closed cleanly"); }
 
-            await videoEncoder.flush();
-            await audioEncoder.flush();
+            // 2. FLUSH Y CLOSE (El "Secreto" para que no crashee en móvil)
+            try {
+                // PASO A: Esperar a que todo lo pendiente se procese
+                // Si intentas cerrar sin hacer flush primero, da el error "Closed Codec"
+                await videoEncoder.flush();
+                await audioEncoder.flush();
+
+                // PASO B: Ahora sí es seguro cerrar (libera memoria del celular)
+                videoEncoder.close();
+                audioEncoder.close();
+
+            } catch (e) {
+                console.error("Error durante el cierre de codecs:", e);
+                // No lanzamos error fatal aquí para intentar salvar el archivo si es posible
+            }
+
+            // 3. Finalizar el contenedor MP4
             muxer.finalize();
 
             stState.finalBlob = new Blob([muxer.target.buffer], { type: 'video/mp4' });
             stShowFinalUI();
+            // --- FIN BLOQUE CORREGIDO ---
+
         }
 
         // --- DIBUJO & AUTO-FIT TEXTO ---
