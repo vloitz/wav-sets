@@ -239,7 +239,7 @@
 
     <script src="app.js"></script>
 
-    <div id="storyOverlay">
+<div id="storyOverlay">
         <button class="story-close-global" id="stCloseBtn">&times;</button>
 
         <div class="story-card-wrapper">
@@ -544,10 +544,13 @@
         }
 
         async function runEncodingLoop() {
+            // [CORRECCIÓN CRÍTICA] Aquí estaba el error. Agregado fastStart: 'in-memory'
             let muxer = new Muxer({
                 target: new ArrayBufferTarget(),
-                video: { codec: 'avc', width: stState.config.width, height: stState.config.height }
+                video: { codec: 'avc', width: stState.config.width, height: stState.config.height },
+                fastStart: 'in-memory'
             });
+
             let videoEncoder = new VideoEncoder({
                 output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
                 error: e => console.error(e)
@@ -609,6 +612,7 @@
             };
         }
     </script>
+
 
 </body>
 </html>
