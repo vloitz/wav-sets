@@ -467,12 +467,18 @@
             }
         });
 
-        // --- ENCODING LOOP ---
+        // --- FUNCIÓN INTELIGENTE: HÍBRIDO (PC vs MÓVIL) ---
         async function runRealTimeEncoding() {
+            // DETECTAR SI ES MÓVIL
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+            console.log(isMobile ? "[MODO MÓVIL] Usando Audio Directo" : "[MODO PC] Usando Grabación en Vivo");
+
+            // Configuración común
             let muxer = new Muxer({
                 target: new ArrayBufferTarget(),
                 video: { codec: 'avc', width: stState.config.width, height: stState.config.height },
-                audio: { codec: 'aac', numberOfChannels: 2, sampleRate: stState.audioContext.sampleRate },
+                audio: { codec: 'aac', numberOfChannels: 2, sampleRate: 44100 },
                 fastStart: 'in-memory',
                 firstTimestampBehavior: 'offset'
             });
@@ -491,28 +497,80 @@
                 error: e => console.error("Audio Error:", e)
             });
             audioEncoder.configure({
-                codec: 'mp4a.40.2', numberOfChannels: 2, sampleRate: stState.audioContext.sampleRate, bitrate: 128000
+                codec: 'mp4a.40.2', numberOfChannels: 2, sampleRate: 44100, bitrate: 128000
             });
 
-            const audioTrack = stState.mediaStreamDest.stream.getAudioTracks()[0];
-            const trackProcessor = new MediaStreamTrackProcessor({ track: audioTrack });
-            const audioReader = trackProcessor.readable.getReader();
+            // -----------------------------------------------------
+            // RAMA 1: MODO MÓVIL (Solución "Audio Directo")
+            // -----------------------------------------------------
+            if (isMobile) {
+                stDOM.statusText.innerText = "Preparando audio...";
+                const mainAudio = document.getElementById('audio-player');
+                if (!mainAudio.paused) mainAudio.pause(); // Pausar para evitar conflictos
 
-            let stopAudio = false;
-            const processAudio = async () => {
-                while (!stopAudio && stState.isEncoding) {
-                    try {
-                        const result = await audioReader.read();
-                        if (result.done) break;
-                        if (result.value) {
+                try {
+                    // 1. Descargar
+                    const response = await fetch(stState.currentSetData.audio_url);
+                    const arrayBuffer = await response.arrayBuffer();
+
+                    // 2. Decodificar Offline
+                    const offlineCtx = new OfflineAudioContext(2, 44100 * stState.config.duration, 44100);
+                    const audioBuffer = await offlineCtx.decodeAudioData(arrayBuffer);
+
+                    // 3. Preparar Fuente
+                    const source = offlineCtx.createBufferSource();
+                    source.buffer = audioBuffer;
+                    const dest = offlineCtx.createMediaStreamDestination();
+                    source.connect(dest);
+                    source.start(0, stState.startTime, stState.config.duration);
+
+                    // 4. Conectar al Encoder
+                    const audioTrack = dest.stream.getAudioTracks()[0];
+                    const trackProcessor = new MediaStreamTrackProcessor({ track: audioTrack });
+                    const audioReader = trackProcessor.readable.getReader();
+
+                    // Procesar Audio
+                    offlineCtx.startRendering();
+                    const processAudio = async () => {
+                        while (stState.isEncoding) {
+                            const result = await audioReader.read();
+                            if (result.done) break;
                             audioEncoder.encode(result.value);
                             result.value.close();
                         }
-                    } catch(e) { break; }
-                }
-            };
-            processAudio();
+                    };
+                    processAudio();
 
+                } catch (err) {
+                    alert("Error en móvil: " + err.message);
+                    stState.isEncoding = false;
+                    resetModule();
+                    return;
+                }
+            }
+            // -----------------------------------------------------
+            // RAMA 2: MODO PC (Tu método original "Grabación")
+            // -----------------------------------------------------
+            else {
+                // Usamos el stream que ya capturamos del <audio> (setupAudioCapture)
+                const audioTrack = stState.mediaStreamDest.stream.getAudioTracks()[0];
+                const trackProcessor = new MediaStreamTrackProcessor({ track: audioTrack });
+                const audioReader = trackProcessor.readable.getReader();
+
+                const processAudio = async () => {
+                    while (stState.isEncoding) {
+                        const result = await audioReader.read();
+                        if (result.done) break;
+                        audioEncoder.encode(result.value);
+                        result.value.close();
+                    }
+                };
+                processAudio();
+            }
+
+            // -----------------------------------------------------
+            // BUCLE VISUAL (Común para ambos)
+            // -----------------------------------------------------
             const startTime = performance.now();
             const durationMs = stState.config.duration * 1000;
             let frameCount = 0;
@@ -521,23 +579,29 @@
                 const drawFrame = async (now) => {
                     if (!stState.isEncoding) { resolve(); return; }
                     const elapsed = now - startTime;
+
                     if (elapsed >= durationMs) {
                         stState.isEncoding = false;
                         resolve();
                         return;
                     }
 
+                    // UI
                     stDOM.progressFill.style.width = (elapsed / durationMs) * 100 + "%";
+
+                    // Dibujar Canvas
                     stUpdateAudioSimulation(frameCount);
                     stCtx.drawImage(stState.staticCanvas, 0, 0);
                     stDrawDynamicLayer(elapsed / 1000);
 
+                    // Frame de Video
                     const vFrame = new VideoFrame(stDOM.canvas, {
-                        timestamp: now * 1000,
+                        timestamp: elapsed * 1000,
                         duration: (1000 / stState.config.fps) * 1000
                     });
 
-                    if (videoEncoder.encodeQueueSize < 2) {
+                    // Control de flujo (Flush suave)
+                    if (videoEncoder.encodeQueueSize < (isMobile ? 5 : 2)) {
                         videoEncoder.encode(vFrame, { keyFrame: frameCount % 30 === 0 });
                     }
                     vFrame.close();
@@ -547,34 +611,28 @@
                 requestAnimationFrame(drawFrame);
             });
 
-
-        // --- BLOQUE FINALIZACIÓN V2 (FIX AUDIO MÓVIL) ---
+            // -----------------------------------------------------
+            // FINALIZACIÓN (Segura)
+            // -----------------------------------------------------
             stDOM.statusText.innerText = "Finalizando...";
-            stopAudio = true; // Esto detiene el bucle while de audio
-
-            // CAMBIO CLAVE: No usamos .cancel() porque en Android puede matar el stream antes de tiempo.
-            // Simplemente soltamos el "candado" (lock) y dejamos que el sistema limpie.
-            try {
-                audioReader.releaseLock();
-            } catch(e) { console.log("Audio lock released"); }
 
             try {
-                // Aseguramos que el audio pendiente entre al archivo
+                // Flush y Close
                 await videoEncoder.flush();
                 await audioEncoder.flush();
-
                 videoEncoder.close();
                 audioEncoder.close();
-            } catch (e) {
-                console.error("Cierre de codecs:", e);
-            }
+            } catch (e) { console.error(e); }
 
             muxer.finalize();
             stState.finalBlob = new Blob([muxer.target.buffer], { type: 'video/mp4' });
-            stShowFinalUI();
-            // --- FIN BLOQUE V2 ---
 
+            // Si pausamos la música en móvil, podríamos reanudarla aquí si quieres:
+            // if(isMobile) document.getElementById('audio-player').play();
+
+            stShowFinalUI();
         }
+
 
         // --- DIBUJO & AUTO-FIT TEXTO ---
         function roundRect(ctx, x, y, w, h, r) {
