@@ -670,3 +670,113 @@ body, html {
     width: 0%; /* Empieza vacía por defecto */
     /* La animación se controlará vía JS */
 }
+
+/* ==========================================================================
+   [MODULE START] VLOITZ STORY GENERATOR (Integración Estilos)
+   ========================================================================== */
+
+/* 1. Botón Trigger (Dentro del Modal Compartir) */
+.story-trigger-btn {
+    display: flex; align-items: center; justify-content: center;
+    width: 48px; height: 48px; border-radius: 50%;
+    border: none; cursor: pointer; color: white;
+    font-size: 20px;
+    transition: transform 0.2s;
+    background: linear-gradient(135deg, #FF0080, #7928CA);
+    position: relative;
+    text-decoration: none;
+    margin-left: 10px; /* Separación visual */
+}
+.story-trigger-btn:hover { transform: translateY(-3px); }
+
+/* Badge de "Nuevo" */
+.story-trigger-btn::after {
+    content: ''; position: absolute; top: 0; right: 0; width: 12px; height: 12px;
+    background: #1db954; border-radius: 50%; border: 2px solid #282828;
+}
+
+/* 2. Contenedor Principal (Superposición Pantalla Completa) */
+#storyOverlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.95);
+    z-index: 9999;
+    display: none;
+    flex-direction: column; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 0.3s ease;
+}
+#storyOverlay.active { display: flex; opacity: 1; }
+
+/* Botón cerrar global (X) */
+.story-close-global {
+    position: absolute; top: 20px; right: 20px;
+    background: rgba(255,255,255,0.1); border: none; color: white;
+    width: 40px; height: 40px; border-radius: 50%; cursor: pointer;
+    font-size: 24px; z-index: 10001;
+    display: flex; align-items: center; justify-content: center;
+}
+.story-close-global:hover { background: rgba(255,255,255,0.3); }
+
+/* 3. Estilos Internos de la Tarjeta */
+.story-card-wrapper {
+    position: relative; width: 360px; max-width: 100%;
+    text-align: center; font-family: 'Inter', sans-serif;
+}
+/* Fase 1: Intro */
+#stViewIntro {
+    background: #121212; padding: 25px; border-radius: 20px;
+    box-shadow: 0 0 50px rgba(29, 185, 84, 0.15);
+}
+.st-album-art { width: 100%; height: 280px; object-fit: cover; border-radius: 12px; margin-bottom: 20px; }
+.st-title { font-size: 22px; font-weight: 700; margin: 5px 0; color: white; }
+.st-artist { color: #888; font-size: 14px; margin-bottom: 20px; }
+
+/* Toggle Calidad */
+.st-quality-control {
+    display: inline-flex; align-items: center; gap: 10px; margin-bottom: 25px;
+    background: rgba(255,255,255,0.05); padding: 8px 20px; border-radius: 30px;
+}
+.st-switch { position: relative; display: inline-block; width: 40px; height: 22px; }
+.st-switch input { opacity: 0; width: 0; height: 0; }
+.st-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #333; transition: .4s; border-radius: 34px; }
+.st-slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+input:checked + .st-slider { background-color: #1DB954; }
+input:checked + .st-slider:before { transform: translateX(18px); }
+.st-quality-label { font-size: 11px; font-weight: 700; color: #aaa; text-transform: uppercase; }
+
+/* Botón Crear */
+.st-create-btn {
+    background: #1db954; color: black; border: none; width: 100%; padding: 16px;
+    border-radius: 50px; font-size: 15px; font-weight: 800; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    box-shadow: 0 0 20px rgba(29, 185, 84, 0.4); transition: transform 0.2s;
+}
+.st-create-btn:hover { transform: scale(1.02); background: #1ed760; }
+
+/* Fase 2: Canvas */
+#stViewProcess { display: none; }
+#storyCanvas {
+    width: 320px; height: 568px; background: #000;
+    border-radius: 12px; box-shadow: 0 0 30px rgba(0,0,0,0.5);
+}
+.st-process-ui { margin-top: 15px; width: 100%; display: flex; flex-direction: column; align-items: center; }
+.st-status-text { color: #1DB954; font-weight: 800; font-size: 12px; margin-bottom: 5px; }
+.st-progress-bg { width: 200px; height: 4px; background: #333; border-radius: 2px; overflow: hidden; }
+.st-progress-fill { height: 100%; width: 0%; background: #1DB954; transition: width 0.1s; }
+
+/* Acciones Finales */
+#stFinalActions { display: none; margin-top: 20px; width: 100%; text-align: center; }
+.st-wa-btn {
+    background: #25D366; color: white; border: none; padding: 14px 0; width: 100%;
+    border-radius: 50px; font-weight: 800; font-size: 16px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 15px;
+}
+.st-secondary-actions { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+.st-download-link { background: none; border: none; color: #666; font-size: 11px; cursor: pointer; text-decoration: underline; }
+.st-retry-btn {
+    background: rgba(255,255,255,0.1); color: #fff; border: 1px solid #333;
+    padding: 8px 20px; border-radius: 20px; font-size: 12px; cursor: pointer;
+}
+
+/* ==========================================================================
+   [MODULE END] VLOITZ STORY GENERATOR (Integración Estilos)
+   ========================================================================== */
