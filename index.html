@@ -281,12 +281,11 @@
         </div>
     </div>
 
-<script type="module">
+    <script type="module">
         import { Muxer, ArrayBufferTarget } from 'https://esm.sh/mp4-muxer@5.1.0';
 
-        console.log("[STORY MODULE] Motor Real-Time (Audio+Video) Cargado.");
+        console.log("[STORY MODULE] Motor V8 (Audio+Video Sync) Iniciado.");
 
-        // 1. REFERENCIAS DOM
         const stDOM = {
             openBtn: document.getElementById('stOpenBtn'),
             closeBtn: document.getElementById('stCloseBtn'),
@@ -310,21 +309,15 @@
 
         const stCtx = stDOM.canvas.getContext('2d', { alpha: false, desynchronized: true });
 
-        // 2. ESTADO GLOBAL
         const stState = {
-            deviceRAM: navigator.deviceMemory || 4,
-            isLowEnd: (navigator.deviceMemory || 4) <= 2,
             isEncoding: false,
             finalBlob: null,
-            finalFileName: "",
-            audioData: new Array(20).fill(5), // Simulador visual
+            audioData: new Array(20).fill(5),
             staticCanvas: null,
             config: {},
             currentSetData: null,
             startTime: 0,
             currentTrackTitle: "",
-
-            // Audio Web API
             audioContext: null,
             mediaStreamDest: null,
             sourceNode: null
@@ -333,66 +326,51 @@
         const stCoverImg = new Image();
         stCoverImg.crossOrigin = "Anonymous";
 
-        // 3. CONFIGURACIÓN DE AUDIO (CABLES VIRTUALES)
+        // --- 1. CONFIGURACIÓN AUDIO (SPLITTER) ---
         function setupAudioCapture() {
-            // Evitar reconectar si ya existe
             if (stState.audioContext) return;
 
             try {
-                console.log("[AUDIO] Iniciando configuración de captura...");
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
                 stState.audioContext = new AudioContext();
-
                 const audioEl = document.getElementById('audio-player');
 
-                // Crear nodo fuente (Solo una vez)
                 if (!stState.sourceNode) {
-                    try {
-                        stState.sourceNode = stState.audioContext.createMediaElementSource(audioEl);
-                    } catch (e) {
-                        console.warn("[AUDIO] Nodo ya existía, intentando reusar o ignorar error:", e);
-                    }
+                    stState.sourceNode = stState.audioContext.createMediaElementSource(audioEl);
                 }
 
-                if (stState.sourceNode) {
-                    // Destino para la grabadora
-                    stState.mediaStreamDest = stState.audioContext.createMediaStreamDestination();
+                stState.mediaStreamDest = stState.audioContext.createMediaStreamDestination();
 
-                    // CONEXIÓN 1: Hacia la grabadora
-                    stState.sourceNode.connect(stState.mediaStreamDest);
+                // CABLE 1: Hacia la grabadora (Video)
+                stState.sourceNode.connect(stState.mediaStreamDest);
 
-                    // CONEXIÓN 2: Hacia los altavoces (¡PARA NO SILENCIAR!)
-                    stState.sourceNode.connect(stState.audioContext.destination);
+                // CABLE 2: Hacia los altavoces (Para que NO se silencie)
+                stState.sourceNode.connect(stState.audioContext.destination);
 
-                    console.log("[AUDIO] ✅ Cables conectados: Grabadora + Altavoces activos.");
-                }
+                console.log("[AUDIO] Sistema conectado (Splitter Activo).");
             } catch (e) {
-                console.error("[AUDIO] ❌ Error fatal en setup:", e);
+                console.warn("[AUDIO] Nota:", e);
             }
         }
 
-        // 4. EVENTOS UI
-        stDOM.hqToggle.checked = !stState.isLowEnd;
-        updateLabel();
-        stDOM.hqToggle.addEventListener('change', updateLabel);
-
-        function updateLabel() {
-            stDOM.qualityText.innerText = stDOM.hqToggle.checked ? "Alta Calidad" : "Modo Seguro";
-            stDOM.qualityText.style.color = stDOM.hqToggle.checked ? "#fff" : "#1DB954";
+        // --- 2. UI & EVENTOS ---
+        if(stDOM.hqToggle) {
+            stDOM.hqToggle.addEventListener('change', () => {
+                stDOM.qualityText.innerText = stDOM.hqToggle.checked ? "Alta Calidad" : "Modo Seguro";
+                stDOM.qualityText.style.color = stDOM.hqToggle.checked ? "#fff" : "#1DB954";
+            });
         }
 
-        // ABRIR Y LEER DATOS
         if(stDOM.openBtn) {
             stDOM.openBtn.addEventListener('click', () => {
                 const realSet = window.currentLoadedSet;
                 const wave = window.wavesurfer;
 
                 if (realSet && wave) {
-                    console.log("[DATA] Leyendo set:", realSet.title);
                     stState.currentSetData = realSet;
                     stState.startTime = wave.getCurrentTime();
 
-                    // Calcular Track
+                    // Calcular Track Actual
                     let activeTrackName = realSet.title;
                     if (realSet.tracklist) {
                         for (let i = realSet.tracklist.length - 1; i >= 0; i--) {
@@ -407,13 +385,10 @@
                     }
                     stState.currentTrackTitle = activeTrackName;
 
-                    // UI
+                    // Actualizar UI
                     stDOM.uiTitle.innerText = activeTrackName;
                     stDOM.uiCover.src = realSet.cover_art_url;
                     stCoverImg.src = realSet.cover_art_url;
-                } else {
-                    console.warn("[DATA] Datos no disponibles en window.");
-                    stDOM.uiTitle.innerText = "Reproduce música primero";
                 }
 
                 stDOM.overlay.classList.add('active');
@@ -436,21 +411,16 @@
             stState.isEncoding = false;
         }
 
-        // 5. INICIAR GRABACIÓN
+        // --- 3. INICIAR ---
         stDOM.startBtn.addEventListener('click', async () => {
             if (stState.isEncoding) return;
 
-            // Preparar Audio
             setupAudioCapture();
-            if (stState.audioContext && stState.audioContext.state === 'suspended') {
-                await stState.audioContext.resume();
-            }
+            if (stState.audioContext.state === 'suspended') await stState.audioContext.resume();
 
-            // Asegurar Play
             const audioEl = document.getElementById('audio-player');
             if (audioEl.paused) audioEl.play();
 
-            // Configuración
             stDOM.viewIntro.style.display = 'none';
             stDOM.viewProcess.style.display = 'block';
             stState.isEncoding = true;
@@ -458,41 +428,33 @@
             const isHQ = stDOM.hqToggle.checked;
             stState.config = {
                 width: 360, height: 640, duration: 15,
-                fps: isHQ ? 30 : 24,
-                bitrate: isHQ ? 2500000 : 1000000
+                fps: isHQ ? 30 : 24, bitrate: isHQ ? 2500000 : 1000000
             };
 
-            stDOM.statusText.innerText = "Grabando audio en vivo...";
+            stDOM.statusText.innerText = "Grabando... (Espera 15s)";
             stPrepareStaticLayer();
 
             try { await runRealTimeEncoding(); }
             catch (e) {
-                console.error("[GRABACIÓN] Error:", e);
-                alert("Error técnico. Revisa la consola.");
-                stState.isEncoding = false;
-                resetModule();
+                console.error(e); alert("Error. Revisa consola.");
+                stState.isEncoding = false; resetModule();
             }
         });
 
-        // 6. LOOP DE GRABACIÓN (REAL-TIME CON AUDIO)
+        // --- 4. MOTOR DE GRABACIÓN (CORREGIDO) ---
         async function runRealTimeEncoding() {
-            console.log("[ENCODER] Iniciando Muxer...");
-
+            // CONFIGURACIÓN MUXER CON FIX DE TIMESTAMP
             let muxer = new Muxer({
                 target: new ArrayBufferTarget(),
                 video: { codec: 'avc', width: stState.config.width, height: stState.config.height },
-                audio: {
-                    codec: 'aac',
-                    numberOfChannels: 2,
-                    sampleRate: stState.audioContext.sampleRate
-                },
+                audio: { codec: 'aac', numberOfChannels: 2, sampleRate: stState.audioContext.sampleRate },
                 fastStart: 'in-memory',
-                firstTimestampBehavior: 'offset' // <--- LA SOLUCIÓN AL ERROR DE TIMESTAMP
+                firstTimestampBehavior: 'offset' // <--- ¡ESTA LÍNEA ARREGLA EL ERROR!
             });
 
             let videoEncoder = new VideoEncoder({
                 output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
-                error: e => console.error("Video Enc Error:", e)
+                error: e => console.error("Video Fail:", e)
             });
             videoEncoder.configure({
                 codec: 'avc1.42001E', width: stState.config.width, height: stState.config.height,
@@ -501,26 +463,25 @@
 
             let audioEncoder = new AudioEncoder({
                 output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
-                error: e => console.error("Audio Enc Error:", e)
+                error: e => console.error("Audio Fail:", e)
             });
             audioEncoder.configure({
-                codec: 'mp4a.40.2',
-                numberOfChannels: 2,
-                sampleRate: stState.audioContext.sampleRate,
-                bitrate: 128000
+                codec: 'mp4a.40.2', numberOfChannels: 2, sampleRate: stState.audioContext.sampleRate, bitrate: 128000
             });
 
-            // LECTOR DE AUDIO
+            // LEER AUDIO DEL STREAM
             const audioTrack = stState.mediaStreamDest.stream.getAudioTracks()[0];
             const trackProcessor = new MediaStreamTrackProcessor({ track: audioTrack });
             const audioReader = trackProcessor.readable.getReader();
 
-            // Loop de Audio (Paralelo)
+            // PROCESAR AUDIO EN PARALELO
             let stopAudio = false;
             const processAudio = async () => {
                 while (!stopAudio && stState.isEncoding) {
                     const result = await audioReader.read();
                     if (result.done) break;
+                    // Enviamos el chunk de audio tal cual llega
+                    // Gracias a 'firstTimestampBehavior: offset', el muxer ajustará el tiempo a 0.
                     if (result.value) {
                         audioEncoder.encode(result.value);
                         result.value.close();
@@ -529,7 +490,7 @@
             };
             processAudio();
 
-            // Loop de Video (Sincronizado con Reloj)
+            // LOOP VISUAL (Sincronizado por Reloj Real)
             const startTime = performance.now();
             const durationMs = stState.config.duration * 1000;
             let frameCount = 0;
@@ -537,7 +498,6 @@
             await new Promise((resolve) => {
                 const drawFrame = async (now) => {
                     if (!stState.isEncoding) { resolve(); return; }
-
                     const elapsed = now - startTime;
                     if (elapsed >= durationMs) {
                         stState.isEncoding = false;
@@ -545,23 +505,21 @@
                         return;
                     }
 
-                    // UI
-                    const pct = (elapsed / durationMs) * 100;
-                    stDOM.progressFill.style.width = pct + "%";
-
-                    // Visuales
+                    // Actualizar UI y Barras
+                    stDOM.progressFill.style.width = (elapsed / durationMs) * 100 + "%";
                     stUpdateAudioSimulation(frameCount);
                     stCtx.drawImage(stState.staticCanvas, 0, 0);
-                    stDrawDynamicLayer(elapsed / 1000); // Pasamos segundos transcurridos
+                    stDrawDynamicLayer(elapsed / 1000);
 
-                    // Encode
+                    // Generar Frame de Video
+                    // Usamos 'now' (tiempo absoluto) para que coincida con el reloj del audio
                     const vFrame = new VideoFrame(stDOM.canvas, {
-                        timestamp: elapsed * 1000, // Microsegundos
+                        timestamp: now * 1000, // microsegundos
                         duration: (1000 / stState.config.fps) * 1000
                     });
 
                     if (videoEncoder.encodeQueueSize < 2) {
-                        videoEncoder.encode(vFrame, { keyFrame: frameCount % (stState.config.fps * 2) === 0 });
+                        videoEncoder.encode(vFrame, { keyFrame: frameCount % 30 === 0 });
                     }
                     vFrame.close();
 
@@ -571,11 +529,9 @@
                 requestAnimationFrame(drawFrame);
             });
 
-            // Finalizar
-            console.log("[ENCODER] Finalizando...");
-            stDOM.statusText.innerText = "Procesando...";
+            // FINALIZAR
+            stDOM.statusText.innerText = "Procesando archivo...";
             stopAudio = true;
-
             await videoEncoder.flush();
             await audioEncoder.flush();
             muxer.finalize();
@@ -585,7 +541,7 @@
             stShowFinalUI();
         }
 
-        // 7. DIBUJO Y AUXILIARES
+        // --- 5. DIBUJO ---
         function roundRect(ctx, x, y, w, h, r) {
             if (w < 2 * r) r = w / 2; if (h < 2 * r) r = h / 2;
             ctx.moveTo(x+r, y); ctx.arcTo(x+w, y, x+w, y+h, r);
@@ -601,14 +557,16 @@
             const w = stState.config.width; const h = stState.config.height;
 
             sCtx.fillStyle = '#000000'; sCtx.fillRect(0, 0, w, h);
+
+            // Tarjeta
             const cardW = w * 0.90; const cardH = h * 0.75;
             const cardX = (w - cardW) / 2; const cardY = (h - cardH) / 2;
-
             sCtx.shadowColor = 'rgba(29, 185, 84, 0.6)'; sCtx.shadowBlur = 80;
             sCtx.fillStyle = '#121212';
             sCtx.beginPath(); roundRect(sCtx, cardX, cardY, cardW, cardH, 20); sCtx.fill();
             sCtx.shadowBlur = 0; sCtx.strokeStyle = '#282828'; sCtx.lineWidth = 1; sCtx.stroke();
 
+            // Cover
             const imgSize = cardW * 0.85; const imgX = (w - imgSize) / 2; const imgY = cardY + 25;
             sCtx.save(); sCtx.beginPath(); roundRect(sCtx, imgX, imgY, imgSize, imgSize, 8);
             sCtx.clip();
@@ -616,6 +574,7 @@
             catch(e) { sCtx.fillStyle = "#333"; sCtx.fillRect(imgX, imgY, imgSize, imgSize); }
             sCtx.restore();
 
+            // Textos
             const title = stState.currentTrackTitle || "Track Desconocido";
             const artist = stState.currentSetData ? stState.currentSetData.title : "Vloitz Set";
             const textX = imgX; let cursorY = imgY + imgSize + 25;
@@ -639,7 +598,6 @@
             for (let i = 0; i < 20; i++) {
                 let targetHeight = 5 + Math.abs(Math.sin(frame * 0.2 + i) * 15) + Math.random() * 10;
                 if (isKick && i < 6) targetHeight += 30;
-                if (i > 6 && i < 14) targetHeight += Math.random() * 15;
                 if (targetHeight > stState.audioData[i]) stState.audioData[i] = targetHeight;
                 else stState.audioData[i] *= 0.85;
             }
@@ -648,13 +606,14 @@
         function stDrawDynamicLayer(secondsElapsed) {
             const w = stState.config.width; const h = stState.config.height;
             const cardW = w * 0.90; const cardH = h * 0.75;
+            const startX = (w - (w * 0.90 * 0.85)) / 2;
+            const imgSize = w * 0.90 * 0.85;
+
+            // Barras y Progreso
             const cardY = (h - cardH) / 2;
-            const imgSize = cardW * 0.85;
-            const imgY = cardY + 25;
-            const cursorY = imgY + imgSize + 25 + 20 + 18;
+            const cursorY = (cardY + 25) + imgSize + 25 + 20 + 18;
             const barsBaseY = cursorY + 40;
-            const startX = (w - imgSize) / 2;
-            const gap = 3; const barWidth = (imgSize - ((20-1)*gap)) / 20;
+            const gap = 3; const barWidth = (imgSize - (19*gap)) / 20;
 
             for(let i=0; i < 20; i++) {
                 let height = Math.max(4, stState.audioData[i]);
@@ -668,21 +627,17 @@
             stCtx.fillStyle = "#1DB954"; stCtx.fillRect(startX, progY, imgSize * progress, 3);
             stCtx.beginPath(); stCtx.arc(startX + (imgSize * progress), progY + 1.5, 3, 0, Math.PI*2); stCtx.fill();
 
+            // Tiempo
             const timeY = barsBaseY + 10 + 15;
             stCtx.fillStyle = "#666"; stCtx.font = "400 9px Inter, sans-serif"; stCtx.textAlign = "left";
-
             const currentTotalSecs = Math.floor(stState.startTime + secondsElapsed);
-            const m = Math.floor(currentTotalSecs / 60);
-            const s = currentTotalSecs % 60;
-            const timeStr = `${m}:${s.toString().padStart(2,'0')}`;
+            const m = Math.floor(currentTotalSecs / 60); const s = currentTotalSecs % 60;
+            stCtx.fillText(`${m}:${s.toString().padStart(2,'0')}`, startX, timeY);
+            stCtx.textAlign = "right"; stCtx.fillText("HIFI", startX + imgSize, timeY);
 
-            stCtx.fillText(timeStr, startX, timeY);
-            stCtx.textAlign = "right";
-            stCtx.fillText("HIFI", startX + imgSize, timeY);
-
+            // Badge
             const badgeY = timeY + 5;
-            stCtx.textAlign = "center";
-            stCtx.strokeStyle = "#1DB954"; stCtx.lineWidth = 1;
+            stCtx.textAlign = "center"; stCtx.strokeStyle = "#1DB954"; stCtx.lineWidth = 1;
             stCtx.strokeRect((w - 60)/2, badgeY, 60, 16);
             stCtx.fillStyle = "#1DB954"; stCtx.font = "700 9px Inter, sans-serif";
             stCtx.fillText("FLAC • HIFI", w/2, badgeY + 11);
@@ -691,16 +646,14 @@
         function stShowFinalUI() {
             stDOM.loadingUI.style.display = 'none';
             stDOM.finalActions.style.display = 'block';
-            console.log("[STORY MODULE] Completado. Blob size:", stState.finalBlob.size);
 
             stDOM.shareWaBtn.onclick = async () => {
                 if (!stState.finalBlob) return;
                 const file = new File([stState.finalBlob], "story.mp4", { type: 'video/mp4' });
                 if (navigator.canShare && navigator.canShare({ files: [file] })) {
                     try { await navigator.share({ files: [file] }); } catch (e) {}
-                } else { alert("Navegador no soporta compartir."); }
+                } else { alert("Usa descargar manual."); }
             };
-
             stDOM.dlManualBtn.onclick = () => {
                 if (!stState.finalBlob) return;
                 const url = URL.createObjectURL(stState.finalBlob);
