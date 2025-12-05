@@ -294,10 +294,10 @@
         </div>
     </div>
 
-    <script type="module">
+<script type="module">
         import { Muxer, ArrayBufferTarget } from 'https://esm.sh/mp4-muxer@5.1.0';
 
-        console.log("[STORY MODULE] V9: Auto-Fit Text & Clean Audio Exit");
+        console.log("[STORY MODULE] V10: Hybrid Engine + Dynamic Sample Rate");
 
         const stDOM = {
             openBtn: document.getElementById('stOpenBtn'),
@@ -333,15 +333,16 @@
             currentTrackTitle: "",
             audioContext: null,
             mediaStreamDest: null,
-            sourceNode: null
+            sourceNode: null,
+            gainNode: null
         };
 
         const stCoverImg = new Image();
         stCoverImg.crossOrigin = "Anonymous";
 
-        // --- AUDIO SETUP MEJORADO (FIX ANDROID SILENCIO) ---
+        // --- AUDIO SETUP (BRIDGE) ---
+        // Prepara el audio para grabación en vivo (Modo PC)
         function setupAudioCapture() {
-            // 1. Iniciar Contexto
             if (!stState.audioContext) {
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
                 stState.audioContext = new AudioContext();
@@ -349,37 +350,29 @@
 
             const audioEl = document.getElementById('audio-player');
 
-            // 2. Crear el Source Node (SOLO UNA VEZ)
-            // OJO: createMediaElementSource solo se puede llamar 1 vez por elemento en la vida de la página.
+            // Crear Source (Solo una vez)
             if (!stState.sourceNode) {
                 stState.sourceNode = stState.audioContext.createMediaElementSource(audioEl);
             }
 
-            // 3. Crear nodo "Puente" (GainNode)
-            // Esto es el truco: Android no ignora el audio si pasa por un nodo de proceso.
+            // Crear Bridge (GainNode)
             if (!stState.gainNode) {
                 stState.gainNode = stState.audioContext.createGain();
-                stState.gainNode.gain.value = 1.0; // Volumen intacto
+                stState.gainNode.gain.value = 1.0;
 
-                // Conectar: Fuente -> Puente
+                // Conectar: Source -> Bridge -> Speakers
                 stState.sourceNode.connect(stState.gainNode);
-
-                // Conectar: Puente -> Altavoces (Para que lo sigas oyendo)
                 stState.gainNode.connect(stState.audioContext.destination);
             }
 
-            // 4. Crear destino del Stream (Grabadora)
-            // Lo recreamos cada vez para asegurar que esté fresco
+            // Crear Destino de Grabación
             if (stState.mediaStreamDest) {
-                // Si existe uno viejo, desconectarlo para evitar doble grabación
                 try { stState.gainNode.disconnect(stState.mediaStreamDest); } catch(e){}
             }
             stState.mediaStreamDest = stState.audioContext.createMediaStreamDestination();
-
-            // Conectar: Puente -> Grabadora
             stState.gainNode.connect(stState.mediaStreamDest);
 
-            console.log("[AUDIO SETUP] Sistema de audio 'Bridge' activo para Android.");
+            console.log(`[AUDIO SETUP] Bridge activo. SampleRate: ${stState.audioContext.sampleRate}`);
         }
 
         // --- UI EVENTS ---
@@ -434,17 +427,22 @@
             stState.isEncoding = false;
         }
 
-        // --- START RECORDING ---
+        // --- START BUTTON ---
         stDOM.startBtn.addEventListener('click', async () => {
             if (stState.isEncoding) return;
+
+            // Inicializar Audio Context en interacción de usuario
             setupAudioCapture();
             if (stState.audioContext.state === 'suspended') await stState.audioContext.resume();
+
+            // Asegurar reproducción
             const audioEl = document.getElementById('audio-player');
             if (audioEl.paused) audioEl.play();
 
-            // RE-SYNC TIEMPO AL INICIAR
+            // Sincronizar tiempo
             if (window.wavesurfer) stState.startTime = window.wavesurfer.getCurrentTime();
 
+            // UI
             stDOM.viewIntro.style.display = 'none';
             stDOM.viewProcess.style.display = 'block';
             stState.isEncoding = true;
@@ -455,117 +453,130 @@
                 fps: isHQ ? 30 : 24, bitrate: isHQ ? 2500000 : 1000000
             };
 
-            stDOM.statusText.innerText = "Grabando Clip...";
+            stDOM.statusText.innerText = "Configurando...";
             stPrepareStaticLayer();
 
             try { await runRealTimeEncoding(); }
             catch (e) {
                 console.error(e);
                 stState.isEncoding = false;
-                alert("Ocurrió un error. Revisa la consola.");
+                alert("Error: " + e.message);
                 resetModule();
             }
         });
 
-// --- FUNCIÓN HÍBRIDA V3: SINCRONIZADA Y ROBUSTA ---
+        // --- ENGINE PRINCIPAL (CORREGIDO) ---
         async function runRealTimeEncoding() {
             const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-            console.log(isMobile ? "[MODO MÓVIL] Iniciando..." : "[MODO PC] Iniciando...");
+            console.log(isMobile ? "[ENGINE] Modo: MÓVIL (Descarga)" : "[ENGINE] Modo: PC (Live)");
 
-            stDOM.statusText.innerText = "Iniciando motor...";
+            // Variables de Audio
+            let audioStreamTrack;
+            let mobileAudioContext = null;
+            let finalSampleRate = 44100; // Valor por defecto, se actualizará
 
-            // 1. Configuración del Muxer (Con VideoEncoder y AudioEncoder)
+            // --- FASE 1: PREPARACIÓN DE AUDIO ---
+            if (isMobile) {
+                stDOM.statusText.innerText = "Descargando audio...";
+                const mainAudio = document.getElementById('audio-player');
+                if (!mainAudio.paused) mainAudio.pause(); // Silenciar principal en móvil
+
+                try {
+                    // 1. Descargar
+                    const response = await fetch(stState.currentSetData.audio_url);
+                    const arrayBuffer = await response.arrayBuffer();
+
+                    // 2. Crear contexto temporal
+                    mobileAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    finalSampleRate = mobileAudioContext.sampleRate; // OBTENER SR REAL
+
+                    const audioBuffer = await mobileAudioContext.decodeAudioData(arrayBuffer);
+
+                    // 3. Crear nodo fuente
+                    const source = mobileAudioContext.createBufferSource();
+                    source.buffer = audioBuffer;
+
+                    const dest = mobileAudioContext.createMediaStreamDestination();
+                    source.connect(dest);
+
+                    // 4. Iniciar reproducción interna
+                    source.start(0, stState.startTime);
+
+                    audioStreamTrack = dest.stream.getAudioTracks()[0];
+                    console.log(`[MOBILE AUDIO] Listo. SR: ${finalSampleRate}`);
+
+                } catch (err) {
+                    throw new Error("Fallo audio móvil: " + err.message);
+                }
+            } else {
+                // Modo PC: Usar el contexto existente
+                audioStreamTrack = stState.mediaStreamDest.stream.getAudioTracks()[0];
+                finalSampleRate = stState.audioContext.sampleRate; // OBTENER SR REAL
+                console.log(`[PC AUDIO] Listo. SR: ${finalSampleRate}`);
+            }
+
+            // --- FASE 2: CONFIGURACIÓN DE CODIFICADORES ---
+            stDOM.statusText.innerText = "Grabando...";
+
             let muxer = new Muxer({
                 target: new ArrayBufferTarget(),
                 video: { codec: 'avc', width: stState.config.width, height: stState.config.height },
-                audio: { codec: 'aac', numberOfChannels: 2, sampleRate: 44100 },
+                audio: { codec: 'aac', numberOfChannels: 2, sampleRate: finalSampleRate }, // <--- CLAVE: SR DINÁMICO
                 fastStart: 'in-memory',
-                firstTimestampBehavior: 'offset' // <--- ESTO ES CLAVE: Muxer alineará el tiempo 0 automáticamente
+                firstTimestampBehavior: 'offset'
             });
 
             let videoEncoder = new VideoEncoder({
                 output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
-                error: e => console.error("Video Error:", e)
+                error: e => console.error("Video Encode Error:", e)
             });
             videoEncoder.configure({
-                codec: 'avc1.42001E', width: stState.config.width, height: stState.config.height,
-                bitrate: stState.config.bitrate, framerate: stState.config.fps
+                codec: 'avc1.42001E',
+                width: stState.config.width,
+                height: stState.config.height,
+                bitrate: stState.config.bitrate,
+                framerate: stState.config.fps
             });
 
             let audioEncoder = new AudioEncoder({
                 output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
-                error: e => console.error("Audio Error:", e)
+                error: e => console.error("Audio Encode Error:", e)
             });
+
+            // CONFIGURAR CON EL SAMPLE RATE REAL DETECTADO
             audioEncoder.configure({
-                codec: 'mp4a.40.2', numberOfChannels: 2, sampleRate: 44100, bitrate: 128000
+                codec: 'mp4a.40.2',
+                numberOfChannels: 2,
+                sampleRate: finalSampleRate,
+                bitrate: 128000
             });
 
-            // 2. Preparar la Fuente de Audio (La diferencia entre PC y Móvil)
-            let audioStreamTrack;
-            let mobileAudioContext = null; // Para limpieza posterior
+            // --- FASE 3: BUCLES DE PROCESO ---
 
-            if (isMobile) {
-                // --- MÓVIL: DESCARGA + REPRODUCCIÓN INTERNA (A velocidad normal) ---
-                stDOM.statusText.innerText = "Preparando audio...";
-                const mainAudio = document.getElementById('audio-player');
-                if (!mainAudio.paused) mainAudio.pause(); // Silenciar principal
-
-                try {
-                    // A. Descargar
-                    const response = await fetch(stState.currentSetData.audio_url);
-                    const arrayBuffer = await response.arrayBuffer();
-                    
-                    // B. Crear contexto temporal (Standard, NO Offline, para que vaya a velocidad real)
-                    mobileAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-                    if(mobileAudioContext.state === 'suspended') await mobileAudioContext.resume();
-                    
-                    const audioBuffer = await mobileAudioContext.decodeAudioData(arrayBuffer);
-
-                    // C. Crear fuente y destino
-                    const source = mobileAudioContext.createBufferSource();
-                    source.buffer = audioBuffer;
-                    
-                    const dest = mobileAudioContext.createMediaStreamDestination();
-                    
-                    // Conectar Fuente -> Destino (NO a speakers, así no suena doble)
-                    source.connect(dest);
-                    
-                    // D. Iniciar reproducción interna en el punto exacto
-                    source.start(0, stState.startTime); 
-                    
-                    // Capturar el track
-                    audioStreamTrack = dest.stream.getAudioTracks()[0];
-
-                } catch (err) {
-                    alert("Error audio móvil: " + err.message);
-                    stState.isEncoding = false;
-                    resetModule();
-                    return;
-                }
-            } else {
-                // --- PC: GRABACIÓN EN VIVO (Usando el puente que ya configuraste) ---
-                audioStreamTrack = stState.mediaStreamDest.stream.getAudioTracks()[0];
-            }
-
-            // 3. Iniciar Procesador de Audio (Común)
+            // A. Audio Loop
             const trackProcessor = new MediaStreamTrackProcessor({ track: audioStreamTrack });
             const audioReader = trackProcessor.readable.getReader();
 
-            // Bucle de lectura de audio
             const processAudio = async () => {
                 while (stState.isEncoding) {
                     try {
                         const result = await audioReader.read();
                         if (result.done) break;
-                        // El Muxer se encarga de restar el timestamp inicial gracias a 'offset'
-                        audioEncoder.encode(result.value);
+
+                        // Verificar estado antes de codificar
+                        if (audioEncoder.state === 'configured') {
+                            audioEncoder.encode(result.value);
+                        }
                         result.value.close();
-                    } catch (e) { console.error(e); break; }
+                    } catch (e) {
+                        console.error("Audio Read Loop:", e);
+                        break;
+                    }
                 }
             };
-            processAudio(); // Correr en paralelo
+            processAudio();
 
-            // 4. Bucle Visual (Renderizado de Video)
+            // B. Video Loop
             const startTime = performance.now();
             const durationMs = stState.config.duration * 1000;
             let frameCount = 0;
@@ -573,8 +584,7 @@
             await new Promise((resolve) => {
                 const drawFrame = async (now) => {
                     if (!stState.isEncoding) { resolve(); return; }
-                    
-                    // Calcular tiempo transcurrido
+
                     const elapsed = now - startTime;
 
                     if (elapsed >= durationMs) {
@@ -583,53 +593,52 @@
                         return;
                     }
 
-                    // UI
+                    // UI Update
                     stDOM.progressFill.style.width = (elapsed / durationMs) * 100 + "%";
 
-                    // Dibujar Canvas
+                    // Render Canvas
                     stUpdateAudioSimulation(frameCount);
                     stCtx.drawImage(stState.staticCanvas, 0, 0);
                     stDrawDynamicLayer(elapsed / 1000);
 
-                    // --- CORRECCIÓN CRÍTICA DE TIMESTAMP ---
-                    // Usamos 'now' (System Time) en lugar de 'elapsed' (0-based)
-                    // Esto alinea el video con el audio que también usa System Time.
-                    // El Muxer restará el inicio automáticamente.
+                    // Create Frame
                     const vFrame = new VideoFrame(stDOM.canvas, {
-                        timestamp: now * 1000, // microsegundos del sistema
+                        timestamp: now * 1000, // Sync con reloj del sistema (igual que audio)
                         duration: (1000 / stState.config.fps) * 1000
                     });
 
-                    // Control de flujo para no ahogar el móvil
-                    if (videoEncoder.encodeQueueSize < (isMobile ? 4 : 2)) {
-                        videoEncoder.encode(vFrame, { keyFrame: frameCount % 30 === 0 });
-                    } else {
-                        // Si la cola está llena, saltamos frame pero cerramos el objeto
-                        // console.log("Frame dropped");
+                    // Flow Control
+                    if (videoEncoder.encodeQueueSize < (isMobile ? 5 : 3)) {
+                        if (videoEncoder.state === 'configured') {
+                            videoEncoder.encode(vFrame, { keyFrame: frameCount % 30 === 0 });
+                        }
                     }
                     vFrame.close();
-                    
+
                     frameCount++;
                     requestAnimationFrame(drawFrame);
                 };
                 requestAnimationFrame(drawFrame);
             });
 
-            // 5. Finalización
-            stDOM.statusText.innerText = "Guardando...";
-            
-            // Detener lectura de audio
-            try { audioReader.cancel(); } catch(e){}
+            // --- FASE 4: CIERRE Y GUARDADO ---
+            stDOM.statusText.innerText = "Finalizando...";
 
             try {
-                await videoEncoder.flush();
-                await audioEncoder.flush();
+                // Detener lector
+                await audioReader.cancel();
+            } catch(e) {}
+
+            try {
+                // Flush encoders
+                if (videoEncoder.state === 'configured') await videoEncoder.flush();
+                if (audioEncoder.state === 'configured') await audioEncoder.flush();
+
                 videoEncoder.close();
                 audioEncoder.close();
-                
-                // Limpieza extra para móvil
-                if(mobileAudioContext) mobileAudioContext.close(); 
-                
+
+                if(mobileAudioContext) mobileAudioContext.close();
+
             } catch (e) { console.error("Error al cerrar:", e); }
 
             muxer.finalize();
@@ -637,7 +646,7 @@
             stShowFinalUI();
         }
 
-        // --- DIBUJO & AUTO-FIT TEXTO ---
+        // --- UTILS (DIBUJO) ---
         function roundRect(ctx, x, y, w, h, r) {
             if (w < 2 * r) r = w / 2; if (h < 2 * r) r = h / 2;
             ctx.moveTo(x+r, y); ctx.arcTo(x+w, y, x+w, y+h, r);
@@ -645,12 +654,9 @@
             ctx.arcTo(x, y, x+w, y, r); ctx.closePath();
         }
 
-        // [NUEVO] Función para ajustar texto automáticamente
         function drawFitText(ctx, text, x, y, maxWidth, initialSize) {
             let size = initialSize;
             ctx.font = "900 " + size + "px Inter, sans-serif";
-
-            // Reducir tamaño mientras el texto sea más ancho que el contenedor
             while (ctx.measureText(text).width > maxWidth && size > 10) {
                 size--;
                 ctx.font = "900 " + size + "px Inter, sans-serif";
@@ -681,7 +687,6 @@
             catch(e) { sCtx.fillStyle = "#333"; sCtx.fillRect(imgX, imgY, imgSize, imgSize); }
             sCtx.restore();
 
-            // TEXTOS
             const title = stState.currentTrackTitle || "Track Desconocido";
             const artist = stState.currentSetData ? stState.currentSetData.title : "Vloitz Set";
             const textX = imgX; let cursorY = imgY + imgSize + 25;
@@ -690,8 +695,7 @@
             sCtx.fillText("NOW PLAYING 🎵", textX, cursorY);
 
             cursorY += 20; sCtx.fillStyle = "#FFFFFF";
-            // [USO] Usamos la función de ajuste automático aquí
-            drawFitText(sCtx, title, textX, cursorY, imgSize, 20); // Max ancho = ancho imagen, Tamaño inicial = 20
+            drawFitText(sCtx, title, textX, cursorY, imgSize, 20);
 
             cursorY += 18; sCtx.fillStyle = "#B3B3B3"; sCtx.font = "500 12px Inter, sans-serif";
             sCtx.fillText(artist, textX, cursorY);
