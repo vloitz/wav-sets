@@ -340,46 +340,48 @@
         const stCoverImg = new Image();
         stCoverImg.crossOrigin = "Anonymous";
 
-// --- AUDIO SETUP: ESTRATEGIA SHADOW PLAYER ---
+// --- AUDIO SETUP: ESTRATEGIA SHADOW PLAYER (CORS FIX) ---
 function setupAudioCapture() {
-    // Si ya existe contexto y está suspendido, reanudar
-    if (stState.audioContext && stState.audioContext.state === 'suspended') {
-        stState.audioContext.resume();
-    }
-    // Si ya tenemos el Shadow Player configurado, salimos
+    // Si ya tenemos el Shadow Player listo, salimos
     if (stState.shadowAudio) return;
 
     try {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
-        // Usamos latencyHint interactivo para asegurar que Android priorice este proceso
-        stState.audioContext = new AudioContext({ latencyHint: 'interactive', sampleRate: 48000 });
+        // Creamos contexto interactivo
+        if (!stState.audioContext) {
+            stState.audioContext = new AudioContext({ latencyHint: 'interactive', sampleRate: 48000 });
+        }
+        if (stState.audioContext.state === 'suspended') {
+            stState.audioContext.resume();
+        }
 
         // 1. CREAR EL SHADOW PLAYER (Reproductor invisible)
         stState.shadowAudio = new Audio();
         stState.shadowAudio.crossOrigin = "anonymous"; // CRÍTICO: Configurar ANTES del src
 
-        // Evitar caché corrupta agregando un timestamp falso
-        const cleanSrc = stState.currentSetData.audio_url + "?t=" + new Date().getTime();
+        // 2. CACHE BUSTER: Engañamos a Android para que descargue el archivo "nuevo" y limpio
+        // Agregamos un número aleatorio al final de la URL
+        const cleanSrc = stState.currentSetData.audio_url + "?nocache=" + Date.now();
         stState.shadowAudio.src = cleanSrc;
 
-        // Sincronizar tiempo de inicio
+        // Sincronizar tiempo de inicio exacto donde estaba el usuario
         stState.shadowAudio.currentTime = stState.startTime;
 
-        // 2. CREAR NODOS
+        // 3. CONEXIONES WEB AUDIO
         stState.sourceNode = stState.audioContext.createMediaElementSource(stState.shadowAudio);
         stState.mediaStreamDest = stState.audioContext.createMediaStreamDestination();
 
-        // 3. CONECTAR
-        // Conectamos a la grabadora
+        // Conectar a la grabadora
         stState.sourceNode.connect(stState.mediaStreamDest);
-        // Conectamos a los altavoces (para que el usuario escuche el proceso y Android no lo bloquee)
+        // Conectar a los altavoces (Vital para que Android no corte el proceso)
         stState.sourceNode.connect(stState.audioContext.destination);
 
-        console.log("[AUDIO] Shadow Player creado y conectado.");
+        console.log("[AUDIO] Shadow Player creado (Caché evadida).");
 
     } catch (e) { console.warn("[AUDIO ERROR]", e); }
 }
-        // --- UI EVENTS ---
+
+// --- UI EVENTS ---
         if(stDOM.hqToggle) {
             stDOM.hqToggle.addEventListener('change', () => {
                 stDOM.qualityText.innerText = stDOM.hqToggle.checked ? "Alta Calidad" : "Modo Seguro";
@@ -431,29 +433,29 @@ function setupAudioCapture() {
             stState.isEncoding = false;
         }
 
-// --- START RECORDING (ACTUALIZADO SHADOW PLAYER) ---
+// --- START RECORDING (Shadow Mode) ---
         stDOM.startBtn.addEventListener('click', async () => {
             if (stState.isEncoding) return;
 
-            // 1. Pausar el reproductor principal para no escuchar doble
+            // 1. Pausar el reproductor principal (el visible) para no escuchar doble
             const mainAudio = document.getElementById('audio-player');
             if (!mainAudio.paused) mainAudio.pause();
 
             // 2. Preparar el Shadow Player
             setupAudioCapture();
 
-            // 3. Iniciar reproducción del Shadow Player (Gesto de usuario requerido en Android)
+            // 3. Iniciar reproducción del Shadow Player (Requiere gesto de usuario)
             try {
                 await stState.audioContext.resume();
                 await stState.shadowAudio.play();
                 console.log("[AUDIO] Shadow Player reproduciendo...");
             } catch(e) {
                 console.error("Error al iniciar Shadow Audio:", e);
-                alert("Error de reproducción. Toca de nuevo.");
+                alert("Error de seguridad en audio. Intenta recargar.");
                 return;
             }
 
-            // 4. Configurar UI y Encoder
+            // 4. Configurar UI y Encoder (Igual que antes)
             stDOM.viewIntro.style.display = 'none';
             stDOM.viewProcess.style.display = 'block';
             stState.isEncoding = true;
@@ -475,6 +477,7 @@ function setupAudioCapture() {
                 resetModule();
             }
         });
+
         // --- ENGINE ESTABLE + FIX FRECUENCIA ---
         async function runRealTimeEncoding() {
 
@@ -591,8 +594,9 @@ function setupAudioCapture() {
 
 // --- FINALIZAR Y LIMPIAR SHADOW PLAYER ---
             stDOM.statusText.innerText = "Finalizando...";
+            stopAudio = true;
 
-            // Detener el Shadow Player
+            // 1. Matar el Shadow Player
             if (stState.shadowAudio) {
                 stState.shadowAudio.pause();
                 stState.shadowAudio.src = ""; // Liberar memoria
@@ -600,9 +604,8 @@ function setupAudioCapture() {
                 console.log("[AUDIO] Shadow Player destruido.");
             }
 
-            // Reactivar el reproductor principal (Opcional, si quieres que la música vuelva)
-            // const mainAudio = document.getElementById('audio-player');
-            // mainAudio.play();
+            // (Opcional) Si quieres que la música vuelva sola al terminar:
+            // document.getElementById('audio-player').play();
 
             try { audioReader.releaseLock(); } catch(e) {}
 
