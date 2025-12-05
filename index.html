@@ -320,7 +320,11 @@
             audioData: new Array(20).fill(5), // Simulador de barras
             staticCanvas: null,
             config: {},
-            currentSetData: null // Guardará los datos reales
+            currentSetData: null, // Guardará los datos reales
+
+            startTime: 0,
+            currentTrackTitle: ""
+
         };
 
         // Imagen interna para el Canvas (CORS handled)
@@ -339,26 +343,44 @@
             stDOM.qualityText.style.color = stDOM.hqToggle.checked ? "#fff" : "#1DB954";
         }
 
-        // Abrir Overlay (CONEXIÓN DE DATOS REALES)
+        // Abrir Overlay (CONEXIÓN DE DATOS REALES + TIEMPO)
         if(stDOM.openBtn) {
             stDOM.openBtn.addEventListener('click', () => {
-                console.log("[STORY MODULE] Abriendo...");
+                console.log("[STORY MODULE] Abriendo y Sincronizando...");
 
-                // Puente: Leer datos de app.js (window.currentLoadedSet)
+                // 1. Obtener instancias globales
                 const realSet = window.currentLoadedSet;
+                const wavesurfer = window.wavesurfer;
 
-                if (realSet) {
+                if (realSet && wavesurfer) {
                     stState.currentSetData = realSet;
-                    // Actualizar UI Intro
-                    stDOM.uiTitle.innerText = realSet.title;
+
+                    // 2. CAPTURAR TIEMPO ACTUAL
+                    stState.startTime = wavesurfer.getCurrentTime();
+
+                    // 3. CALCULAR QUÉ TRACK ESTÁ SONANDO (Lógica Tracklist)
+                    let activeTrackName = realSet.title; // Fallback al título del set
+                    if (realSet.tracklist && realSet.tracklist.length > 0) {
+                        // Buscar el track correspondiente al tiempo actual
+                        for (let i = realSet.tracklist.length - 1; i >= 0; i--) {
+                            const t = realSet.tracklist[i];
+                            const parts = t.time.split(':');
+                            const tSecs = parseInt(parts[0])*60 + parseInt(parts[1]);
+                            if (stState.startTime >= tSecs) {
+                                activeTrackName = t.title;
+                                break;
+                            }
+                        }
+                    }
+                    stState.currentTrackTitle = activeTrackName;
+
+                    // 4. Actualizar UI del Modal (Vista Previa)
+                    stDOM.uiTitle.innerText = activeTrackName; // Mostrar nombre de canción, no del set
                     stDOM.uiCover.src = realSet.cover_art_url;
-                    // Preparar imagen interna
-                    stCoverImg.src = realSet.cover_art_url;
+                    stCoverImg.src = realSet.cover_art_url; // Para el canvas
+
                 } else {
-                    // Fallback (Datos Dummy si no hay set cargado)
-                    stDOM.uiTitle.innerText = "Selecciona un Set";
-                    stCoverImg.src = "https://i1.sndcdn.com/artworks-mS3G3teAbdAutPAq-7e5HeA-t500x500.png";
-                    stDOM.uiCover.src = stCoverImg.src;
+                    stDOM.uiTitle.innerText = "Error: Reproductor no listo";
                 }
 
                 stDOM.overlay.classList.add('active');
@@ -458,8 +480,9 @@
             sCtx.restore();
 
             // Textos Dinámicos
-            const title = stState.currentSetData ? stState.currentSetData.title : "Track Desconocido";
-            const artist = "Vloitz • Audio Story";
+            // [CAMBIO] Usar el título del TRACK específico, no del Set completo
+            const title = stState.currentTrackTitle || "Track Desconocido";
+            const artist = stState.currentSetData ? stState.currentSetData.title : "Vloitz Set"; // El set pasa a ser el "artista/album"
 
             const textX = imgX;
             let cursorY = imgY + imgSize + 25;
@@ -523,16 +546,18 @@
             const timeY = barsBaseY + 10 + 15;
             stCtx.fillStyle = "#666"; stCtx.font = "400 9px Inter, sans-serif"; stCtx.textAlign = "left";
 
-            // Tiempo Actual (simulado desde 28:44)
-            const startSecs = 1724; // 28:44
-            const currentSecs = startSecs + Math.floor(frame / stState.config.fps);
-            const m = Math.floor(currentSecs / 60); const s = currentSecs % 60;
+            // [CAMBIO] Usar el tiempo real capturado + el avance del video
+            const currentSecs = Math.floor(stState.startTime + (frame / stState.config.fps));
+
+            const m = Math.floor(currentSecs / 60);
+            const s = currentSecs % 60;
             const timeStr = `${m}:${s.toString().padStart(2,'0')}`;
 
             stCtx.fillText(timeStr, startX, timeY);
 
+            // Duración total (opcional: poner la real o dejar fija)
             stCtx.textAlign = "right";
-            stCtx.fillText("58:03", startX + imgSize, timeY);
+            stCtx.fillText("HIFI", startX + imgSize, timeY); // Un detalle estético limpio
 
             // Badge FLAC
             const badgeY = timeY + 5;
