@@ -297,7 +297,7 @@
 <script type="module">
     import { Muxer, ArrayBufferTarget } from 'https://esm.sh/mp4-muxer@5.1.0';
 
-    console.log("[STORY MODULE] V20: LOW RAM MODE + SIGNAL WAIT");
+    console.log("[STORY MODULE] V21: HYBRID BLOB STREAM (Low RAM + Signal Check)");
 
     const stDOM = {
         openBtn: document.getElementById('stOpenBtn'),
@@ -415,52 +415,51 @@
     // --- START BUTTON ---
     stDOM.startBtn.addEventListener('click', async () => {
         if (stState.isEncoding) return;
-        
-        // 1. Feedback UI
-        stDOM.startBtn.disabled = true;
-        stDOM.startBtn.innerText = "Descargando (Bajo Consumo)...";
 
-        // Pausar audio principal
+        stDOM.startBtn.disabled = true;
+        stDOM.startBtn.innerText = "Preparando (Puede tardar 20s)...";
+
         const mainAudio = document.getElementById('audio-player');
         if (!mainAudio.paused) mainAudio.pause();
 
         try {
-            // 2. Descargar Blob (Esto no usa mucha RAM, solo guarda el archivo)
+            // 1. Descargar Blob (Solo el archivo comprimido, ~50MB RAM)
             if (!stState.blobUrl) {
-                console.log("[LOW RAM] Descargando Blob...");
+                console.log("[LOW RAM] Bajando archivo...");
                 const response = await fetch(stState.currentSetData.audio_url);
                 if (!response.ok) throw new Error("Error red");
                 const blob = await response.blob();
                 stState.blobUrl = URL.createObjectURL(blob);
-                console.log("[LOW RAM] Blob listo.");
+                console.log("[LOW RAM] Blob en memoria.");
             }
 
-            // 3. Preparar Shadow Player (Streaming Mode - No Decode)
+            // 2. Configurar Shadow Player (Streaming Mode)
             stState.shadowAudio = new Audio();
             stState.shadowAudio.src = stState.blobUrl;
+            // IMPORTANTE: Seteamos el tiempo ANTES de conectar
             stState.shadowAudio.currentTime = stState.startTime;
             stState.shadowAudio.volume = 1.0;
             stState.shadowAudio.crossOrigin = "anonymous";
 
-            // 4. Web Audio Context
+            // 3. Web Audio Context (Playback Latency para Android)
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             if (!stState.audioContext) stState.audioContext = new AudioContext({ latencyHint: 'playback' });
             if (stState.audioContext.state === 'suspended') await stState.audioContext.resume();
 
-            // 5. Conexiones
+            // 4. Conexiones
             stState.mediaStreamDest = stState.audioContext.createMediaStreamDestination();
             stState.analyserNode = stState.audioContext.createAnalyser();
-            stState.analyserNode.fftSize = 256; // Bajo consumo CPU
+            stState.analyserNode.fftSize = 256;
 
             stState.sourceNode = stState.audioContext.createMediaElementSource(stState.shadowAudio);
-            
-            // source -> analyser -> grabadora
+
+            // CONEXIÓN CRÍTICA: Source -> Analyser -> Grabadora
             stState.sourceNode.connect(stState.analyserNode);
             stState.analyserNode.connect(stState.mediaStreamDest);
-            // source -> altavoces (monitor)
+            // MONITOR: Source -> Altavoces (Necesario para que Android procese)
             stState.sourceNode.connect(stState.audioContext.destination);
 
-            // 6. Oscilador Anti-Sueño
+            // 5. Oscilador Anti-Sueño (Keep Alive)
             const osc = stState.audioContext.createOscillator();
             const gain = stState.audioContext.createGain();
             osc.frequency.value = 1; gain.gain.value = 0.0001;
@@ -468,13 +467,14 @@
             osc.start();
             stState.keepAliveOsc = osc;
 
-            // 7. PLAY y ESPERAR SEÑAL REAL (La clave del éxito)
-            stDOM.startBtn.innerText = "Sincronizando Audio...";
+            // 6. PLAY y ESPERAR "GOLPE DE AUDIO" (Semáforo)
+            stDOM.startBtn.innerText = "Sincronizando...";
             await stState.shadowAudio.play();
 
-            console.log("[SYNC] Esperando señal de audio...");
+            // Esperamos a que el analizador vea sonido real (>0)
+            console.log("[SYNC] Esperando flujo de audio...");
             await waitForAudioSignal();
-            console.log("[SYNC] ¡Señal detectada! Iniciando grabación.");
+            console.log("[SYNC] ¡Audio detectado! Grabando.");
 
         } catch (e) {
             console.error(e);
@@ -483,17 +483,16 @@
             return;
         }
 
-        // 8. Start Video Engine
+        // 7. Arrancar Motor
         stDOM.viewIntro.style.display = 'none';
         stDOM.viewProcess.style.display = 'block';
         stState.isEncoding = true;
-        
-        // Configuración para móviles bajos recursos
+
         const isHQ = stDOM.hqToggle.checked;
         stState.config = {
             width: 360, height: 640, duration: 15,
-            fps: 24, // Forzamos 24fps en móviles gama baja para estabilidad
-            bitrate: isHQ ? 2000000 : 1000000
+            fps: 24, // 24fps para ahorrar CPU
+            bitrate: isHQ ? 1500000 : 1000000
         };
 
         stPrepareStaticLayer();
@@ -507,32 +506,23 @@
         }
     });
 
-    // --- FUNCIÓN DE ESPERA DE SEÑAL ---
+    // --- SEMÁFORO DE AUDIO ---
     function waitForAudioSignal() {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
             const dataArray = new Uint8Array(stState.analyserNode.frequencyBinCount);
             let attempts = 0;
-            const maxAttempts = 100; // Esperar máx 5-10 segundos
-
+            // Intentar durante 4 segundos (80 checks * 50ms)
             const check = setInterval(() => {
                 attempts++;
                 stState.analyserNode.getByteFrequencyData(dataArray);
+                // Sumar volumen de todas las frecuencias
                 const vol = dataArray.reduce((a,b) => a+b, 0);
-                
-                // Si detectamos volumen real (no silencio)
-                if (vol > 0) {
-                    clearInterval(check);
-                    resolve();
-                }
 
-                if (attempts >= maxAttempts) {
+                if (vol > 0 || attempts > 80) { // Si hay sonido O pasó mucho tiempo
                     clearInterval(check);
-                    // Si no llega audio, resolvemos igual para no bloquear, 
-                    // pero el usuario verá el aviso visual.
-                    console.warn("[SYNC] Timeout esperando audio. Iniciando igual.");
-                    resolve(); 
+                    resolve(); // Arrancamos igual
                 }
-            }, 50); // Revisar cada 50ms
+            }, 50);
         });
     }
 
@@ -595,12 +585,12 @@
                     return;
                 }
 
-                // Diagnóstico en pantalla
+                // Diagnóstico Visual (Barra de estado)
                 if (frameCount % 10 === 0) {
                     stState.analyserNode.getByteFrequencyData(dataArray);
                     const vol = dataArray.reduce((a,b)=>a+b,0);
                     if (vol > 0) stDOM.statusText.innerHTML = `<span style="color:#0f0">🔊 GRABANDO (${vol})</span>`;
-                    else stDOM.statusText.innerHTML = `<span style="color:#f00">🔇 BUSCANDO AUDIO...</span>`;
+                    else stDOM.statusText.innerHTML = `<span style="color:#ffaa00">⚠️ Buffering...</span>`;
                 }
 
                 stDOM.progressFill.style.width = (elapsed / durationMs) * 100 + "%";
@@ -626,6 +616,7 @@
         // Finalizar
         stDOM.statusText.innerText = "Finalizando...";
         try { await audioReader.cancel(); } catch(e) {}
+
         try {
             if (videoEncoder.state === 'configured') await videoEncoder.flush();
             videoEncoder.close();
