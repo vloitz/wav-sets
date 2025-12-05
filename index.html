@@ -340,60 +340,57 @@
         const stCoverImg = new Image();
         stCoverImg.crossOrigin = "Anonymous";
 
-        // --- AUDIO SETUP MEJORADO (V13 ANDROID FIX) ---
-        function setupAudioCapture() {
-            // 1. Singleton Check
-            if (stState.audioContext) {
-                // En Android, siempre intentamos resumir por si el sistema lo suspendió
-                if (stState.audioContext.state === 'suspended') {
-                    stState.audioContext.resume();
-                }
-                return;
-            }
-
-            try {
-                const AudioContext = window.AudioContext || window.webkitAudioContext;
-                stState.audioContext = new AudioContext({
-                    latencyHint: 'playback', // Priorizar continuidad sobre latencia
-                    sampleRate: 48000 // Intentar forzar estándar, aunque el encoder se adapta
-                });
-
-                const audioEl = document.getElementById('audio-player');
-
-                // [CRÍTICO] CORS Check: Asegurar que el elemento tenga el atributo antes de conectar
-                if (!audioEl.crossOrigin) audioEl.crossOrigin = "anonymous";
-
-                // Crear Fuente
-                if (!stState.sourceNode) {
-                    stState.sourceNode = stState.audioContext.createMediaElementSource(audioEl);
-                }
-
-                // Crear Destino del Stream
-                stState.mediaStreamDest = stState.audioContext.createMediaStreamDestination();
-
-                // --- EL PARCHE "KEEP-ALIVE" PARA ANDROID ---
-                // Android optimiza streams silenciosos o dependientes del DOM apagándolos.
-                // Creamos un oscilador silenciado que fuerza al grafo a procesar audio constantemente.
-                const keepAliveOsc = stState.audioContext.createOscillator();
-                const keepAliveGain = stState.audioContext.createGain();
-                keepAliveOsc.type = 'square';
-                keepAliveOsc.frequency.setValueAtTime(1, stState.audioContext.currentTime); // 1Hz (inaudible prácticamente)
-                keepAliveGain.gain.setValueAtTime(0.001, stState.audioContext.currentTime); // Ganancia mínima (casi cero) pero no cero absoluto para evitar optimización
-
-                keepAliveOsc.connect(keepAliveGain);
-                keepAliveGain.connect(stState.mediaStreamDest); // Conectar SOLO a la grabadora
-                keepAliveOsc.start();
-                stState.keepAliveOsc = keepAliveOsc; // Guardar referencia para detenerlo luego
-                // -------------------------------------------
-
-                // Conexiones Principales
-                stState.sourceNode.connect(stState.audioContext.destination); // Audio a Altavoces
-                stState.sourceNode.connect(stState.mediaStreamDest);          // Audio a Grabadora
-
-                console.log("[AUDIO V13] Contexto creado con Keep-Alive Oscillator.");
-
-            } catch (e) { console.warn("[AUDIO ERROR]", e); }
+// --- AUDIO SETUP: VERSIÓN "KEEP-ALIVE" PARA ANDROID ---
+function setupAudioCapture() {
+    if (stState.audioContext) {
+        // En Android es vital re-activar siempre el contexto
+        if (stState.audioContext.state === 'suspended') {
+            stState.audioContext.resume();
         }
+        return;
+    }
+
+    try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        // Latency 'playback' ayuda a evitar glitches en móviles
+        stState.audioContext = new AudioContext({ latencyHint: 'playback' });
+
+        const audioEl = document.getElementById('audio-player');
+        if (!audioEl.crossOrigin) audioEl.crossOrigin = "anonymous"; // Seguridad CORS
+
+        if (!stState.sourceNode) {
+            stState.sourceNode = stState.audioContext.createMediaElementSource(audioEl);
+        }
+
+        stState.mediaStreamDest = stState.audioContext.createMediaStreamDestination();
+
+        // --- EL TRUCO DEL OSCILADOR FANTASMA ---
+        // Generamos una onda cuadrada de 1Hz (inaudible)
+        const keepAliveOsc = stState.audioContext.createOscillator();
+        keepAliveOsc.type = 'square';
+        keepAliveOsc.frequency.setValueAtTime(1, stState.audioContext.currentTime);
+
+        // Bajamos el volumen a 0.0001 (virtualmente silencio, pero matemáticamente NO es cero)
+        const keepAliveGain = stState.audioContext.createGain();
+        keepAliveGain.gain.setValueAtTime(0.0001, stState.audioContext.currentTime);
+
+        // Conectamos: Oscilador -> Gain -> GRABADORA (No a los altavoces)
+        keepAliveOsc.connect(keepAliveGain);
+        keepAliveGain.connect(stState.mediaStreamDest);
+        keepAliveOsc.start();
+
+        // Guardamos referencia para apagarlo al final
+        stState.keepAliveOsc = keepAliveOsc;
+
+        // Conectamos la música real
+        stState.sourceNode.connect(stState.audioContext.destination); // Oir mientras grabas
+        stState.sourceNode.connect(stState.mediaStreamDest);          // Grabar
+
+        console.log("[AUDIO] Sistema Keep-Alive activado para Android.");
+
+    } catch (e) { console.warn(e); }
+}
+
         // --- UI EVENTS ---
         if(stDOM.hqToggle) {
             stDOM.hqToggle.addEventListener('change', () => {
@@ -601,16 +598,14 @@
             // --- FINALIZAR CON LIMPIEZA KEEP-ALIVE ---
             stDOM.statusText.innerText = "Finalizando...";
 
-            // 1. Liberar Lock del Stream (Más seguro que cancel() en Android)
-            try { audioReader.releaseLock(); } catch(e) { console.log("Audio lock released"); }
+            try { audioReader.releaseLock(); } catch(e) {}
 
-            // 2. [IMPORTANTE] Detener Oscilador Keep-Alive para liberar memoria
+            // Apagar el oscilador fantasma
             if (stState.keepAliveOsc) {
                 try {
                     stState.keepAliveOsc.stop();
                     stState.keepAliveOsc.disconnect();
                     stState.keepAliveOsc = null;
-                    console.log("[AUDIO] Keep-Alive detenido.");
                 } catch(e) {}
             }
 
