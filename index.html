@@ -297,7 +297,7 @@
 <script type="module">
     import { Muxer, ArrayBufferTarget } from 'https://esm.sh/mp4-muxer@5.1.0';
 
-    const version = "V25: Timestamp Offset + Safe Bitrate";
+    const version = "V26: Timestamp Sanitizer (Fix E=0)";
     console.log(`[STORY MODULE] CARGANDO ${version}`);
 
     const stDOM = {
@@ -357,6 +357,7 @@
             if (realSet && wave) {
                 stState.currentSetData = realSet;
                 stState.startTime = wave.getCurrentTime();
+
                 let activeTrackName = realSet.title;
                 if (realSet.tracklist) {
                     for (let i = realSet.tracklist.length - 1; i >= 0; i--) {
@@ -416,25 +417,23 @@
     stDOM.startBtn.addEventListener('click', async () => {
         if (stState.isEncoding) return;
         stDOM.startBtn.disabled = true;
-        stDOM.startBtn.innerText = "Iniciando V25...";
+        stDOM.startBtn.innerText = "Iniciando V26...";
 
         const mainAudio = document.getElementById('audio-player');
         if (!mainAudio.paused) mainAudio.pause();
 
         try {
             if (!stState.blobUrl) {
-                console.log("[V25] Descargando...");
+                console.log("[V26] Descargando...");
                 const response = await fetch(stState.currentSetData.audio_url);
                 if (!response.ok) throw new Error("Error red");
                 const blob = await response.blob();
                 stState.blobUrl = URL.createObjectURL(blob);
             }
 
-            // Fresh Context
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             stState.audioContext = new AudioContext({ latencyHint: 'playback' });
 
-            // DOM Attach
             stState.shadowAudio = new Audio();
             stState.shadowAudio.src = stState.blobUrl;
             stState.shadowAudio.currentTime = stState.startTime;
@@ -455,7 +454,6 @@
             stState.analyserNode.connect(stState.mediaStreamDest);
             stState.sourceNode.connect(stState.audioContext.destination);
 
-            // Keep Alive
             const osc = stState.audioContext.createOscillator();
             const gain = stState.audioContext.createGain();
             osc.frequency.value = 1; gain.gain.value = 0.0001;
@@ -466,9 +464,9 @@
             stDOM.startBtn.innerText = "Sincronizando...";
             await stState.shadowAudio.play();
 
-            console.log("[V25] Esperando señal...");
+            console.log("[V26] Esperando señal...");
             await waitForAudioSignal();
-            console.log("[V25] Señal OK.");
+            console.log("[V26] Señal OK.");
 
         } catch (e) {
             console.error(e);
@@ -514,20 +512,43 @@
         });
     }
 
+    // --- SANITIZADOR DE AUDIO (FIX E=0) ---
+    function cloneAndSanitizeAudioChunk(originalChunk, newTimestamp) {
+        // Creamos un buffer del tamaño exacto de los datos
+        // allocationSize devuelve el tamaño total necesario para el formato
+        const size = originalChunk.allocationSize({ planeIndex: 0 });
+        const buffer = new ArrayBuffer(size);
+
+        // Copiamos los datos del chunk original al buffer
+        originalChunk.copyTo(buffer, { planeIndex: 0 });
+
+        // Creamos un NUEVO chunk con el timestamp corregido
+        return new AudioData({
+            format: originalChunk.format, // Usamos el mismo formato que trae (f32-planar usualmente)
+            sampleRate: originalChunk.sampleRate,
+            numberOfFrames: originalChunk.numberOfFrames,
+            numberOfChannels: originalChunk.numberOfChannels,
+            timestamp: newTimestamp, // <--- AQUÍ ESTÁ LA MAGIA (Tiempo desde 0)
+            data: buffer
+        });
+    }
+
     async function runRealTimeEncoding() {
         const trackProcessor = new MediaStreamTrackProcessor({ track: stState.mediaStreamDest.stream.getAudioTracks()[0] });
         const audioReader = trackProcessor.readable.getReader();
 
-        // 1. LEER PRIMER PAQUETE (CONFIGURACIÓN)
+        // 1. LEER PRIMER PAQUETE (Para Configurar)
         const firstChunkResult = await audioReader.read();
-        if (firstChunkResult.done) throw new Error("Stream de audio vacío");
-        const firstChunk = firstChunkResult.value;
+        if (firstChunkResult.done) throw new Error("Stream vacío");
+        let firstChunk = firstChunkResult.value;
 
         const realChannels = firstChunk.numberOfChannels;
         const realSampleRate = firstChunk.sampleRate;
-        const baseTimestamp = firstChunk.timestamp; // <--- PUNTO CERO REAL
 
-        console.log(`[V25] Config: ${realChannels}ch, ${realSampleRate}Hz, BaseTS: ${baseTimestamp}`);
+        // GUARDAMOS EL TIEMPO BASE (El "Cero" relativo)
+        const baseAudioTimestamp = firstChunk.timestamp;
+
+        console.log(`[V26] BaseTS: ${baseAudioTimestamp}, Hz: ${realSampleRate}`);
 
         let muxer = new Muxer({
             target: new ArrayBufferTarget(),
@@ -546,7 +567,6 @@
             bitrate: stState.config.bitrate, framerate: stState.config.fps
         });
 
-        // 2. CONFIGURAR AUDIO ENCODER (BITRATE SEGURO)
         let audioChunkCount = 0;
         let readChunkCount = 1;
 
@@ -555,22 +575,24 @@
                 audioChunkCount++;
                 muxer.addAudioChunk(chunk, meta);
             },
-            error: e => console.error("Audio Encoder Internal Error:", e)
+            error: e => console.error("Audio Encoder Fatal:", e)
         });
 
         audioEncoder.configure({
             codec: 'mp4a.40.2',
             numberOfChannels: realChannels,
             sampleRate: realSampleRate,
-            bitrate: 96000 // <--- BITRATE BAJO PARA COMPATIBILIDAD
+            bitrate: 128000
         });
 
-        // 3. ENVIAR PRIMER CHUNK (CLONADO PARA EVITAR CONFLICTOS)
-        // No tocamos el timestamp del primero para probar, dejemos que el Encoder lo maneje
-        audioEncoder.encode(firstChunk);
+        // 2. PROCESAR PRIMER PAQUETE (Sanitizado)
+        // Restamos el tiempo base para que sea 0
+        const sanitizedFirst = cloneAndSanitizeAudioChunk(firstChunk, 0);
+        audioEncoder.encode(sanitizedFirst);
+        sanitizedFirst.close();
         firstChunk.close();
 
-        // 4. BUCLE PRINCIPAL
+        // 3. BUCLE PRINCIPAL (Sanitizando todo)
         const processAudio = async () => {
             while (stState.isEncoding) {
                 try {
@@ -578,12 +600,20 @@
                     if (result.done) break;
                     readChunkCount++;
 
-                    // INTENTO DE ENCODING
+                    const original = result.value;
+
                     if (audioEncoder.state === 'configured') {
-                        // Pasamos el chunk directo. Si falla aquí, es formato.
-                        audioEncoder.encode(result.value);
+                        // Calculamos tiempo relativo: Tiempo Actual - Tiempo Base
+                        const relativeTimestamp = original.timestamp - baseAudioTimestamp;
+
+                        // Si el tiempo es negativo (raro pero posible), lo forzamos a 0 o saltamos
+                        if (relativeTimestamp >= 0) {
+                            const sanitized = cloneAndSanitizeAudioChunk(original, relativeTimestamp);
+                            audioEncoder.encode(sanitized);
+                            sanitized.close();
+                        }
                     }
-                    result.value.close();
+                    original.close(); // Siempre cerrar el original
                 } catch (e) { break; }
             }
         };
@@ -608,11 +638,11 @@
                     stState.analyserNode.getByteFrequencyData(dataArray);
                     const vol = dataArray.reduce((a,b)=>a+b,0);
 
-                    let statusColor = "#f00"; // Rojo
-                    if (readChunkCount > 5) statusColor = "#ffa500"; // Naranja (Leyendo)
-                    if (audioChunkCount > 0) statusColor = "#0f0"; // Verde (Codificando OK)
+                    let color = "#f00";
+                    if (audioChunkCount > 0) color = "#0f0"; // VERDE SI CODIFICA
+                    else if (readChunkCount > 5) color = "#ffa500"; // NARANJA SI LEE PERO NO CODIFICA
 
-                    stDOM.statusText.innerHTML = `<span style="color:${statusColor}">R:${readChunkCount} | E:${audioChunkCount}</span>`;
+                    stDOM.statusText.innerHTML = `<span style="color:${color}">R:${readChunkCount} | E:${audioChunkCount}</span>`;
                 }
 
                 stDOM.progressFill.style.width = (elapsed / durationMs) * 100 + "%";
@@ -652,7 +682,9 @@
         try {
             muxer.finalize();
             const buffer = muxer.target.buffer;
-            console.log(`[V25 REPORT] Read: ${readChunkCount}, Encoded: ${audioChunkCount}`);
+
+            console.log(`[V26 END] Read: ${readChunkCount}, Encoded: ${audioChunkCount}`);
+            if (audioChunkCount === 0) alert("ALERTA: Audio leído pero NO codificado (Format Error).");
 
             if (buffer.byteLength > 0) {
                 stState.finalBlob = new Blob([buffer], { type: 'video/mp4' });
@@ -665,7 +697,7 @@
         }
     }
 
-    // UTILS
+    // UTILS (Sin cambios)
     function roundRect(ctx, x, y, w, h, r) {
         if (w < 2 * r) r = w / 2; if (h < 2 * r) r = h / 2;
         ctx.moveTo(x+r, y); ctx.arcTo(x+w, y, x+w, y+h, r);
