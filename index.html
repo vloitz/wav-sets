@@ -297,9 +297,9 @@
 <script type="module">
     import { Muxer, ArrayBufferTarget } from 'https://esm.sh/mp4-muxer@5.1.0';
 
-    // INDICADOR 1: Hora exacta para confirmar en consola
-    const loadTime = new Date().toLocaleTimeString();
-    console.log(`[STORY MODULE] V21.5 CARGADA A LAS: ${loadTime}`);
+    // INDICADOR VISUAL DE VERSIÓN
+    const version = "V22: Fresh Context (Time Sync Fix)";
+    console.log(`[STORY MODULE] CARGANDO ${version}`);
 
     const stDOM = {
         openBtn: document.getElementById('stOpenBtn'),
@@ -360,6 +360,7 @@
             if (realSet && wave) {
                 stState.currentSetData = realSet;
                 stState.startTime = wave.getCurrentTime();
+                
                 let activeTrackName = realSet.title;
                 if (realSet.tracklist) {
                     for (let i = realSet.tracklist.length - 1; i >= 0; i--) {
@@ -376,12 +377,10 @@
             }
             stDOM.overlay.classList.add('active');
             resetModule();
-
-            // INDICADOR 2: Verificación Visual en la UI
-            // Esto aparecerá debajo de la barra de progreso (aunque esté oculta al inicio)
-            // Para verlo, fíjate cuando cambie a la pantalla de carga.
-            stDOM.statusText.innerText = "Versión V21.5 (Test Audio) ✅";
-            stDOM.statusText.style.color = "#00ff00"; // Verde brillante para confirmar
+            
+            // VERIFICACIÓN VISUAL EN PANTALLA
+            stDOM.statusText.innerText = version; 
+            stDOM.statusText.style.color = "#00ff00";
         });
     }
 
@@ -409,77 +408,77 @@
             stState.shadowAudio.src = "";
             stState.shadowAudio = null;
         }
+        // IMPORTANTE: Cerrar el contexto para resetear el reloj en el próximo intento
+        if (stState.audioContext) {
+            try { stState.audioContext.close(); } catch(e){}
+            stState.audioContext = null;
+        }
         if (stState.blobUrl) {
             URL.revokeObjectURL(stState.blobUrl);
             stState.blobUrl = null;
-        }
-        if (stState.keepAliveOsc) {
-            try { stState.keepAliveOsc.stop(); } catch(e){}
-            stState.keepAliveOsc = null;
         }
     }
 
     // --- START BUTTON ---
     stDOM.startBtn.addEventListener('click', async () => {
         if (stState.isEncoding) return;
-
+        
         stDOM.startBtn.disabled = true;
-        // INDICADOR 3: Feedback en el botón
-        stDOM.startBtn.innerText = "Iniciando V21.5...";
+        stDOM.startBtn.innerText = "Preparando V22...";
 
         const mainAudio = document.getElementById('audio-player');
         if (!mainAudio.paused) mainAudio.pause();
 
         try {
-            // 1. Descargar Blob
+            // 1. Descargar Blob (Si no existe)
             if (!stState.blobUrl) {
-                console.log("[LOW RAM] Bajando archivo...");
+                console.log("[LOW RAM] Descargando...");
                 const response = await fetch(stState.currentSetData.audio_url);
                 if (!response.ok) throw new Error("Error red");
                 const blob = await response.blob();
                 stState.blobUrl = URL.createObjectURL(blob);
-                console.log("[LOW RAM] Blob en memoria.");
             }
 
-            // 2. Configurar Shadow Player
+            // 2. FRESH CONTEXT (La clave del V22)
+            // Creamos uno nuevo CADA VEZ para que el reloj empiece en 0.00
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            stState.audioContext = new AudioContext({ latencyHint: 'playback' });
+            
+            // 3. Setup Shadow Player
             stState.shadowAudio = new Audio();
             stState.shadowAudio.src = stState.blobUrl;
             stState.shadowAudio.currentTime = stState.startTime;
             stState.shadowAudio.volume = 1.0;
-            stState.shadowAudio.crossOrigin = "anonymous";
-
-            // 3. Web Audio Context
-            const AudioContext = window.AudioContext || window.webkitAudioContext;
-            if (!stState.audioContext) stState.audioContext = new AudioContext({ latencyHint: 'playback' });
-            if (stState.audioContext.state === 'suspended') await stState.audioContext.resume();
+            stState.shadowAudio.crossOrigin = "anonymous"; 
 
             // 4. Conexiones
             stState.mediaStreamDest = stState.audioContext.createMediaStreamDestination();
             stState.analyserNode = stState.audioContext.createAnalyser();
-            stState.analyserNode.fftSize = 256;
+            stState.analyserNode.fftSize = 256; 
 
             stState.sourceNode = stState.audioContext.createMediaElementSource(stState.shadowAudio);
-
+            
+            // Source -> Analyser -> Destino (Grabación)
             stState.sourceNode.connect(stState.analyserNode);
             stState.analyserNode.connect(stState.mediaStreamDest);
-            // Monitor para que Android no corte
+            // Source -> Destino (Monitor - Obligatorio en Android)
             stState.sourceNode.connect(stState.audioContext.destination);
 
-            // 5. Oscilador Anti-Sueño
+            // 5. Oscilador Anti-Sleep
             const osc = stState.audioContext.createOscillator();
             const gain = stState.audioContext.createGain();
-            osc.frequency.value = 1; gain.gain.value = 0.0001;
+            osc.frequency.value = 1; gain.gain.value = 0.0001; 
             osc.connect(gain); gain.connect(stState.mediaStreamDest);
             osc.start();
             stState.keepAliveOsc = osc;
 
-            // 6. PLAY y ESPERAR SEÑAL
-            stDOM.startBtn.innerText = "Sincronizando Audio...";
+            // 6. PLAY y Sincronización
+            stDOM.startBtn.innerText = "Sincronizando...";
             await stState.shadowAudio.play();
 
-            console.log("[SYNC] Esperando flujo de audio...");
+            console.log("[SYNC] Esperando señal...");
             await waitForAudioSignal();
-            console.log("[SYNC] ¡Audio detectado! Grabando.");
+            console.log("[SYNC] ¡Señal OK!");
 
         } catch (e) {
             console.error(e);
@@ -488,15 +487,15 @@
             return;
         }
 
-        // 7. Arrancar Motor
+        // 7. Configuración Motor
         stDOM.viewIntro.style.display = 'none';
         stDOM.viewProcess.style.display = 'block';
         stState.isEncoding = true;
-
+        
         const isHQ = stDOM.hqToggle.checked;
         stState.config = {
             width: 360, height: 640, duration: 15,
-            fps: 24,
+            fps: 24, 
             bitrate: isHQ ? 1500000 : 1000000
         };
 
@@ -511,7 +510,6 @@
         }
     });
 
-    // --- SEMÁFORO DE AUDIO ---
     function waitForAudioSignal() {
         return new Promise((resolve) => {
             const dataArray = new Uint8Array(stState.analyserNode.frequencyBinCount);
@@ -520,8 +518,8 @@
                 attempts++;
                 stState.analyserNode.getByteFrequencyData(dataArray);
                 const vol = dataArray.reduce((a,b) => a+b, 0);
-
-                if (vol > 0 || attempts > 80) { // Si hay sonido o timeout (4s)
+                // Si hay volumen o pasaron 3s, arrancamos
+                if (vol > 0 || attempts > 60) {
                     clearInterval(check);
                     resolve();
                 }
@@ -538,7 +536,7 @@
             video: { codec: 'avc', width: stState.config.width, height: stState.config.height },
             audio: { codec: 'aac', numberOfChannels: 2, sampleRate: realSampleRate },
             fastStart: 'in-memory',
-            firstTimestampBehavior: 'offset'
+            firstTimestampBehavior: 'offset' // Intenta alinear timestamps
         });
 
         let videoEncoder = new VideoEncoder({
@@ -550,10 +548,18 @@
             bitrate: stState.config.bitrate, framerate: stState.config.fps
         });
 
+        // CHIVATO DE DATOS
+        let audioChunkCount = 0;
         let audioEncoder = new AudioEncoder({
-            output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
+            output: (chunk, meta) => {
+                audioChunkCount++;
+                // Solo logueamos cada 50 chunks para no saturar, pero confirma flujo
+                if (audioChunkCount % 50 === 0) console.log(`[PACKET] Audio procesado. Timestamp: ${chunk.timestamp}`);
+                muxer.addAudioChunk(chunk, meta);
+            },
             error: e => console.error("Audio Error:", e)
         });
+        
         audioEncoder.configure({
             codec: 'mp4a.40.2', numberOfChannels: 2, sampleRate: realSampleRate, bitrate: 128000
         });
@@ -588,12 +594,12 @@
                     return;
                 }
 
-                // DIAGNÓSTICO EN TIEMPO REAL
                 if (frameCount % 10 === 0) {
                     stState.analyserNode.getByteFrequencyData(dataArray);
                     const vol = dataArray.reduce((a,b)=>a+b,0);
-                    if (vol > 0) stDOM.statusText.innerHTML = `<span style="color:#0f0">🔊 V21 GRABANDO (${vol})</span>`;
-                    else stDOM.statusText.innerHTML = `<span style="color:#ffaa00">⚠️ V21 Buffering...</span>`;
+                    // INDICADOR VERDE V22
+                    if (vol > 0) stDOM.statusText.innerHTML = `<span style="color:#0f0">🔊 REC V22 (${vol}) | Pkts: ${audioChunkCount}</span>`;
+                    else stDOM.statusText.innerHTML = `<span style="color:#f00">🔇 SILENCIO</span>`;
                 }
 
                 stDOM.progressFill.style.width = (elapsed / durationMs) * 100 + "%";
@@ -619,7 +625,7 @@
         // Finalizar
         stDOM.statusText.innerText = "Finalizando...";
         try { await audioReader.cancel(); } catch(e) {}
-
+        
         try {
             if (videoEncoder.state === 'configured') await videoEncoder.flush();
             videoEncoder.close();
@@ -634,6 +640,10 @@
         try {
             muxer.finalize();
             const buffer = muxer.target.buffer;
+            
+            console.log(`[FINISH] Total Audio Packets: ${audioChunkCount}`);
+            if (audioChunkCount === 0) alert("ALERTA: El archivo se creó pero no llegaron paquetes de audio al codificador.");
+
             if (buffer.byteLength > 0) {
                 stState.finalBlob = new Blob([buffer], { type: 'video/mp4' });
                 stShowFinalUI();
