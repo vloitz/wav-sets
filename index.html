@@ -340,57 +340,45 @@
         const stCoverImg = new Image();
         stCoverImg.crossOrigin = "Anonymous";
 
-// --- AUDIO SETUP: VERSIÓN "KEEP-ALIVE" PARA ANDROID ---
+// --- AUDIO SETUP: ESTRATEGIA SHADOW PLAYER ---
 function setupAudioCapture() {
-    if (stState.audioContext) {
-        // En Android es vital re-activar siempre el contexto
-        if (stState.audioContext.state === 'suspended') {
-            stState.audioContext.resume();
-        }
-        return;
+    // Si ya existe contexto y está suspendido, reanudar
+    if (stState.audioContext && stState.audioContext.state === 'suspended') {
+        stState.audioContext.resume();
     }
+    // Si ya tenemos el Shadow Player configurado, salimos
+    if (stState.shadowAudio) return;
 
     try {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
-        // Latency 'playback' ayuda a evitar glitches en móviles
-        stState.audioContext = new AudioContext({ latencyHint: 'playback' });
+        // Usamos latencyHint interactivo para asegurar que Android priorice este proceso
+        stState.audioContext = new AudioContext({ latencyHint: 'interactive', sampleRate: 48000 });
 
-        const audioEl = document.getElementById('audio-player');
-        if (!audioEl.crossOrigin) audioEl.crossOrigin = "anonymous"; // Seguridad CORS
+        // 1. CREAR EL SHADOW PLAYER (Reproductor invisible)
+        stState.shadowAudio = new Audio();
+        stState.shadowAudio.crossOrigin = "anonymous"; // CRÍTICO: Configurar ANTES del src
 
-        if (!stState.sourceNode) {
-            stState.sourceNode = stState.audioContext.createMediaElementSource(audioEl);
-        }
+        // Evitar caché corrupta agregando un timestamp falso
+        const cleanSrc = stState.currentSetData.audio_url + "?t=" + new Date().getTime();
+        stState.shadowAudio.src = cleanSrc;
 
+        // Sincronizar tiempo de inicio
+        stState.shadowAudio.currentTime = stState.startTime;
+
+        // 2. CREAR NODOS
+        stState.sourceNode = stState.audioContext.createMediaElementSource(stState.shadowAudio);
         stState.mediaStreamDest = stState.audioContext.createMediaStreamDestination();
 
-        // --- EL TRUCO DEL OSCILADOR FANTASMA ---
-        // Generamos una onda cuadrada de 1Hz (inaudible)
-        const keepAliveOsc = stState.audioContext.createOscillator();
-        keepAliveOsc.type = 'square';
-        keepAliveOsc.frequency.setValueAtTime(1, stState.audioContext.currentTime);
+        // 3. CONECTAR
+        // Conectamos a la grabadora
+        stState.sourceNode.connect(stState.mediaStreamDest);
+        // Conectamos a los altavoces (para que el usuario escuche el proceso y Android no lo bloquee)
+        stState.sourceNode.connect(stState.audioContext.destination);
 
-        // Bajamos el volumen a 0.0001 (virtualmente silencio, pero matemáticamente NO es cero)
-        const keepAliveGain = stState.audioContext.createGain();
-        keepAliveGain.gain.setValueAtTime(0.0001, stState.audioContext.currentTime);
+        console.log("[AUDIO] Shadow Player creado y conectado.");
 
-        // Conectamos: Oscilador -> Gain -> GRABADORA (No a los altavoces)
-        keepAliveOsc.connect(keepAliveGain);
-        keepAliveGain.connect(stState.mediaStreamDest);
-        keepAliveOsc.start();
-
-        // Guardamos referencia para apagarlo al final
-        stState.keepAliveOsc = keepAliveOsc;
-
-        // Conectamos la música real
-        stState.sourceNode.connect(stState.audioContext.destination); // Oir mientras grabas
-        stState.sourceNode.connect(stState.mediaStreamDest);          // Grabar
-
-        console.log("[AUDIO] Sistema Keep-Alive activado para Android.");
-
-    } catch (e) { console.warn(e); }
+    } catch (e) { console.warn("[AUDIO ERROR]", e); }
 }
-
         // --- UI EVENTS ---
         if(stDOM.hqToggle) {
             stDOM.hqToggle.addEventListener('change', () => {
@@ -443,22 +431,29 @@ function setupAudioCapture() {
             stState.isEncoding = false;
         }
 
-        // --- START BUTTON ---
+// --- START RECORDING (ACTUALIZADO SHADOW PLAYER) ---
         stDOM.startBtn.addEventListener('click', async () => {
             if (stState.isEncoding) return;
 
-            // 1. Iniciar Audio
+            // 1. Pausar el reproductor principal para no escuchar doble
+            const mainAudio = document.getElementById('audio-player');
+            if (!mainAudio.paused) mainAudio.pause();
+
+            // 2. Preparar el Shadow Player
             setupAudioCapture();
-            if (stState.audioContext.state === 'suspended') await stState.audioContext.resume();
 
-            // 2. Asegurar Play
-            const audioEl = document.getElementById('audio-player');
-            if (audioEl.paused) audioEl.play();
+            // 3. Iniciar reproducción del Shadow Player (Gesto de usuario requerido en Android)
+            try {
+                await stState.audioContext.resume();
+                await stState.shadowAudio.play();
+                console.log("[AUDIO] Shadow Player reproduciendo...");
+            } catch(e) {
+                console.error("Error al iniciar Shadow Audio:", e);
+                alert("Error de reproducción. Toca de nuevo.");
+                return;
+            }
 
-            // 3. Sync Tiempo
-            if (window.wavesurfer) stState.startTime = window.wavesurfer.getCurrentTime();
-
-            // UI
+            // 4. Configurar UI y Encoder
             stDOM.viewIntro.style.display = 'none';
             stDOM.viewProcess.style.display = 'block';
             stState.isEncoding = true;
@@ -469,18 +464,17 @@ function setupAudioCapture() {
                 fps: isHQ ? 30 : 24, bitrate: isHQ ? 2500000 : 1000000
             };
 
-            stDOM.statusText.innerText = "Inicializando...";
+            stDOM.statusText.innerText = "Grabando Clip...";
             stPrepareStaticLayer();
 
             try { await runRealTimeEncoding(); }
             catch (e) {
                 console.error(e);
                 stState.isEncoding = false;
-                alert("Error: " + e.message);
+                alert("Ocurrió un error. Revisa la consola.");
                 resetModule();
             }
         });
-
         // --- ENGINE ESTABLE + FIX FRECUENCIA ---
         async function runRealTimeEncoding() {
 
