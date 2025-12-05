@@ -282,46 +282,53 @@
     </div>
 
 <script type="module">
-        // NO IMPORTAMOS EL MUXER AÚN PARA NO GENERAR ERRORES
-        console.log("--- MODO DIAGNÓSTICO INICIADO ---");
+        // --- MODO DIAGNÓSTICO: SIN MUXER, SIN AUDIO, SOLO DATOS ---
+        console.log("--- 🔧 MODO DIAGNÓSTICO INICIADO 🔧 ---");
 
         const stDOM = {
             openBtn: document.getElementById('stOpenBtn'),
             closeBtn: document.getElementById('stCloseBtn'),
             overlay: document.getElementById('storyOverlay'),
             uiTitle: document.getElementById('stUiTitle'),
-            uiCover: document.getElementById('stUiCover')
+            uiCover: document.getElementById('stUiCover'),
+            // Referencias extra para el test
+            qualityText: document.getElementById('stQualityText'),
+            hqToggle: document.getElementById('stHqToggle')
         };
 
-        // 1. VERIFICAR SI EL PUENTE EXISTE AL CARGAR
-        // Esto nos dirá si app.js ya hizo su trabajo
+        // 1. CHEQUEO AUTOMÁTICO AL CARGAR
         setTimeout(() => {
-            console.log("1. Chequeo inicial de window.currentLoadedSet:", window.currentLoadedSet);
+            if (window.currentLoadedSet) {
+                console.log("✅ PUENTE OK: app.js ya expuso 'window.currentLoadedSet'");
+            } else {
+                console.log("⚠️ ESPERANDO: Aún no hay set cargado o falta la línea en app.js");
+            }
         }, 2000);
 
-        // 2. AL HACER CLIC EN EL BOTÓN
+        // 2. AL PULSAR EL BOTÓN
         if(stDOM.openBtn) {
             stDOM.openBtn.addEventListener('click', () => {
-                console.log("--- BOTÓN PRESIONADO ---");
+                console.log("--- 🖱️ BOTÓN PRESIONADO ---");
 
-                // INTENTO DE LECTURA DE DATOS
+                // INTENTO DE LECTURA
                 const realSet = window.currentLoadedSet;
+                const wave = window.wavesurfer;
 
                 if (realSet) {
-                    console.log("✅ DATOS ENCONTRADOS:", realSet.title);
+                    console.log("✅ SET DETECTADO:", realSet.title);
+                    console.log("   - Portada:", realSet.cover_art_url);
 
-                    // Inyectar en la interfaz
-                    stDOM.uiTitle.innerText = realSet.title;
+                    // Inyectar visualmente
+                    stDOM.uiTitle.innerText = "Set: " + realSet.title; // Temporal para verificar
                     stDOM.uiCover.src = realSet.cover_art_url;
 
-                    // Calcular Track Actual (Prueba de lógica)
-                    if(window.wavesurfer) {
-                        const time = window.wavesurfer.getCurrentTime();
-                        console.log("✅ TIEMPO ACTUAL DETECTADO:", time);
+                    // CALCULAR TRACK ACTUAL
+                    if (wave) {
+                        const time = wave.getCurrentTime();
+                        console.log("✅ TIEMPO WAVE DETECTADO:", time.toFixed(2));
 
-                        // Lógica simple de track
-                        let trackName = "Track no encontrado en lista";
-                        if(realSet.tracklist) {
+                        let trackName = "No encontrado en lista";
+                        if (realSet.tracklist) {
                             for (let i = realSet.tracklist.length - 1; i >= 0; i--) {
                                 const t = realSet.tracklist[i];
                                 const parts = t.time.split(':');
@@ -332,16 +339,17 @@
                                 }
                             }
                         }
-                        console.log("✅ TRACK CALCULADO:", trackName);
+                        console.log("✅ TRACK ACTUAL:", trackName);
+                        // Sobrescribir título con el track real
                         stDOM.uiTitle.innerText = trackName;
                     } else {
-                        console.error("❌ NO SE ENCUENTRA window.wavesurfer");
+                        console.error("❌ ERROR: window.wavesurfer no existe (¿app.js lo expuso?)");
                     }
 
                 } else {
-                    console.error("❌ ERROR CRÍTICO: window.currentLoadedSet es undefined.");
-                    console.log("Esto significa que app.js no está enviando la variable global.");
-                    stDOM.uiTitle.innerText = "ERROR DE DATOS";
+                    console.error("❌ ERROR CRÍTICO: 'window.currentLoadedSet' es undefined.");
+                    console.error("   - Causa probable: Falta la línea 'window.currentLoadedSet = set;' en app.js");
+                    stDOM.uiTitle.innerText = "ERROR: DATOS NO LLEGAN";
                 }
 
                 stDOM.overlay.classList.add('active');
@@ -352,6 +360,15 @@
         document.getElementById('stCloseBtn').addEventListener('click', () => {
             stDOM.overlay.classList.remove('active');
         });
+
+        // DUMMY START BTN (Solo para ver si el botón responde)
+        document.getElementById('stStartBtn').addEventListener('click', () => {
+            alert("Modo Diagnóstico: Los datos se ven correctos en pantalla?");
+        });
+
+        // Configurar toggle visualmente para que no se vea feo
+        stDOM.hqToggle.checked = true;
+        stDOM.qualityText.innerText = "Modo Diagnóstico";
     </script>
 
 </body>
