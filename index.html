@@ -297,7 +297,7 @@
 <script type="module">
     import { Muxer, ArrayBufferTarget } from 'https://esm.sh/mp4-muxer@5.1.0';
 
-    const version = "V24: Auto-Config Adaptativo (Fix E=0)";
+    const version = "V25: Timestamp Offset + Safe Bitrate";
     console.log(`[STORY MODULE] CARGANDO ${version}`);
 
     const stDOM = {
@@ -357,7 +357,17 @@
             if (realSet && wave) {
                 stState.currentSetData = realSet;
                 stState.startTime = wave.getCurrentTime();
-                stDOM.uiTitle.innerText = realSet.title;
+                let activeTrackName = realSet.title;
+                if (realSet.tracklist) {
+                    for (let i = realSet.tracklist.length - 1; i >= 0; i--) {
+                        const t = realSet.tracklist[i];
+                        const parts = t.time.split(':');
+                        const tSecs = parseInt(parts[0])*60 + parseInt(parts[1]);
+                        if (stState.startTime >= tSecs) { activeTrackName = t.title; break; }
+                    }
+                }
+                stState.currentTrackTitle = activeTrackName;
+                stDOM.uiTitle.innerText = activeTrackName;
                 stDOM.uiCover.src = realSet.cover_art_url;
                 stCoverImg.src = realSet.cover_art_url;
             }
@@ -406,14 +416,14 @@
     stDOM.startBtn.addEventListener('click', async () => {
         if (stState.isEncoding) return;
         stDOM.startBtn.disabled = true;
-        stDOM.startBtn.innerText = "Iniciando V24...";
+        stDOM.startBtn.innerText = "Iniciando V25...";
 
         const mainAudio = document.getElementById('audio-player');
         if (!mainAudio.paused) mainAudio.pause();
 
         try {
             if (!stState.blobUrl) {
-                console.log("[V24] Descargando...");
+                console.log("[V25] Descargando...");
                 const response = await fetch(stState.currentSetData.audio_url);
                 if (!response.ok) throw new Error("Error red");
                 const blob = await response.blob();
@@ -423,8 +433,8 @@
             // Fresh Context
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             stState.audioContext = new AudioContext({ latencyHint: 'playback' });
-            
-            // DOM Attach (Corporeal Ghost)
+
+            // DOM Attach
             stState.shadowAudio = new Audio();
             stState.shadowAudio.src = stState.blobUrl;
             stState.shadowAudio.currentTime = stState.startTime;
@@ -437,10 +447,10 @@
 
             stState.mediaStreamDest = stState.audioContext.createMediaStreamDestination();
             stState.analyserNode = stState.audioContext.createAnalyser();
-            stState.analyserNode.fftSize = 256; 
+            stState.analyserNode.fftSize = 256;
 
             stState.sourceNode = stState.audioContext.createMediaElementSource(stState.shadowAudio);
-            
+
             stState.sourceNode.connect(stState.analyserNode);
             stState.analyserNode.connect(stState.mediaStreamDest);
             stState.sourceNode.connect(stState.audioContext.destination);
@@ -448,7 +458,7 @@
             // Keep Alive
             const osc = stState.audioContext.createOscillator();
             const gain = stState.audioContext.createGain();
-            osc.frequency.value = 1; gain.gain.value = 0.0001; 
+            osc.frequency.value = 1; gain.gain.value = 0.0001;
             osc.connect(gain); gain.connect(stState.mediaStreamDest);
             osc.start();
             stState.keepAliveOsc = osc;
@@ -456,9 +466,9 @@
             stDOM.startBtn.innerText = "Sincronizando...";
             await stState.shadowAudio.play();
 
-            console.log("[V24] Esperando señal...");
+            console.log("[V25] Esperando señal...");
             await waitForAudioSignal();
-            console.log("[V24] Señal OK.");
+            console.log("[V25] Señal OK.");
 
         } catch (e) {
             console.error(e);
@@ -470,7 +480,7 @@
         stDOM.viewIntro.style.display = 'none';
         stDOM.viewProcess.style.display = 'block';
         stState.isEncoding = true;
-        
+
         const isHQ = stDOM.hqToggle.checked;
         stState.config = {
             width: 360, height: 640, duration: 15,
@@ -505,22 +515,20 @@
     }
 
     async function runRealTimeEncoding() {
-        // --- AQUÍ ESTÁ EL CAMBIO V24 ---
-        // 1. Preparar lector del stream
         const trackProcessor = new MediaStreamTrackProcessor({ track: stState.mediaStreamDest.stream.getAudioTracks()[0] });
         const audioReader = trackProcessor.readable.getReader();
 
-        // 2. Leer PRIMER paquete para ver qué formato trae REALMENTE
+        // 1. LEER PRIMER PAQUETE (CONFIGURACIÓN)
         const firstChunkResult = await audioReader.read();
         if (firstChunkResult.done) throw new Error("Stream de audio vacío");
-        
         const firstChunk = firstChunkResult.value;
+
         const realChannels = firstChunk.numberOfChannels;
         const realSampleRate = firstChunk.sampleRate;
-        
-        console.log(`[V24 AUTO-CONFIG] Canales: ${realChannels}, Hz: ${realSampleRate}`);
+        const baseTimestamp = firstChunk.timestamp; // <--- PUNTO CERO REAL
 
-        // 3. Configurar MUXER con datos reales
+        console.log(`[V25] Config: ${realChannels}ch, ${realSampleRate}Hz, BaseTS: ${baseTimestamp}`);
+
         let muxer = new Muxer({
             target: new ArrayBufferTarget(),
             video: { codec: 'avc', width: stState.config.width, height: stState.config.height },
@@ -538,38 +546,41 @@
             bitrate: stState.config.bitrate, framerate: stState.config.fps
         });
 
-        // 4. Configurar ENCODER con datos reales
+        // 2. CONFIGURAR AUDIO ENCODER (BITRATE SEGURO)
         let audioChunkCount = 0;
-        let readChunkCount = 1; // Ya leímos uno
+        let readChunkCount = 1;
 
         let audioEncoder = new AudioEncoder({
             output: (chunk, meta) => {
                 audioChunkCount++;
                 muxer.addAudioChunk(chunk, meta);
             },
-            error: e => console.error("Audio Encoder Error:", e)
-        });
-        
-        audioEncoder.configure({
-            codec: 'mp4a.40.2', 
-            numberOfChannels: realChannels, // <--- ADAPTATIVO
-            sampleRate: realSampleRate,     // <--- ADAPTATIVO
-            bitrate: 128000
+            error: e => console.error("Audio Encoder Internal Error:", e)
         });
 
-        // 5. Procesar el primer paquete que ya teníamos en la mano
+        audioEncoder.configure({
+            codec: 'mp4a.40.2',
+            numberOfChannels: realChannels,
+            sampleRate: realSampleRate,
+            bitrate: 96000 // <--- BITRATE BAJO PARA COMPATIBILIDAD
+        });
+
+        // 3. ENVIAR PRIMER CHUNK (CLONADO PARA EVITAR CONFLICTOS)
+        // No tocamos el timestamp del primero para probar, dejemos que el Encoder lo maneje
         audioEncoder.encode(firstChunk);
         firstChunk.close();
 
-        // 6. Bucle Normal para el resto
+        // 4. BUCLE PRINCIPAL
         const processAudio = async () => {
             while (stState.isEncoding) {
                 try {
                     const result = await audioReader.read();
                     if (result.done) break;
-                    
                     readChunkCount++;
+
+                    // INTENTO DE ENCODING
                     if (audioEncoder.state === 'configured') {
+                        // Pasamos el chunk directo. Si falla aquí, es formato.
                         audioEncoder.encode(result.value);
                     }
                     result.value.close();
@@ -596,9 +607,12 @@
                 if (frameCount % 15 === 0) {
                     stState.analyserNode.getByteFrequencyData(dataArray);
                     const vol = dataArray.reduce((a,b)=>a+b,0);
-                    // DEBUG EN PANTALLA:
-                    if (vol > 0) stDOM.statusText.innerHTML = `<span style="color:#0f0">R:${readChunkCount} | E:${audioChunkCount} | Config:${realChannels}ch</span>`;
-                    else stDOM.statusText.innerHTML = `<span style="color:#f00">NO SIGNAL</span>`;
+
+                    let statusColor = "#f00"; // Rojo
+                    if (readChunkCount > 5) statusColor = "#ffa500"; // Naranja (Leyendo)
+                    if (audioChunkCount > 0) statusColor = "#0f0"; // Verde (Codificando OK)
+
+                    stDOM.statusText.innerHTML = `<span style="color:${statusColor}">R:${readChunkCount} | E:${audioChunkCount}</span>`;
                 }
 
                 stDOM.progressFill.style.width = (elapsed / durationMs) * 100 + "%";
@@ -623,7 +637,7 @@
 
         stDOM.statusText.innerText = "Finalizando...";
         try { await audioReader.cancel(); } catch(e) {}
-        
+
         try {
             if (videoEncoder.state === 'configured') await videoEncoder.flush();
             videoEncoder.close();
@@ -638,8 +652,8 @@
         try {
             muxer.finalize();
             const buffer = muxer.target.buffer;
-            console.log(`[V24 REPORT] Total Encoded: ${audioChunkCount}`);
-            
+            console.log(`[V25 REPORT] Read: ${readChunkCount}, Encoded: ${audioChunkCount}`);
+
             if (buffer.byteLength > 0) {
                 stState.finalBlob = new Blob([buffer], { type: 'video/mp4' });
                 stShowFinalUI();
