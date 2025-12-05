@@ -297,7 +297,7 @@
 <script type="module">
     import { Muxer, ArrayBufferTarget } from 'https://esm.sh/mp4-muxer@5.1.0';
 
-    const version = "V27: Stereo Fix (Data Size Repair)";
+    const version = "V28: Reloj Sintético (Fix E=0)";
     console.log(`[STORY MODULE] CARGANDO ${version}`);
 
     const stDOM = {
@@ -416,14 +416,14 @@
     stDOM.startBtn.addEventListener('click', async () => {
         if (stState.isEncoding) return;
         stDOM.startBtn.disabled = true;
-        stDOM.startBtn.innerText = "Iniciando V27...";
+        stDOM.startBtn.innerText = "Iniciando V28...";
 
         const mainAudio = document.getElementById('audio-player');
         if (!mainAudio.paused) mainAudio.pause();
 
         try {
             if (!stState.blobUrl) {
-                console.log("[V27] Descargando...");
+                console.log("[V28] Descargando...");
                 const response = await fetch(stState.currentSetData.audio_url);
                 if (!response.ok) throw new Error("Error red");
                 const blob = await response.blob();
@@ -463,9 +463,9 @@
             stDOM.startBtn.innerText = "Sincronizando...";
             await stState.shadowAudio.play();
 
-            console.log("[V27] Esperando señal...");
+            console.log("[V28] Esperando señal...");
             await waitForAudioSignal();
-            console.log("[V27] Señal OK.");
+            console.log("[V28] Señal OK.");
 
         } catch (e) {
             console.error(e);
@@ -511,34 +511,25 @@
         });
     }
 
-    // --- SANITIZADOR CORREGIDO V27 (Estéreo Support) ---
+    // --- SANITIZADOR DE BUFFER Y TIEMPO ---
     function cloneAndSanitizeAudioChunk(originalChunk, newTimestamp) {
-        // 1. Calcular tamaño de 1 plano (1 canal)
+        // Copia profunda de datos (Fix del error de tamaño)
         const planeSize = originalChunk.allocationSize({ planeIndex: 0 });
-        
-        // 2. Calcular tamaño total (Planos * Canales)
         const totalSize = planeSize * originalChunk.numberOfChannels;
-        
-        // 3. Crear buffer grande para todos los datos
         const buffer = new ArrayBuffer(totalSize);
 
-        // 4. Copiar cada canal en su lugar
-        // En formato planar, los canales van uno detrás de otro
         for (let ch = 0; ch < originalChunk.numberOfChannels; ch++) {
             const offset = ch * planeSize;
-            // Crear una vista en la sección correcta del buffer destino
             const destView = new Uint8Array(buffer, offset, planeSize);
-            // Copiar el canal 'ch' ahí
             originalChunk.copyTo(destView, { planeIndex: ch });
         }
 
-        // 5. Crear el nuevo AudioData con el buffer completo
         return new AudioData({
             format: originalChunk.format,
             sampleRate: originalChunk.sampleRate,
             numberOfFrames: originalChunk.numberOfFrames,
             numberOfChannels: originalChunk.numberOfChannels,
-            timestamp: newTimestamp,
+            timestamp: newTimestamp, // Usamos el tiempo sintético aquí
             data: buffer
         });
     }
@@ -547,15 +538,19 @@
         const trackProcessor = new MediaStreamTrackProcessor({ track: stState.mediaStreamDest.stream.getAudioTracks()[0] });
         const audioReader = trackProcessor.readable.getReader();
 
+        // 1. LEER PRIMER PAQUETE (Para configuración)
         const firstChunkResult = await audioReader.read();
         if (firstChunkResult.done) throw new Error("Stream vacío");
-        let firstChunk = firstChunkResult.value;
+        const firstChunk = firstChunkResult.value;
         
         const realChannels = firstChunk.numberOfChannels;
         const realSampleRate = firstChunk.sampleRate;
-        const baseAudioTimestamp = firstChunk.timestamp;
+        
+        // --- RELOJ SINTÉTICO: INICIO EN 0 ---
+        // Ignoramos el timestamp que trae el chunk. Empezamos el nuestro.
+        let syntheticTimestamp = 0; 
 
-        console.log(`[V27] Config: ${realChannels}ch, ${realSampleRate}Hz, BaseTS: ${baseAudioTimestamp}`);
+        console.log(`[V28] Config: ${realChannels}ch, ${realSampleRate}Hz. Clock Reset.`);
 
         let muxer = new Muxer({
             target: new ArrayBufferTarget(),
@@ -592,12 +587,19 @@
             bitrate: 128000
         });
 
-        // Procesar primer paquete (saneado a 0)
-        const sanitizedFirst = cloneAndSanitizeAudioChunk(firstChunk, 0); 
+        // 2. PROCESAR PRIMER PAQUETE CON TIEMPO 0
+        const sanitizedFirst = cloneAndSanitizeAudioChunk(firstChunk, syntheticTimestamp); 
         audioEncoder.encode(sanitizedFirst);
+        
+        // Avanzar el reloj sintético
+        // Duración (us) = (Frames / Hz) * 1,000,000
+        const durationUs = (firstChunk.numberOfFrames * 1000000) / firstChunk.sampleRate;
+        syntheticTimestamp += durationUs;
+
         sanitizedFirst.close();
         firstChunk.close();
 
+        // 3. BUCLE PRINCIPAL (Reloj Sintético)
         const processAudio = async () => {
             while (stState.isEncoding) {
                 try {
@@ -608,13 +610,15 @@
                     const original = result.value;
                     
                     if (audioEncoder.state === 'configured') {
-                        const relativeTimestamp = original.timestamp - baseAudioTimestamp;
-                        if (relativeTimestamp >= 0) {
-                            // AQUÍ LLAMAMOS A LA FUNCIÓN CORREGIDA
-                            const sanitized = cloneAndSanitizeAudioChunk(original, relativeTimestamp);
-                            audioEncoder.encode(sanitized);
-                            sanitized.close();
-                        }
+                        // Usamos nuestro reloj perfecto
+                        const sanitized = cloneAndSanitizeAudioChunk(original, syntheticTimestamp);
+                        audioEncoder.encode(sanitized);
+                        
+                        // Avanzamos el reloj para el siguiente paquete
+                        const chunkDuration = (original.numberOfFrames * 1000000) / original.sampleRate;
+                        syntheticTimestamp += chunkDuration;
+
+                        sanitized.close();
                     }
                     original.close();
                 } catch (e) { break; }
@@ -686,7 +690,7 @@
             muxer.finalize();
             const buffer = muxer.target.buffer;
             
-            console.log(`[V27 END] Read: ${readChunkCount}, Encoded: ${audioChunkCount}`);
+            console.log(`[V28 END] Read: ${readChunkCount}, Encoded: ${audioChunkCount}`);
             
             if (buffer.byteLength > 0) {
                 stState.finalBlob = new Blob([buffer], { type: 'video/mp4' });
