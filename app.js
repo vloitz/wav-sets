@@ -477,6 +477,7 @@ let wasPlayingBeforeDrag = false; // Para saber si pausar/reanudar
         }
 
         currentLoadedSet = set;
+        window.currentLoadedSet = set; // <--- ¡ESTA ES LA LÍNEA QUE FALTABA!
         updateMediaSessionMetadata(set);
         currentTrackNameForNotification = null;
 
