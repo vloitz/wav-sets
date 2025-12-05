@@ -297,8 +297,7 @@
 <script type="module">
     import { Muxer, ArrayBufferTarget } from 'https://esm.sh/mp4-muxer@5.1.0';
 
-    // INDICADOR VISUAL DE VERSIÓN
-    const version = "V22: Fresh Context (Time Sync Fix)";
+    const version = "V23: DOM Attach + Input Debugger";
     console.log(`[STORY MODULE] CARGANDO ${version}`);
 
     const stDOM = {
@@ -345,7 +344,6 @@
     const stCoverImg = new Image();
     stCoverImg.crossOrigin = "Anonymous";
 
-    // --- UI EVENTS ---
     if(stDOM.hqToggle) {
         stDOM.hqToggle.addEventListener('change', () => {
             stDOM.qualityText.innerText = stDOM.hqToggle.checked ? "Alta Calidad" : "Modo Seguro";
@@ -377,9 +375,7 @@
             }
             stDOM.overlay.classList.add('active');
             resetModule();
-            
-            // VERIFICACIÓN VISUAL EN PANTALLA
-            stDOM.statusText.innerText = version; 
+            stDOM.statusText.innerText = version;
             stDOM.statusText.style.color = "#00ff00";
         });
     }
@@ -405,10 +401,13 @@
     function cleanupAudio() {
         if (stState.shadowAudio) {
             stState.shadowAudio.pause();
+            // Remover del DOM si existe
+            if (document.body.contains(stState.shadowAudio)) {
+                document.body.removeChild(stState.shadowAudio);
+            }
             stState.shadowAudio.src = "";
             stState.shadowAudio = null;
         }
-        // IMPORTANTE: Cerrar el contexto para resetear el reloj en el próximo intento
         if (stState.audioContext) {
             try { stState.audioContext.close(); } catch(e){}
             stState.audioContext = null;
@@ -419,52 +418,52 @@
         }
     }
 
-    // --- START BUTTON ---
     stDOM.startBtn.addEventListener('click', async () => {
         if (stState.isEncoding) return;
         
         stDOM.startBtn.disabled = true;
-        stDOM.startBtn.innerText = "Preparando V22...";
+        stDOM.startBtn.innerText = "Iniciando V23...";
 
         const mainAudio = document.getElementById('audio-player');
         if (!mainAudio.paused) mainAudio.pause();
 
         try {
-            // 1. Descargar Blob (Si no existe)
             if (!stState.blobUrl) {
-                console.log("[LOW RAM] Descargando...");
+                console.log("[V23] Descargando...");
                 const response = await fetch(stState.currentSetData.audio_url);
                 if (!response.ok) throw new Error("Error red");
                 const blob = await response.blob();
                 stState.blobUrl = URL.createObjectURL(blob);
             }
 
-            // 2. FRESH CONTEXT (La clave del V22)
-            // Creamos uno nuevo CADA VEZ para que el reloj empiece en 0.00
+            // Fresh Context
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             stState.audioContext = new AudioContext({ latencyHint: 'playback' });
             
-            // 3. Setup Shadow Player
+            // 1. SHADOW PLAYER AL DOM (Fix Android "Ghosting")
             stState.shadowAudio = new Audio();
             stState.shadowAudio.src = stState.blobUrl;
             stState.shadowAudio.currentTime = stState.startTime;
             stState.shadowAudio.volume = 1.0;
-            stState.shadowAudio.crossOrigin = "anonymous"; 
+            stState.shadowAudio.crossOrigin = "anonymous";
+            // Truco: Lo agregamos al body pero invisible
+            stState.shadowAudio.style.position = 'fixed';
+            stState.shadowAudio.style.opacity = '0';
+            stState.shadowAudio.style.pointerEvents = 'none';
+            document.body.appendChild(stState.shadowAudio);
 
-            // 4. Conexiones
+            // Conexiones
             stState.mediaStreamDest = stState.audioContext.createMediaStreamDestination();
             stState.analyserNode = stState.audioContext.createAnalyser();
             stState.analyserNode.fftSize = 256; 
 
             stState.sourceNode = stState.audioContext.createMediaElementSource(stState.shadowAudio);
             
-            // Source -> Analyser -> Destino (Grabación)
             stState.sourceNode.connect(stState.analyserNode);
             stState.analyserNode.connect(stState.mediaStreamDest);
-            // Source -> Destino (Monitor - Obligatorio en Android)
             stState.sourceNode.connect(stState.audioContext.destination);
 
-            // 5. Oscilador Anti-Sleep
+            // Oscilador
             const osc = stState.audioContext.createOscillator();
             const gain = stState.audioContext.createGain();
             osc.frequency.value = 1; gain.gain.value = 0.0001; 
@@ -472,13 +471,12 @@
             osc.start();
             stState.keepAliveOsc = osc;
 
-            // 6. PLAY y Sincronización
             stDOM.startBtn.innerText = "Sincronizando...";
             await stState.shadowAudio.play();
 
-            console.log("[SYNC] Esperando señal...");
+            console.log("[V23] Esperando señal...");
             await waitForAudioSignal();
-            console.log("[SYNC] ¡Señal OK!");
+            console.log("[V23] Señal OK.");
 
         } catch (e) {
             console.error(e);
@@ -487,7 +485,6 @@
             return;
         }
 
-        // 7. Configuración Motor
         stDOM.viewIntro.style.display = 'none';
         stDOM.viewProcess.style.display = 'block';
         stState.isEncoding = true;
@@ -495,8 +492,7 @@
         const isHQ = stDOM.hqToggle.checked;
         stState.config = {
             width: 360, height: 640, duration: 15,
-            fps: 24, 
-            bitrate: isHQ ? 1500000 : 1000000
+            fps: 24, bitrate: isHQ ? 1500000 : 1000000
         };
 
         stPrepareStaticLayer();
@@ -505,7 +501,7 @@
         catch (e) {
             console.error(e);
             stState.isEncoding = false;
-            alert("Error Encoder: " + e.message);
+            alert("Encoder error: " + e.message);
             resetModule();
         }
     });
@@ -518,7 +514,6 @@
                 attempts++;
                 stState.analyserNode.getByteFrequencyData(dataArray);
                 const vol = dataArray.reduce((a,b) => a+b, 0);
-                // Si hay volumen o pasaron 3s, arrancamos
                 if (vol > 0 || attempts > 60) {
                     clearInterval(check);
                     resolve();
@@ -536,7 +531,7 @@
             video: { codec: 'avc', width: stState.config.width, height: stState.config.height },
             audio: { codec: 'aac', numberOfChannels: 2, sampleRate: realSampleRate },
             fastStart: 'in-memory',
-            firstTimestampBehavior: 'offset' // Intenta alinear timestamps
+            firstTimestampBehavior: 'offset'
         });
 
         let videoEncoder = new VideoEncoder({
@@ -548,16 +543,16 @@
             bitrate: stState.config.bitrate, framerate: stState.config.fps
         });
 
-        // CHIVATO DE DATOS
+        // --- DEBUGGER DE ENTRADA ---
         let audioChunkCount = 0;
+        let readChunkCount = 0; // Contador de lecturas
+
         let audioEncoder = new AudioEncoder({
             output: (chunk, meta) => {
                 audioChunkCount++;
-                // Solo logueamos cada 50 chunks para no saturar, pero confirma flujo
-                if (audioChunkCount % 50 === 0) console.log(`[PACKET] Audio procesado. Timestamp: ${chunk.timestamp}`);
                 muxer.addAudioChunk(chunk, meta);
             },
-            error: e => console.error("Audio Error:", e)
+            error: e => console.error("Audio Encoder Internal Error:", e)
         });
         
         audioEncoder.configure({
@@ -571,10 +566,23 @@
             while (stState.isEncoding) {
                 try {
                     const result = await audioReader.read();
-                    if (result.done) break;
-                    if (audioEncoder.state === 'configured') audioEncoder.encode(result.value);
+                    if (result.done) {
+                        console.warn("[V23 DEBUG] Audio Reader terminó inesperadamente (done=true).");
+                        break;
+                    }
+                    
+                    readChunkCount++;
+                    // LOGUEAR CADA 20 PAQUETES PARA VER SI LLEGAN
+                    if (readChunkCount % 20 === 0) console.log(`[V23 READ] Frame ${readChunkCount}, TS: ${result.value.timestamp}`);
+
+                    if (audioEncoder.state === 'configured') {
+                        audioEncoder.encode(result.value);
+                    }
                     result.value.close();
-                } catch (e) { break; }
+                } catch (e) { 
+                    console.error("[V23 READ ERROR]", e);
+                    break; 
+                }
             }
         };
         processAudio();
@@ -594,12 +602,12 @@
                     return;
                 }
 
-                if (frameCount % 10 === 0) {
+                if (frameCount % 15 === 0) {
                     stState.analyserNode.getByteFrequencyData(dataArray);
                     const vol = dataArray.reduce((a,b)=>a+b,0);
-                    // INDICADOR VERDE V22
-                    if (vol > 0) stDOM.statusText.innerHTML = `<span style="color:#0f0">🔊 REC V22 (${vol}) | Pkts: ${audioChunkCount}</span>`;
-                    else stDOM.statusText.innerHTML = `<span style="color:#f00">🔇 SILENCIO</span>`;
+                    // Muestra: Volumen / Paquetes Leídos / Paquetes Codificados
+                    if (vol > 0) stDOM.statusText.innerHTML = `<span style="color:#0f0">R:${readChunkCount} | E:${audioChunkCount} | Vol:${vol}</span>`;
+                    else stDOM.statusText.innerHTML = `<span style="color:#f00">NO SIGNAL (R:${readChunkCount})</span>`;
                 }
 
                 stDOM.progressFill.style.width = (elapsed / durationMs) * 100 + "%";
@@ -622,7 +630,6 @@
             requestAnimationFrame(drawFrame);
         });
 
-        // Finalizar
         stDOM.statusText.innerText = "Finalizando...";
         try { await audioReader.cancel(); } catch(e) {}
         
@@ -641,9 +648,9 @@
             muxer.finalize();
             const buffer = muxer.target.buffer;
             
-            console.log(`[FINISH] Total Audio Packets: ${audioChunkCount}`);
-            if (audioChunkCount === 0) alert("ALERTA: El archivo se creó pero no llegaron paquetes de audio al codificador.");
-
+            // ANALISIS FINAL
+            console.log(`[V23 REPORT] Read: ${readChunkCount}, Encoded: ${audioChunkCount}`);
+            
             if (buffer.byteLength > 0) {
                 stState.finalBlob = new Blob([buffer], { type: 'video/mp4' });
                 stShowFinalUI();
