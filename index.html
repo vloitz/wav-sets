@@ -239,7 +239,7 @@
 
     <script src="app.js"></script>
 
-<div id="storyOverlay">
+    <div id="storyOverlay">
         <button class="story-close-global" id="stCloseBtn">&times;</button>
 
         <div class="story-card-wrapper">
@@ -284,9 +284,9 @@
     <script type="module">
         import { Muxer, ArrayBufferTarget } from 'https://esm.sh/mp4-muxer@5.1.0';
 
-        console.log("[STORY MODULE] Script inicializado."); // REGLA 5: Datos en consola
+        console.log("[STORY MODULE] Motor V7 Iniciado.");
 
-        // Referencias DOM del Módulo
+        // 1. REFERENCIAS DOM
         const stDOM = {
             openBtn: document.getElementById('stOpenBtn'),
             closeBtn: document.getElementById('stCloseBtn'),
@@ -304,32 +304,32 @@
             shareWaBtn: document.getElementById('stShareWaBtn'),
             dlManualBtn: document.getElementById('stDlManualBtn'),
             canvas: document.getElementById('storyCanvas'),
-            uiTitle: document.getElementById('stUiTitle'), // Placeholder
-            uiCover: document.getElementById('stUiCover')  // Placeholder
+            uiTitle: document.getElementById('stUiTitle'),
+            uiCover: document.getElementById('stUiCover')
         };
 
         const stCtx = stDOM.canvas.getContext('2d', { alpha: false, desynchronized: true });
 
-        // Estado
+        // 2. ESTADO GLOBAL
         const stState = {
             deviceRAM: navigator.deviceMemory || 4,
             isLowEnd: (navigator.deviceMemory || 4) <= 2,
             isEncoding: false,
             finalBlob: null,
             finalFileName: "",
-            audioData: new Array(20).fill(5),
+            audioData: new Array(20).fill(5), // Simulador de barras
             staticCanvas: null,
-            config: {}
+            config: {},
+            currentSetData: null // Guardará los datos reales
         };
 
-        // Configuración Fija (Por ahora datos Dummy para TEST FÍSICO)
+        // Imagen interna para el Canvas (CORS handled)
         const stCoverImg = new Image();
         stCoverImg.crossOrigin = "Anonymous";
-        stCoverImg.src = "https://i1.sndcdn.com/artworks-mS3G3teAbdAutPAq-7e5HeA-t500x500.png"; // Dummy Image
-        stDOM.uiCover.src = stCoverImg.src;
-        stDOM.uiTitle.innerText = "Jungle Rhythmic (Test)";
 
-        // --- EVENTOS ---
+        // 3. EVENTOS
+
+        // Toggle Calidad
         stDOM.hqToggle.checked = !stState.isLowEnd;
         updateLabel();
         stDOM.hqToggle.addEventListener('change', updateLabel);
@@ -339,14 +339,31 @@
             stDOM.qualityText.style.color = stDOM.hqToggle.checked ? "#fff" : "#1DB954";
         }
 
+        // Abrir Overlay (CONEXIÓN DE DATOS REALES)
         if(stDOM.openBtn) {
             stDOM.openBtn.addEventListener('click', () => {
-                console.log("[STORY MODULE] Abriendo Overlay...");
+                console.log("[STORY MODULE] Abriendo...");
+
+                // Puente: Leer datos de app.js (window.currentLoadedSet)
+                const realSet = window.currentLoadedSet;
+
+                if (realSet) {
+                    stState.currentSetData = realSet;
+                    // Actualizar UI Intro
+                    stDOM.uiTitle.innerText = realSet.title;
+                    stDOM.uiCover.src = realSet.cover_art_url;
+                    // Preparar imagen interna
+                    stCoverImg.src = realSet.cover_art_url;
+                } else {
+                    // Fallback (Datos Dummy si no hay set cargado)
+                    stDOM.uiTitle.innerText = "Selecciona un Set";
+                    stCoverImg.src = "https://i1.sndcdn.com/artworks-mS3G3teAbdAutPAq-7e5HeA-t500x500.png";
+                    stDOM.uiCover.src = stCoverImg.src;
+                }
+
                 stDOM.overlay.classList.add('active');
                 resetModule();
             });
-        } else {
-            console.error("[STORY MODULE] Error: No se encontró el botón 'stOpenBtn'");
         }
 
         stDOM.closeBtn.addEventListener('click', () => {
@@ -364,10 +381,9 @@
             stState.isEncoding = false;
         }
 
-        // --- INICIO PROCESO ---
+        // 4. INICIO PROCESO (RENDER)
         stDOM.startBtn.addEventListener('click', async () => {
             if (stState.isEncoding) return;
-            console.log("[STORY MODULE] Iniciando render...");
             stDOM.viewIntro.style.display = 'none';
             stDOM.viewProcess.style.display = 'block';
             stState.isEncoding = true;
@@ -375,40 +391,156 @@
             const isHQ = stDOM.hqToggle.checked;
             stState.config = {
                 width: 360, height: 640, duration: 15,
-                fps: isHQ ? 30 : 15, bitrate: isHQ ? 2000000 : 600000, frameDelay: isHQ ? 0 : 80
+                fps: isHQ ? 30 : 15,
+                bitrate: isHQ ? 2000000 : 600000,
+                frameDelay: isHQ ? 0 : 80
             };
 
-            stDOM.statusText.innerText = "Preparando...";
+            stDOM.statusText.innerText = "Preparando diseño...";
             await new Promise(r => setTimeout(r, 100));
-            prepareStaticLayer();
+
+            stPrepareStaticLayer(); // Dibuja el fondo y tarjeta
 
             try { await runEncodingLoop(); }
-            catch (e) { console.error(e); alert("Error visual."); stState.isEncoding = false; }
+            catch (e) {
+                console.error(e);
+                alert("Error en renderizado. Prueba el Modo Seguro.");
+                stState.isEncoding = false;
+                resetModule();
+            }
         });
 
-        // --- LOGICA VISUAL ---
-        function prepareStaticLayer() {
+        // 5. FUNCIONES VISUALES (MOTOR V7 COMPLETO)
+
+        // Helper para bordes redondeados (del prototipo V7)
+        function roundRect(ctx, x, y, w, h, r) {
+            if (w < 2 * r) r = w / 2; if (h < 2 * r) r = h / 2;
+            ctx.moveTo(x+r, y);
+            ctx.arcTo(x+w, y, x+w, y+h, r);
+            ctx.arcTo(x+w, y+h, x, y+h, r);
+            ctx.arcTo(x, y+h, x, y, r);
+            ctx.arcTo(x, y, x+w, y, r);
+            ctx.closePath();
+        }
+
+        function stPrepareStaticLayer() {
             stState.staticCanvas = document.createElement('canvas');
             stState.staticCanvas.width = stState.config.width;
             stState.staticCanvas.height = stState.config.height;
             const sCtx = stState.staticCanvas.getContext('2d');
             const w = stState.config.width; const h = stState.config.height;
 
+            // Fondo Negro
             sCtx.fillStyle = '#000000'; sCtx.fillRect(0, 0, w, h);
 
-            // Card
+            // Tarjeta Estilo Spotify
             const cardW = w * 0.90; const cardH = h * 0.75;
             const cardX = (w - cardW) / 2; const cardY = (h - cardH) / 2;
+            const r = 20;
+
             sCtx.shadowColor = 'rgba(29, 185, 84, 0.6)'; sCtx.shadowBlur = 80;
-            sCtx.fillStyle = '#121212'; sCtx.fillRect(cardX, cardY, cardW, cardH);
-            sCtx.shadowBlur = 0; sCtx.strokeStyle = '#282828'; sCtx.strokeRect(cardX, cardY, cardW, cardH);
+            sCtx.fillStyle = '#121212';
+            sCtx.beginPath(); roundRect(sCtx, cardX, cardY, cardW, cardH, r); sCtx.fill();
+            sCtx.shadowBlur = 0;
+            sCtx.strokeStyle = '#282828'; sCtx.lineWidth = 1; sCtx.stroke();
 
-            // Cover
-            const imgSize = cardW * 0.85; const imgX = (w - imgSize) / 2; const imgY = cardY + 25;
-            sCtx.drawImage(stCoverImg, imgX, imgY, imgSize, imgSize);
+            // Imagen Carátula
+            const imgSize = cardW * 0.85;
+            const imgX = (w - imgSize) / 2;
+            const imgY = cardY + 25;
 
-            // Textos DUMMY
-            sCtx.fillStyle = "#fff"; sCtx.font = "bold 20px Arial"; sCtx.fillText("Nautik (US) - Third Eye", imgX, imgY + imgSize + 40);
+            sCtx.save();
+            sCtx.beginPath(); roundRect(sCtx, imgX, imgY, imgSize, imgSize, 8);
+            sCtx.clip();
+            // Usar la imagen cargada o un placeholder si falla
+            try { sCtx.drawImage(stCoverImg, imgX, imgY, imgSize, imgSize); }
+            catch(e) { sCtx.fillStyle = "#333"; sCtx.fillRect(imgX, imgY, imgSize, imgSize); }
+            sCtx.restore();
+
+            // Textos Dinámicos
+            const title = stState.currentSetData ? stState.currentSetData.title : "Track Desconocido";
+            const artist = "Vloitz • Audio Story";
+
+            const textX = imgX;
+            let cursorY = imgY + imgSize + 25;
+
+            sCtx.textAlign = "left"; sCtx.fillStyle = "#1DB954"; sCtx.font = "700 10px Inter, sans-serif";
+            sCtx.fillText("NOW PLAYING 🎵", textX, cursorY);
+
+            cursorY += 20; sCtx.fillStyle = "#FFFFFF"; sCtx.font = "900 18px Inter, sans-serif";
+            sCtx.fillText(title.substring(0, 25) + (title.length>25?"...":""), textX, cursorY);
+
+            cursorY += 18; sCtx.fillStyle = "#B3B3B3"; sCtx.font = "500 12px Inter, sans-serif";
+            sCtx.fillText(artist, textX, cursorY);
+
+            // Footer
+            const cardBottom = cardY + cardH;
+            sCtx.textAlign = "center"; sCtx.fillStyle = "#333"; sCtx.font = "400 9px Inter, sans-serif";
+            sCtx.fillText("Escúchalo en vloitz.github.io/wav-sets", w/2, cardBottom - 15);
+        }
+
+        function stUpdateAudioSimulation(frame) {
+            const isKick = frame % (stState.config.fps === 15 ? 12 : 24) === 0;
+            for (let i = 0; i < 20; i++) {
+                let targetHeight = 5 + Math.abs(Math.sin(frame * 0.2 + i) * 15) + Math.random() * 10;
+                if (isKick && i < 6) targetHeight += 30;
+                if (i > 6 && i < 14) targetHeight += Math.random() * 15;
+                if (targetHeight > stState.audioData[i]) stState.audioData[i] = targetHeight;
+                else stState.audioData[i] *= 0.85;
+            }
+        }
+
+        function stDrawDynamicLayer(frame) {
+            const w = stState.config.width; const h = stState.config.height;
+            const cardW = w * 0.90; const cardH = h * 0.75;
+            const cardY = (h - cardH) / 2;
+            const imgSize = cardW * 0.85;
+
+            // Posición de las barras (calculada igual que en V7)
+            const imgY = cardY + 25;
+            const cursorY = imgY + imgSize + 25 + 20 + 18; // Debajo del texto
+            const barsBaseY = cursorY + 40;
+            const startX = (w - imgSize) / 2;
+
+            const gap = 3;
+            const barWidth = (imgSize - ((20-1)*gap)) / 20;
+
+            // Dibujar Barras
+            for(let i=0; i < 20; i++) {
+                let height = Math.max(4, stState.audioData[i]);
+                if (i === 13) stCtx.fillStyle = "#1DB954"; else stCtx.fillStyle = "#3E3E3E";
+                stCtx.fillRect(startX + (i * (barWidth + gap)), barsBaseY - height, barWidth, height);
+            }
+
+            // Barra de Progreso Ficticia
+            const progY = barsBaseY + 10;
+            stCtx.fillStyle = "#333"; stCtx.fillRect(startX, progY, imgSize, 3);
+            const progress = frame / (stState.config.duration * stState.config.fps);
+            stCtx.fillStyle = "#1DB954"; stCtx.fillRect(startX, progY, imgSize * progress, 3);
+            stCtx.beginPath(); stCtx.arc(startX + (imgSize * progress), progY + 1.5, 3, 0, Math.PI*2); stCtx.fill();
+
+            // Tiempos
+            const timeY = barsBaseY + 10 + 15;
+            stCtx.fillStyle = "#666"; stCtx.font = "400 9px Inter, sans-serif"; stCtx.textAlign = "left";
+
+            // Tiempo Actual (simulado desde 28:44)
+            const startSecs = 1724; // 28:44
+            const currentSecs = startSecs + Math.floor(frame / stState.config.fps);
+            const m = Math.floor(currentSecs / 60); const s = currentSecs % 60;
+            const timeStr = `${m}:${s.toString().padStart(2,'0')}`;
+
+            stCtx.fillText(timeStr, startX, timeY);
+
+            stCtx.textAlign = "right";
+            stCtx.fillText("58:03", startX + imgSize, timeY);
+
+            // Badge FLAC
+            const badgeY = timeY + 5;
+            stCtx.textAlign = "center";
+            stCtx.strokeStyle = "#1DB954"; stCtx.lineWidth = 1;
+            stCtx.strokeRect((w - 60)/2, badgeY, 60, 16);
+            stCtx.fillStyle = "#1DB954"; stCtx.font = "700 9px Inter, sans-serif";
+            stCtx.fillText("FLAC • HIFI", w/2, badgeY + 11);
         }
 
         async function runEncodingLoop() {
@@ -427,15 +559,18 @@
 
             const totalFrames = stState.config.duration * stState.config.fps;
             let frame = 0;
+
             while (frame < totalFrames && stState.isEncoding) {
                 if (videoEncoder.encodeQueueSize > 2) { await new Promise(r => setTimeout(r, 20)); continue; }
 
-                // Dibujar
+                // 1. Calcular Física
+                stUpdateAudioSimulation(frame);
+
+                // 2. Dibujar Fondo Estático
                 stCtx.drawImage(stState.staticCanvas, 0, 0);
 
-                // Barra simulada
-                stCtx.fillStyle = "#1DB954";
-                stCtx.fillRect(20, 500, (frame/totalFrames)*300, 10);
+                // 3. Dibujar Capa Dinámica (Barras, tiempo)
+                stDrawDynamicLayer(frame);
 
                 const vFrame = new VideoFrame(stDOM.canvas, { timestamp: frame * 1000000 / stState.config.fps });
                 videoEncoder.encode(vFrame, { keyFrame: frame % 30 === 0 });
@@ -474,7 +609,6 @@
             };
         }
     </script>
-
 
 </body>
 </html>
