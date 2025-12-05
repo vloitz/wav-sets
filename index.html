@@ -340,43 +340,59 @@
         const stCoverImg = new Image();
         stCoverImg.crossOrigin = "Anonymous";
 
-        // --- AUDIO SETUP (El Puente "Anti-Silencio") ---
+// --- AUDIO SETUP (CON "LATIDO" ANTI-SLEEP) ---
         function setupAudioCapture() {
-            // 1. Iniciar Contexto
+            // 1. Iniciar/Resumir Contexto
             if (!stState.audioContext) {
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
-                stState.audioContext = new AudioContext();
+                // 'playback' le dice a Android que esto es importante
+                stState.audioContext = new AudioContext({ latencyHint: 'playback' });
+            }
+            if (stState.audioContext.state === 'suspended') {
+                stState.audioContext.resume();
             }
 
             const audioEl = document.getElementById('audio-player');
+            // Asegurar CORS
+            if (!audioEl.crossOrigin) audioEl.crossOrigin = "anonymous";
 
             // 2. Crear Source (Solo una vez)
             if (!stState.sourceNode) {
                 stState.sourceNode = stState.audioContext.createMediaElementSource(audioEl);
             }
 
-            // 3. Crear Bridge (GainNode)
-            // Esto engaña a Android: Pasamos el audio por un nodo de ganancia (volumen 1)
-            // para que crea que estamos "editando" el audio y no lo silencie.
-            if (!stState.gainNode) {
-                stState.gainNode = stState.audioContext.createGain();
-                stState.gainNode.gain.value = 1.0;
-
-                // Conectar: Source -> Bridge -> Speakers (Para que oigas la música)
-                stState.sourceNode.connect(stState.gainNode);
-                stState.gainNode.connect(stState.audioContext.destination);
+            // 3. Crear Destino
+            if (!stState.mediaStreamDest) {
+                stState.mediaStreamDest = stState.audioContext.createMediaStreamDestination();
             }
 
-            // 4. Crear Destino de Grabación
-            if (stState.mediaStreamDest) {
-                try { stState.gainNode.disconnect(stState.mediaStreamDest); } catch(e){}
+            // 4. EL TRUCO DEL LATIDO (Oscilador Fantasma)
+            // Esto obliga a Android a mantener el procesador de audio ENCENDIDO.
+            // Si no ponemos esto, Android detecta silencio y corta la grabación.
+            if (!stState.keepAliveOsc) {
+                const osc = stState.audioContext.createOscillator();
+                const gain = stState.audioContext.createGain();
+
+                osc.type = 'square';
+                osc.frequency.value = 1; // 1 Hz (Inaudible)
+                gain.gain.value = 0.0001; // Señal mínima (No es silencio digital)
+
+                osc.connect(gain);
+                gain.connect(stState.mediaStreamDest); // Solo a la grabadora
+                osc.start();
+
+                stState.keepAliveOsc = osc; // Guardar referencia
+                console.log("[AUDIO] Sistema Anti-Sleep activado.");
             }
-            stState.mediaStreamDest = stState.audioContext.createMediaStreamDestination();
 
-            // Conectar: Bridge -> Grabadora
-            stState.gainNode.connect(stState.mediaStreamDest);
+            // 5. Conectar Música Real
+            // Desconectamos primero por seguridad para no duplicar conexiones
+            try { stState.sourceNode.disconnect(); } catch(e) {}
 
-            console.log(`[AUDIO SETUP] Bridge activo. Frecuencia del dispositivo: ${stState.audioContext.sampleRate}Hz`);
+            stState.sourceNode.connect(stState.audioContext.destination); // Altavoces
+            stState.sourceNode.connect(stState.mediaStreamDest);          // Grabadora
+
+            console.log(`[AUDIO SETUP] Listo. Frecuencia: ${stState.audioContext.sampleRate}Hz`);
         }
 
         // --- UI EVENTS ---
@@ -583,21 +599,55 @@
                 requestAnimationFrame(drawFrame);
             });
 
-            // --- FINALIZAR ---
-            stDOM.statusText.innerText = "Procesando...";
+// --- FINALIZACIÓN A PRUEBA DE FALLOS ---
+            stDOM.statusText.innerText = "Finalizando...";
 
-            try { await audioReader.cancel(); } catch(e) {}
+            // 1. Detener la bandera primero
+            stState.isEncoding = false;
 
+            // 2. Intentar detener lectura de audio (sin bloquear)
+            try { await audioReader.cancel(); } catch(e) { /* Ignorar si ya paró */ }
+
+            // 3. Cerrar Video (Prioridad Alta)
             try {
                 if (videoEncoder.state === 'configured') await videoEncoder.flush();
-                if (audioEncoder.state === 'configured') await audioEncoder.flush();
                 videoEncoder.close();
-                audioEncoder.close();
-            } catch (e) { console.error("Error cerrando:", e); }
+            } catch (e) { console.warn("Aviso al cerrar video:", e); }
 
-            muxer.finalize();
-            stState.finalBlob = new Blob([muxer.target.buffer], { type: 'video/mp4' });
-            stShowFinalUI();
+            // 4. Cerrar Audio (Donde suele fallar Android)
+            // Usamos un try/catch separado para que si falla, NO impida guardar el video.
+            try {
+                if (audioEncoder.state === 'configured') await audioEncoder.flush();
+                audioEncoder.close();
+            } catch (e) {
+                console.warn("Aviso al cerrar audio (Se ignorará para salvar el archivo):", e);
+            }
+
+            // 5. Limpiar el Oscilador Fantasma
+            if (stState.keepAliveOsc) {
+                try {
+                    stState.keepAliveOsc.stop();
+                    stState.keepAliveOsc.disconnect();
+                    stState.keepAliveOsc = null;
+                } catch(e) {}
+            }
+
+            // 6. Generar el Archivo (Pase lo que pase con el audio)
+            try {
+                muxer.finalize();
+                const buffer = muxer.target.buffer;
+                if (buffer.byteLength > 0) {
+                    stState.finalBlob = new Blob([buffer], { type: 'video/mp4' });
+                    stShowFinalUI();
+                } else {
+                    throw new Error("Archivo vacío (0 bytes)");
+                }
+            } catch (finalErr) {
+                console.error("Error Fatal al crear Blob:", finalErr);
+                alert("Error al guardar el archivo. Intenta reiniciar.");
+                resetModule();
+            }
+
         }
 
         // --- UTILS (Gráficos) ---
