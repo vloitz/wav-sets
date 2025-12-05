@@ -248,13 +248,24 @@
                 <h2 class="st-title" id="stUiTitle">Cargando...</h2>
                 <p class="st-artist">Vloitz • Audio Story</p>
 
-                <div class="st-quality-control">
+            <div class="st-controls-row">
+                <div class="st-control-group">
                     <label class="st-switch">
                         <input type="checkbox" id="stHqToggle">
                         <span class="st-slider round"></span>
                     </label>
                     <span id="stQualityText" class="st-quality-label">Modo Seguro</span>
                 </div>
+
+                <div class="st-control-group">
+                    <select id="stDurationSelect" class="st-select">
+                        <option value="15" selected>15 seg</option>
+                        <option value="30">30 seg</option>
+                        <option value="45">45 seg</option>
+                        <option value="60">60 seg (Riesgo)</option>
+                    </select>
+                </div>
+            </div>
 
                 <button class="st-create-btn" id="stStartBtn">
                     CREAR STORY
@@ -415,28 +426,46 @@
         stDOM.startBtn.addEventListener('click', async () => {
             if (stState.isEncoding) return;
 
+            // 1. Configurar Audio
             setupAudioCapture();
             if (stState.audioContext.state === 'suspended') await stState.audioContext.resume();
 
+            // 2. Asegurar Play
             const audioEl = document.getElementById('audio-player');
             if (audioEl.paused) audioEl.play();
+
+            // --- [FIX CRÍTICO DE TIEMPO] ---
+            // Capturamos el tiempo EXACTO ahora mismo, no el de cuando abrimos la ventana.
+            // Esto responde a tu duda: Ahora el video empezará exactamente donde va la música.
+            if (window.wavesurfer) {
+                stState.startTime = window.wavesurfer.getCurrentTime();
+            }
+            // -------------------------------
+
+            // 3. Leer Duración del Selector (NUEVO)
+            const durationSelect = document.getElementById('stDurationSelect');
+            const selectedDuration = parseInt(durationSelect.value) || 15;
 
             stDOM.viewIntro.style.display = 'none';
             stDOM.viewProcess.style.display = 'block';
             stState.isEncoding = true;
 
             const isHQ = stDOM.hqToggle.checked;
+
             stState.config = {
-                width: 360, height: 640, duration: 15,
-                fps: isHQ ? 30 : 24, bitrate: isHQ ? 2500000 : 1000000
+                width: 360,
+                height: 640,
+                duration: selectedDuration, // <--- USAMOS EL VALOR DEL USUARIO
+                fps: isHQ ? 30 : 24,
+                bitrate: isHQ ? 2500000 : 1000000
             };
 
-            stDOM.statusText.innerText = "Grabando... (Espera 15s)";
+            stDOM.statusText.innerText = `Grabando ${selectedDuration}s en vivo...`;
             stPrepareStaticLayer();
 
             try { await runRealTimeEncoding(); }
             catch (e) {
-                console.error(e); alert("Error. Revisa consola.");
+                console.error(e); alert("Error al grabar.");
                 stState.isEncoding = false; resetModule();
             }
         });
