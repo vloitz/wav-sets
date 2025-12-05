@@ -297,7 +297,7 @@
 <script type="module">
     import { Muxer, ArrayBufferTarget } from 'https://esm.sh/mp4-muxer@5.1.0';
 
-    console.log("[STORY MODULE] V16: Blob Strategy (Nuclear CORS Fix)");
+    console.log("[STORY MODULE] V17: Silence Detector + Gesture Keep-Alive");
 
     const stDOM = {
         openBtn: document.getElementById('stOpenBtn'),
@@ -309,7 +309,7 @@
         retryBtn: document.getElementById('stRetryBtn'),
         hqToggle: document.getElementById('stHqToggle'),
         qualityText: document.getElementById('stQualityText'),
-        statusText: document.getElementById('stStatusText'),
+        statusText: document.getElementById('stStatusText'), // Usaremos esto para el diagnóstico
         progressFill: document.getElementById('stProgressFill'),
         loadingUI: document.getElementById('stLoadingUI'),
         finalActions: document.getElementById('stFinalActions'),
@@ -334,14 +334,15 @@
         audioContext: null,
         mediaStreamDest: null,
         sourceNode: null,
-        shadowAudio: null, // Referencia al reproductor invisible
-        blobUrl: null      // Referencia al archivo en memoria
+        shadowAudio: null,
+        blobUrl: null,
+        analyserNode: null // Nuevo: Para el diagnóstico
     };
 
     const stCoverImg = new Image();
     stCoverImg.crossOrigin = "Anonymous";
 
-    // --- UI EVENTS ---
+    // --- UI SETUP ---
     if(stDOM.hqToggle) {
         stDOM.hqToggle.addEventListener('change', () => {
             stDOM.qualityText.innerText = stDOM.hqToggle.checked ? "Alta Calidad" : "Modo Seguro";
@@ -356,17 +357,14 @@
             if (realSet && wave) {
                 stState.currentSetData = realSet;
                 stState.startTime = wave.getCurrentTime();
-
+                // Lógica de título
                 let activeTrackName = realSet.title;
                 if (realSet.tracklist) {
                     for (let i = realSet.tracklist.length - 1; i >= 0; i--) {
                         const t = realSet.tracklist[i];
                         const parts = t.time.split(':');
                         const tSecs = parseInt(parts[0])*60 + parseInt(parts[1]);
-                        if (stState.startTime >= tSecs) {
-                            activeTrackName = t.title;
-                            break;
-                        }
+                        if (stState.startTime >= tSecs) { activeTrackName = t.title; break; }
                     }
                 }
                 stState.currentTrackTitle = activeTrackName;
@@ -382,7 +380,7 @@
     stDOM.closeBtn.addEventListener('click', () => {
         stDOM.overlay.classList.remove('active');
         stState.isEncoding = false;
-        cleanupAudio(); // Limpiar memoria al cerrar
+        cleanupAudio();
     });
     stDOM.retryBtn.addEventListener('click', resetModule);
 
@@ -407,77 +405,85 @@
             URL.revokeObjectURL(stState.blobUrl);
             stState.blobUrl = null;
         }
+        if (stState.audioContext && stState.audioContext.state !== 'closed') {
+            // No cerramos el contexto para reusarlo, pero desconectamos nodos si es necesario
+        }
     }
 
-    // --- START BUTTON (BLOB STRATEGY) ---
+    // --- START BUTTON (Blob + Diagnostic) ---
     stDOM.startBtn.addEventListener('click', async () => {
         if (stState.isEncoding) return;
 
-        // 1. UI Feedback inmediato
         stDOM.startBtn.disabled = true;
-        stDOM.startBtn.innerText = "Preparando Audio...";
+        stDOM.startBtn.innerText = "Descargando audio...";
 
-        // 2. Pausar Main Audio
+        // 1. Pausar Main
         const mainAudio = document.getElementById('audio-player');
         if (!mainAudio.paused) mainAudio.pause();
 
         try {
-            // 3. NUCLEAR FIX: Descargar Audio como BLOB
-            // Esto evita problemas de CORS/Cache porque el archivo se vuelve "local".
-            // Si el usuario ya escuchó el set, el navegador debería traerlo de caché rápido.
-            console.log("[BLOB] Iniciando descarga segura de audio...");
+            // 2. Fetch Blob (Nuclear CORS fix)
+            console.log("[BLOB] Descargando...");
             const response = await fetch(stState.currentSetData.audio_url);
             if (!response.ok) throw new Error("Error red descarga");
             const blob = await response.blob();
             stState.blobUrl = URL.createObjectURL(blob);
-            console.log("[BLOB] Audio convertido a Blob Local (Seguro).");
+            console.log("[BLOB] OK.");
 
-            // 4. Configurar Shadow Player con el Blob
+            // 3. Setup Audio Context
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            // IMPORTANTE: Crear el contexto ANTES de cualquier otra cosa async larga
+            if (!stState.audioContext) stState.audioContext = new AudioContext({ latencyHint: 'playback' });
+            if (stState.audioContext.state === 'suspended') await stState.audioContext.resume();
+
+            // 4. Setup Shadow Player
             stState.shadowAudio = new Audio();
             stState.shadowAudio.src = stState.blobUrl;
             stState.shadowAudio.currentTime = stState.startTime;
             stState.shadowAudio.volume = 1.0;
-            stState.shadowAudio.crossOrigin = "anonymous"; // Por seguridad, aunque el blob es local
+            // Aunque es blob local, esto a veces ayuda en Chrome
+            stState.shadowAudio.crossOrigin = "anonymous";
 
-            // 5. Configurar WebAudio
-            const AudioContext = window.AudioContext || window.webkitAudioContext;
-            // 'playback' es crucial para móviles
-            if (!stState.audioContext) stState.audioContext = new AudioContext({ latencyHint: 'playback' });
-            if (stState.audioContext.state === 'suspended') await stState.audioContext.resume();
-
+            // 5. Conexiones
             stState.sourceNode = stState.audioContext.createMediaElementSource(stState.shadowAudio);
             stState.mediaStreamDest = stState.audioContext.createMediaStreamDestination();
 
-            // 6. TRUCO ANTI-SLEEP (Oscilador Fantasma)
-            // Mantiene el motor de audio despierto en Android
+            // --- DIAGNÓSTICO: Analyser Node ---
+            stState.analyserNode = stState.audioContext.createAnalyser();
+            stState.analyserNode.fftSize = 256; // Pequeño para rendimiento
+
+            // source -> analyser -> dest
+            stState.sourceNode.connect(stState.analyserNode);
+            stState.analyserNode.connect(stState.mediaStreamDest);
+            // source -> speakers (monitor)
+            stState.sourceNode.connect(stState.audioContext.destination);
+
+            // 6. Oscilador Anti-Sleep (Keep Alive)
             const osc = stState.audioContext.createOscillator();
             const gain = stState.audioContext.createGain();
-            osc.frequency.value = 1; // 1Hz
-            gain.gain.value = 0.0001; // Señal mínima
+            osc.frequency.value = 1;
+            gain.gain.value = 0.0001;
             osc.connect(gain);
             gain.connect(stState.mediaStreamDest);
             osc.start();
-            stState.keepAliveOsc = osc; // Guardar para limpiar
+            stState.keepAliveOsc = osc;
 
-            // Conexiones Reales
-            stState.sourceNode.connect(stState.audioContext.destination); // Altavoces
-            stState.sourceNode.connect(stState.mediaStreamDest);          // Grabadora
-
-            // 7. Reproducir y ESPERAR confirmación
+            // 7. Play (Crucial: Hacerlo justo después del resume)
             await stState.shadowAudio.play();
-            console.log("[AUDIO] Reproduciendo desde Blob Local.");
+            console.log("[AUDIO] Playing Blob.");
 
         } catch (e) {
             console.error(e);
-            alert("Error preparando audio: " + e.message);
+            alert("Error audio: " + e.message);
             resetModule();
             return;
         }
 
-        // 8. Iniciar UI de Grabación
+        // 8. Start Engine
         stDOM.viewIntro.style.display = 'none';
         stDOM.viewProcess.style.display = 'block';
         stState.isEncoding = true;
+        stDOM.statusText.innerHTML = "Iniciando..."; // Reset texto
 
         const isHQ = stDOM.hqToggle.checked;
         stState.config = {
@@ -485,23 +491,21 @@
             fps: isHQ ? 30 : 24, bitrate: isHQ ? 2500000 : 1000000
         };
 
-        stDOM.statusText.innerText = "Grabando...";
         stPrepareStaticLayer();
 
         try { await runRealTimeEncoding(); }
         catch (e) {
             console.error(e);
             stState.isEncoding = false;
-            alert("Error encoding: " + e.message);
+            alert("Encoder error: " + e.message);
             resetModule();
         }
     });
 
-    // --- ENGINE ---
     async function runRealTimeEncoding() {
-        // [FIX] Usar frecuencia real del hardware
+        // Fix Sample Rate
         const realSampleRate = stState.audioContext.sampleRate;
-        console.log("[ENGINE] SampleRate:", realSampleRate);
+        console.log("[ENGINE] Hz:", realSampleRate);
 
         let muxer = new Muxer({
             target: new ArrayBufferTarget(),
@@ -524,7 +528,6 @@
             output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
             error: e => console.error("Audio Error:", e)
         });
-        // [FIX] Coincidir SampleRate
         audioEncoder.configure({
             codec: 'mp4a.40.2', numberOfChannels: 2, sampleRate: realSampleRate, bitrate: 128000
         });
@@ -545,10 +548,12 @@
         };
         processAudio();
 
-        // Video Loop
         const startTime = performance.now();
         const durationMs = stState.config.duration * 1000;
         let frameCount = 0;
+
+        // Array para el chequeo de silencio
+        const dataArray = new Uint8Array(stState.analyserNode.frequencyBinCount);
 
         await new Promise((resolve) => {
             const drawFrame = async (now) => {
@@ -559,6 +564,21 @@
                     resolve();
                     return;
                 }
+
+                // --- DIAGNÓSTICO EN TIEMPO REAL ---
+                // Verificamos si hay señal de audio cada 10 frames para no saturar
+                if (frameCount % 10 === 0 && stState.analyserNode) {
+                    stState.analyserNode.getByteFrequencyData(dataArray);
+                    // Sumamos valores. Si suma > 0, hay sonido.
+                    const volume = dataArray.reduce((a, b) => a + b, 0);
+
+                    if (volume > 0) {
+                        stDOM.statusText.innerHTML = `<span style="color:#0f0;">🔊 AUDIO OK (${volume})</span>`;
+                    } else {
+                        stDOM.statusText.innerHTML = `<span style="color:#f00;">🔇 SILENCIO (Android Block)</span>`;
+                    }
+                }
+                // ----------------------------------
 
                 stDOM.progressFill.style.width = (elapsed / durationMs) * 100 + "%";
                 stUpdateAudioSimulation(frameCount);
@@ -580,29 +600,24 @@
             requestAnimationFrame(drawFrame);
         });
 
-        // --- FINALIZACIÓN BLINDADA ---
-        stDOM.statusText.innerText = "Procesando...";
-
-        // Parar lectura
+        // Finalizar Blindado
+        stDOM.statusText.innerText = "Finalizando...";
         try { await audioReader.cancel(); } catch(e) {}
 
-        // Cerrar Encoders (Tolerancia a fallos)
         try {
             if (videoEncoder.state === 'configured') await videoEncoder.flush();
             videoEncoder.close();
-        } catch(e) { console.warn("Video close warn:", e); }
+        } catch(e) {}
 
         try {
             if (audioEncoder.state === 'configured') await audioEncoder.flush();
             audioEncoder.close();
-        } catch(e) { console.warn("Audio close warn:", e); }
+        } catch(e) {}
 
-        // Limpiar Oscilador
         if (stState.keepAliveOsc) {
             try { stState.keepAliveOsc.stop(); stState.keepAliveOsc.disconnect(); } catch(e){}
         }
 
-        // Finalizar
         try {
             muxer.finalize();
             const buffer = muxer.target.buffer;
@@ -611,20 +626,19 @@
                 stShowFinalUI();
             } else { throw new Error("0 bytes"); }
         } catch (e) {
-            console.error("Save error:", e);
+            console.error(e);
             alert("Error guardando.");
             resetModule();
         }
     }
 
-    // --- VISUALIZADORES ---
+    // UTILS (Sin cambios)
     function roundRect(ctx, x, y, w, h, r) {
         if (w < 2 * r) r = w / 2; if (h < 2 * r) r = h / 2;
         ctx.moveTo(x+r, y); ctx.arcTo(x+w, y, x+w, y+h, r);
         ctx.arcTo(x+w, y+h, x, y+h, r); ctx.arcTo(x, y+h, x, y, r);
         ctx.arcTo(x, y, x+w, y, r); ctx.closePath();
     }
-
     function drawFitText(ctx, text, x, y, maxWidth, initialSize) {
         let size = initialSize;
         ctx.font = "900 " + size + "px Inter, sans-serif";
@@ -634,48 +648,38 @@
         }
         ctx.fillText(text, x, y);
     }
-
     function stPrepareStaticLayer() {
         stState.staticCanvas = document.createElement('canvas');
         stState.staticCanvas.width = stState.config.width;
         stState.staticCanvas.height = stState.config.height;
         const sCtx = stState.staticCanvas.getContext('2d');
         const w = stState.config.width; const h = stState.config.height;
-
         sCtx.fillStyle = '#000000'; sCtx.fillRect(0, 0, w, h);
-
         const cardW = w * 0.90; const cardH = h * 0.75;
         const cardX = (w - cardW) / 2; const cardY = (h - cardH) / 2;
         sCtx.shadowColor = 'rgba(29, 185, 84, 0.6)'; sCtx.shadowBlur = 80;
         sCtx.fillStyle = '#121212';
         sCtx.beginPath(); roundRect(sCtx, cardX, cardY, cardW, cardH, 20); sCtx.fill();
         sCtx.shadowBlur = 0; sCtx.strokeStyle = '#282828'; sCtx.lineWidth = 1; sCtx.stroke();
-
         const imgSize = cardW * 0.85; const imgX = (w - imgSize) / 2; const imgY = cardY + 25;
         sCtx.save(); sCtx.beginPath(); roundRect(sCtx, imgX, imgY, imgSize, imgSize, 8);
         sCtx.clip();
         try { sCtx.drawImage(stCoverImg, imgX, imgY, imgSize, imgSize); }
         catch(e) { sCtx.fillStyle = "#333"; sCtx.fillRect(imgX, imgY, imgSize, imgSize); }
         sCtx.restore();
-
         const title = stState.currentTrackTitle || "Track Desconocido";
         const artist = stState.currentSetData ? stState.currentSetData.title : "Vloitz Set";
         const textX = imgX; let cursorY = imgY + imgSize + 25;
-
         sCtx.textAlign = "left"; sCtx.fillStyle = "#1DB954"; sCtx.font = "700 10px Inter, sans-serif";
         sCtx.fillText("NOW PLAYING 🎵", textX, cursorY);
-
         cursorY += 20; sCtx.fillStyle = "#FFFFFF";
         drawFitText(sCtx, title, textX, cursorY, imgSize, 20);
-
         cursorY += 18; sCtx.fillStyle = "#B3B3B3"; sCtx.font = "500 12px Inter, sans-serif";
         sCtx.fillText(artist, textX, cursorY);
-
         const cardBottom = cardY + cardH;
         sCtx.textAlign = "center"; sCtx.fillStyle = "#333"; sCtx.font = "400 9px Inter, sans-serif";
         sCtx.fillText("Escúchalo en vloitz.github.io/wav-sets", w/2, cardBottom - 15);
     }
-
     function stUpdateAudioSimulation(frame) {
         const isKick = frame % (stState.config.fps === 15 ? 12 : 24) === 0;
         for (let i = 0; i < 20; i++) {
@@ -686,7 +690,6 @@
             else stState.audioData[i] *= 0.85;
         }
     }
-
     function stDrawDynamicLayer(secondsElapsed) {
         const w = stState.config.width; const h = stState.config.height;
         const cardW = w * 0.90; const cardH = h * 0.75;
@@ -696,33 +699,28 @@
         const cursorY = (cardY + 25) + imgSize + 25 + 20 + 18;
         const barsBaseY = cursorY + 40;
         const gap = 3; const barWidth = (imgSize - (19*gap)) / 20;
-
         for(let i=0; i < 20; i++) {
             let height = Math.max(4, stState.audioData[i]);
             if (i === 13) stCtx.fillStyle = "#1DB954"; else stCtx.fillStyle = "#3E3E3E";
             stCtx.fillRect(startX + (i * (barWidth + gap)), barsBaseY - height, barWidth, height);
         }
-
         const progY = barsBaseY + 10;
         stCtx.fillStyle = "#333"; stCtx.fillRect(startX, progY, imgSize, 3);
         const progress = Math.min(1, secondsElapsed / stState.config.duration);
         stCtx.fillStyle = "#1DB954"; stCtx.fillRect(startX, progY, imgSize * progress, 3);
         stCtx.beginPath(); stCtx.arc(startX + (imgSize * progress), progY + 1.5, 3, 0, Math.PI*2); stCtx.fill();
-
         const timeY = barsBaseY + 10 + 15;
         stCtx.fillStyle = "#666"; stCtx.font = "400 9px Inter, sans-serif"; stCtx.textAlign = "left";
         const currentTotalSecs = Math.floor(stState.startTime + secondsElapsed);
         const m = Math.floor(currentTotalSecs / 60); const s = currentTotalSecs % 60;
         stCtx.fillText(`${m}:${s.toString().padStart(2,'0')}`, startX, timeY);
         stCtx.textAlign = "right"; stCtx.fillText("HIFI", startX + imgSize, timeY);
-
         const badgeY = timeY + 5;
         stCtx.textAlign = "center"; stCtx.strokeStyle = "#1DB954"; stCtx.lineWidth = 1;
         stCtx.strokeRect((w - 60)/2, badgeY, 60, 16);
         stCtx.fillStyle = "#1DB954"; stCtx.font = "700 9px Inter, sans-serif";
         stCtx.fillText("FLAC • HIFI", w/2, badgeY + 11);
     }
-
     function stShowFinalUI() {
         stDOM.loadingUI.style.display = 'none';
         stDOM.finalActions.style.display = 'block';
