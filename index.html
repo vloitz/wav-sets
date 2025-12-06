@@ -297,7 +297,7 @@
 <script type="module">
     import { Muxer, ArrayBufferTarget } from 'https://esm.sh/mp4-muxer@5.1.0';
 
-    const version = "V41: MP4 AAC Precision Feed (1024 samples)";
+    const version = "V43: MP4 AAC (Interleaved Fix + Generic Codec)";
     console.log(`[STORY MODULE] CARGANDO ${version}`);
 
     const stDOM = {
@@ -326,8 +326,6 @@
     const stState = {
         isEncoding: false,
         finalBlob: null,
-        audioData: new Array(20).fill(5),
-        staticCanvas: null,
         config: {},
         currentSetData: null,
         startTime: 0,
@@ -359,7 +357,6 @@
             if (realSet && wave) {
                 stState.currentSetData = realSet;
                 stState.startTime = wave.getCurrentTime();
-                
                 let activeTrackName = realSet.title;
                 if (realSet.tracklist) {
                     for (let i = realSet.tracklist.length - 1; i >= 0; i--) {
@@ -424,24 +421,23 @@
     stDOM.startBtn.addEventListener('click', async () => {
         if (stState.isEncoding) return;
         stDOM.startBtn.disabled = true;
-        stDOM.startBtn.innerText = "Iniciando V41...";
+        stDOM.startBtn.innerText = "Iniciando V43...";
 
         const mainAudio = document.getElementById('audio-player');
         if (!mainAudio.paused) mainAudio.pause();
 
         try {
             if (!stState.blobUrl) {
-                console.log("[V41] Descargando...");
+                console.log("[V43] Descargando...");
                 const response = await fetch(stState.currentSetData.audio_url);
                 if (!response.ok) throw new Error("Error red");
                 const blob = await response.blob();
                 stState.blobUrl = URL.createObjectURL(blob);
             }
 
-            // 1. FORZAMOS 44100Hz (Estándar de Oro para AAC)
-            // Si el móvil está en 48000, esto forzará resampling interno
+            // 1. FORZAR 48kHz (Más compatible con Android Video que 44.1)
             const AudioContext = window.AudioContext || window.webkitAudioContext;
-            stState.audioContext = new AudioContext({ sampleRate: 44100, latencyHint: 'playback' });
+            stState.audioContext = new AudioContext({ sampleRate: 48000, latencyHint: 'playback' });
             
             stState.shadowAudio = new Audio();
             stState.shadowAudio.src = stState.blobUrl;
@@ -457,15 +453,14 @@
 
             stState.sourceNode = stState.audioContext.createMediaElementSource(stState.shadowAudio);
             
-            // 2. EL CORTADOR EXACTO: ScriptProcessor con buffer de 1024
-            // AAC requiere bloques de 1024. Pedimos EXACTAMENTE eso al sistema.
-            stState.scriptProcessor = stState.audioContext.createScriptProcessor(1024, 2, 2);
+            // 2. EXTRAER CON SCRIPT PROCESSOR
+            // Buffer de 2048 para dar tiempo al encoder
+            stState.scriptProcessor = stState.audioContext.createScriptProcessor(2048, 2, 2);
 
-            // Conexiones
             stState.sourceNode.connect(stState.analyserNode);
             stState.analyserNode.connect(stState.scriptProcessor);
-            stState.scriptProcessor.connect(stState.audioContext.destination); // Mantiene el flujo vivo
-            stState.sourceNode.connect(stState.audioContext.destination); // Monitor
+            stState.scriptProcessor.connect(stState.audioContext.destination);
+            stState.sourceNode.connect(stState.audioContext.destination);
 
             // 3. Keep Alive
             const osc = stState.audioContext.createOscillator();
@@ -478,9 +473,9 @@
             stDOM.startBtn.innerText = "Sincronizando...";
             await stState.shadowAudio.play();
 
-            console.log("[V41] Esperando señal...");
+            console.log("[V43] Esperando señal...");
             await waitForAudioSignal();
-            console.log("[V41] Señal OK.");
+            console.log("[V43] Señal OK.");
 
         } catch (e) {
             console.error(e);
@@ -525,8 +520,8 @@
     }
 
     async function runRealTimeEncoding() {
-        const sampleRate = 44100; // AAC estándar
-        console.log("[ENGINE] Forzando AAC a 44100Hz");
+        const sampleRate = 48000;
+        console.log("[ENGINE] Intentando AAC Generic a 48000Hz");
 
         let muxer = new Muxer({
             target: new ArrayBufferTarget(),
@@ -547,7 +542,7 @@
 
         let audioChunkCount = 0;
         let readChunkCount = 0;
-        let nextTimestamp = 0; // Reloj matemático perfecto
+        let nextTimestamp = 0;
 
         let audioEncoder = new AudioEncoder({
             output: (chunk, meta) => {
@@ -557,44 +552,44 @@
             error: e => console.error("Audio Encoder Fatal:", e)
         });
         
-        // CONFIGURACIÓN AAC ESTÁNDAR
+        // CAMBIO CRÍTICO: Usamos 'aac' genérico en lugar de 'mp4a.40.2'
+        // Esto permite que Android elija su implementación preferida
         audioEncoder.configure({
-            codec: 'mp4a.40.2', 
+            codec: 'aac', 
             numberOfChannels: 2, 
             sampleRate: sampleRate,
             bitrate: 128000
         });
 
-        // --- ALIMENTADOR DE PRECISIÓN V41 ---
+        // --- EXTRACCIÓN INTERLEAVED (LRLRLR) ---
         stState.scriptProcessor.onaudioprocess = (e) => {
             if (!stState.isEncoding) return;
             if (audioEncoder.state !== 'configured') return;
 
-            // Recibimos exactamente 1024 samples por el diseño del scriptProcessor
             const inputBuffer = e.inputBuffer;
             const left = inputBuffer.getChannelData(0);
             const right = inputBuffer.getChannelData(1);
+            const frameCount = inputBuffer.length;
 
-            // Creamos buffer entrelazado plano (LLLL...RRRR...)
-            // WebCodecs suele preferir este formato "planar"
-            const frameCount = inputBuffer.length; // Siempre será 1024
-            const totalSize = frameCount * 2 * 4; // 2 canales, 4 bytes float
+            // PREPARAR DATOS INTERLEAVED (Para móviles quisquillosos)
+            // L, R, L, R, L, R...
+            const totalSize = frameCount * 2 * 4; // 2ch, 4 bytes
             const buffer = new ArrayBuffer(totalSize);
             const view = new Float32Array(buffer);
 
-            // Copiar datos
-            view.set(left, 0);
-            view.set(right, frameCount);
+            for (let i = 0; i < frameCount; i++) {
+                view[i * 2] = left[i];
+                view[i * 2 + 1] = right[i];
+            }
 
-            // Duración exacta de 1024 samples a 44100Hz = ~23219 microsegundos
             const durationUs = (frameCount * 1_000_000) / sampleRate;
-
+            
             const audioData = new AudioData({
-                format: 'f32-planar',
+                format: 'f32', // NOTA: 'f32' suele implicar interleaved, 'f32-planar' es separado
                 sampleRate: sampleRate,
                 numberOfFrames: frameCount,
                 numberOfChannels: 2,
-                timestamp: nextTimestamp, // Tiempo perfecto calculado
+                timestamp: nextTimestamp,
                 data: buffer
             });
 
@@ -624,11 +619,12 @@
                     stState.analyserNode.getByteFrequencyData(dataArray);
                     const vol = dataArray.reduce((a,b)=>a+b,0);
                     
-                    let color = "#f00"; // Rojo (Fallo)
-                    if (audioChunkCount > 0) color = "#0f0"; // Verde (Éxito)
-                    else if (readChunkCount > 10) color = "#ff0"; // Amarillo (Leyendo pero no codificando)
+                    let color = "#f00";
+                    if (audioChunkCount > 0) color = "#0f0";
+                    else if (readChunkCount > 10) color = "#ff0";
 
-                    stDOM.statusText.innerHTML = `<span style="color:${color}">R:${readChunkCount} | E:${audioChunkCount} (AAC)</span>`;
+                    // Info extra de depuración
+                    stDOM.statusText.innerHTML = `<span style="color:${color}">R:${readChunkCount} | E:${audioChunkCount}</span>`;
                 }
 
                 stDOM.progressFill.style.width = (elapsed / durationMs) * 100 + "%";
@@ -653,7 +649,6 @@
 
         stDOM.statusText.innerText = "Finalizando...";
         
-        // Limpieza crítica
         if (stState.scriptProcessor) {
             stState.scriptProcessor.onaudioprocess = null;
             stState.scriptProcessor.disconnect();
@@ -674,9 +669,10 @@
             muxer.finalize();
             const buffer = muxer.target.buffer;
             
-            console.log(`[V41 END] Read: ${readChunkCount}, Encoded: ${audioChunkCount}`);
+            console.log(`[V43 END] Read: ${readChunkCount}, Encoded: ${audioChunkCount}`);
             
             if (buffer.byteLength > 0) {
+                // MP4 REAL
                 stState.finalBlob = new Blob([buffer], { type: 'video/mp4' });
                 stShowFinalUI();
             } else { throw new Error("0 bytes"); }
@@ -777,10 +773,11 @@
         stCtx.fillText("FLAC • HIFI", w/2, badgeY + 11);
     }
     
+    // UI FINAL
     function stShowFinalUI() {
         stDOM.loadingUI.style.display = 'none';
         stDOM.finalActions.style.display = 'block';
-        console.log(`[STORY MODULE] Listo.`);
+        console.log(`[STORY MODULE] Listo. MP4 Real.`);
         
         stDOM.shareWaBtn.onclick = async () => {
             if (!stState.finalBlob) return;
