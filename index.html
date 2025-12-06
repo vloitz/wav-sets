@@ -295,8 +295,7 @@
     </div>
 
 <script type="module">
-    // Ya no importamos mp4-muxer porque usaremos el grabador nativo
-    const version = "V29: MediaRecorder Nativo (Solución RAM/Compatibilidad)";
+    const version = "V30: Universal Compatibility (WhatsApp Fix)";
     console.log(`[STORY MODULE] CARGANDO ${version}`);
 
     const stDOM = {
@@ -337,8 +336,8 @@
         blobUrl: null,
         analyserNode: null,
         keepAliveOsc: null,
-        mediaRecorder: null, // EL NUEVO PROTAGONISTA
-        chunks: [] // Donde guardaremos los trozos de video
+        mediaRecorder: null,
+        chunks: []
     };
 
     const stCoverImg = new Image();
@@ -419,26 +418,26 @@
         }
     }
 
-    // --- START BUTTON (MEDIA RECORDER) ---
+    // --- START BUTTON ---
     stDOM.startBtn.addEventListener('click', async () => {
         if (stState.isEncoding) return;
         stDOM.startBtn.disabled = true;
-        stDOM.startBtn.innerText = "Iniciando V29...";
+        stDOM.startBtn.innerText = "Iniciando V30...";
 
         const mainAudio = document.getElementById('audio-player');
         if (!mainAudio.paused) mainAudio.pause();
 
         try {
-            // 1. Descargar Blob (Seguridad CORS)
+            // 1. Descargar Blob
             if (!stState.blobUrl) {
-                console.log("[V29] Descargando...");
+                console.log("[V30] Descargando...");
                 const response = await fetch(stState.currentSetData.audio_url);
                 if (!response.ok) throw new Error("Error red");
                 const blob = await response.blob();
                 stState.blobUrl = URL.createObjectURL(blob);
             }
 
-            // 2. Audio Context & Shadow Player
+            // 2. Audio Context
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             stState.audioContext = new AudioContext({ latencyHint: 'playback' });
             
@@ -447,7 +446,6 @@
             stState.shadowAudio.currentTime = stState.startTime;
             stState.shadowAudio.volume = 1.0;
             stState.shadowAudio.crossOrigin = "anonymous";
-            // Adjuntar al DOM (Truco anti-sleep)
             stState.shadowAudio.style.position = 'fixed';
             stState.shadowAudio.style.opacity = '0';
             stState.shadowAudio.style.pointerEvents = 'none';
@@ -459,12 +457,10 @@
 
             stState.sourceNode = stState.audioContext.createMediaElementSource(stState.shadowAudio);
             
-            // CONEXIONES
             stState.sourceNode.connect(stState.analyserNode);
             stState.analyserNode.connect(stState.mediaStreamDest);
             stState.sourceNode.connect(stState.audioContext.destination);
 
-            // OSCILADOR (Seguro de vida)
             const osc = stState.audioContext.createOscillator();
             const gain = stState.audioContext.createGain();
             osc.frequency.value = 1; gain.gain.value = 0.0001; 
@@ -472,13 +468,12 @@
             osc.start();
             stState.keepAliveOsc = osc;
 
-            // 3. Sincronización
             stDOM.startBtn.innerText = "Sincronizando...";
             await stState.shadowAudio.play();
 
-            console.log("[V29] Esperando señal...");
+            console.log("[V30] Esperando señal...");
             await waitForAudioSignal();
-            console.log("[V29] Señal OK.");
+            console.log("[V30] Señal OK.");
 
         } catch (e) {
             console.error(e);
@@ -492,8 +487,7 @@
         stState.isEncoding = true;
         
         stState.config = {
-            width: 360, height: 640, duration: 15,
-            fps: 30 // MediaRecorder maneja esto mejor
+            width: 360, height: 640, duration: 15, fps: 30
         };
 
         stPrepareStaticLayer();
@@ -523,60 +517,49 @@
         });
     }
 
-    // --- GRABADORA NATIVA V29 ---
     async function startNativeRecording() {
-        // 1. Stream del Canvas
-        const canvasStream = stDOM.canvas.captureStream(30); // 30 FPS
-        
-        // 2. Stream de Audio
+        const canvasStream = stDOM.canvas.captureStream(30);
         const audioStream = stState.mediaStreamDest.stream;
         
-        // 3. Combinar (Mezclador)
         const combinedStream = new MediaStream([
             ...canvasStream.getVideoTracks(),
             ...audioStream.getAudioTracks()
         ]);
 
-        // 4. Configurar MediaRecorder (Probamos codecs preferidos)
-        let options = { mimeType: 'video/webm;codecs=vp8' }; // Default universal
-        if (MediaRecorder.isTypeSupported('video/mp4;codecs=avc1')) {
-            options = { mimeType: 'video/mp4;codecs=avc1', videoBitsPerSecond: 2500000 };
+        // CONFIGURACIÓN CLAVE PARA WHATSAPP
+        // Preferimos MP4 (H.264), si no WebM (VP8/9)
+        // Pero no forzamos bitrates locos que rompen el header
+        let options = { mimeType: 'video/webm' }; 
+        if (MediaRecorder.isTypeSupported('video/mp4')) {
+            options = { mimeType: 'video/mp4' };
         } else if (MediaRecorder.isTypeSupported('video/webm;codecs=h264')) {
             options = { mimeType: 'video/webm;codecs=h264' };
         }
 
-        console.log(`[V29] Usando: ${options.mimeType}`);
+        console.log(`[V30] Codec: ${options.mimeType}`);
         
         stState.chunks = [];
         try {
             stState.mediaRecorder = new MediaRecorder(combinedStream, options);
         } catch(e) {
-            // Fallback si falla la configuración
-            console.warn("Fallback a default recorder");
             stState.mediaRecorder = new MediaRecorder(combinedStream);
         }
 
-        // 5. Manejo de Datos
         stState.mediaRecorder.ondataavailable = (e) => {
-            if (e.data.size > 0) {
-                stState.chunks.push(e.data);
-                console.log(`[REC] Chunk: ${e.data.size} bytes`);
-            }
+            if (e.data.size > 0) stState.chunks.push(e.data);
         };
 
         stState.mediaRecorder.onstop = () => {
-            console.log("[REC] Stop. Generando Blob...");
-            // Crear el archivo final
-            // Importante: Usar el tipo del recorder, o mp4 genérico si es compatible
+            console.log("[REC] Finalizando archivo...");
+            
+            // TRUCO FINAL: Blob unificado
             const type = stState.mediaRecorder.mimeType || 'video/mp4';
             stState.finalBlob = new Blob(stState.chunks, { type: type });
-            stShowFinalUI();
+            stShowFinalUI(type);
         };
 
-        // 6. INICIAR GRABACIÓN
-        stState.mediaRecorder.start(1000); // Guardar trozos cada segundo (seguridad)
+        stState.mediaRecorder.start(100); // Chunks más pequeños (100ms) para mejor header
 
-        // 7. BUCLE VISUAL (Para pintar el canvas)
         const startTime = performance.now();
         const durationMs = stState.config.duration * 1000;
         let frameCount = 0;
@@ -588,24 +571,20 @@
 
             if (elapsed >= durationMs) {
                 stState.isEncoding = false;
-                stState.mediaRecorder.stop(); // Detener grabación
+                stState.mediaRecorder.stop();
                 return;
             }
 
-            // Diagnóstico
             if (frameCount % 10 === 0) {
                 stState.analyserNode.getByteFrequencyData(dataArray);
                 const vol = dataArray.reduce((a,b)=>a+b,0);
-                if(vol > 0) stDOM.statusText.innerHTML = `<span style="color:#0f0">🔴 REC NATIVO (${vol})</span>`;
+                if(vol > 0) stDOM.statusText.innerHTML = `<span style="color:#0f0">🔴 GRABANDO (${vol})</span>`;
             }
 
             stDOM.progressFill.style.width = (elapsed / durationMs) * 100 + "%";
             stUpdateAudioSimulation(frameCount);
             stCtx.drawImage(stState.staticCanvas, 0, 0);
             stDrawDynamicLayer(elapsed / 1000);
-
-            // Nota: Aquí ya no codificamos frame a frame manualmente.
-            // Solo dibujamos en el canvas, y el MediaRecorder lo captura solo.
             
             frameCount++;
             requestAnimationFrame(drawLoop);
@@ -613,7 +592,7 @@
         requestAnimationFrame(drawLoop);
     }
 
-    // UTILS (Visuales)
+    // UTILS
     function roundRect(ctx, x, y, w, h, r) {
         if (w < 2 * r) r = w / 2; if (h < 2 * r) r = h / 2;
         ctx.moveTo(x+r, y); ctx.arcTo(x+w, y, x+w, y+h, r);
@@ -702,27 +681,28 @@
         stCtx.fillStyle = "#1DB954"; stCtx.font = "700 9px Inter, sans-serif";
         stCtx.fillText("FLAC • HIFI", w/2, badgeY + 11);
     }
-    function stShowFinalUI() {
+    
+    // --- UI FINAL ACTUALIZADA (V30) ---
+    function stShowFinalUI(mimeType) {
         stDOM.loadingUI.style.display = 'none';
         stDOM.finalActions.style.display = 'block';
-        console.log("[STORY MODULE] Grabación finalizada.");
+        console.log("[STORY MODULE] Listo.");
+        
         stDOM.shareWaBtn.onclick = async () => {
             if (!stState.finalBlob) return;
-            // IMPORTANTE: Respetamos el tipo MIME del archivo generado
-            const mime = stState.finalBlob.type;
-            // Si es WebM (típico en Android), le cambiamos el nombre a .webm
-            const ext = mime.includes('webm') ? 'webm' : 'mp4';
-            const file = new File([stState.finalBlob], `story.${ext}`, { type: mime });
+            // Detección inteligente de extensión
+            const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
+            const file = new File([stState.finalBlob], `story.${ext}`, { type: mimeType });
             
             if (navigator.canShare && navigator.canShare({ files: [file] })) {
                 try { await navigator.share({ files: [file] }); } catch (e) {}
             } else { alert("Usa descargar manual."); }
         };
+        
         stDOM.dlManualBtn.onclick = () => {
             if (!stState.finalBlob) return;
             const url = URL.createObjectURL(stState.finalBlob);
-            const mime = stState.finalBlob.type;
-            const ext = mime.includes('webm') ? 'webm' : 'mp4';
+            const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
             const a = document.createElement('a'); a.href = url; a.download = `story.${ext}`;
             document.body.appendChild(a); a.click(); document.body.removeChild(a);
         };
