@@ -295,7 +295,7 @@
     </div>
 
 <script type="module">
-    const version = "V30: Universal Compatibility (WhatsApp Fix)";
+    const version = "V31: WebM Nativo (Identidad Correcta)";
     console.log(`[STORY MODULE] CARGANDO ${version}`);
 
     const stDOM = {
@@ -422,7 +422,7 @@
     stDOM.startBtn.addEventListener('click', async () => {
         if (stState.isEncoding) return;
         stDOM.startBtn.disabled = true;
-        stDOM.startBtn.innerText = "Iniciando V30...";
+        stDOM.startBtn.innerText = "Iniciando V31...";
 
         const mainAudio = document.getElementById('audio-player');
         if (!mainAudio.paused) mainAudio.pause();
@@ -430,7 +430,7 @@
         try {
             // 1. Descargar Blob
             if (!stState.blobUrl) {
-                console.log("[V30] Descargando...");
+                console.log("[V31] Descargando...");
                 const response = await fetch(stState.currentSetData.audio_url);
                 if (!response.ok) throw new Error("Error red");
                 const blob = await response.blob();
@@ -446,6 +446,7 @@
             stState.shadowAudio.currentTime = stState.startTime;
             stState.shadowAudio.volume = 1.0;
             stState.shadowAudio.crossOrigin = "anonymous";
+            // DOM Attach
             stState.shadowAudio.style.position = 'fixed';
             stState.shadowAudio.style.opacity = '0';
             stState.shadowAudio.style.pointerEvents = 'none';
@@ -471,9 +472,9 @@
             stDOM.startBtn.innerText = "Sincronizando...";
             await stState.shadowAudio.play();
 
-            console.log("[V30] Esperando señal...");
+            console.log("[V31] Esperando señal...");
             await waitForAudioSignal();
-            console.log("[V30] Señal OK.");
+            console.log("[V31] Señal OK.");
 
         } catch (e) {
             console.error(e);
@@ -526,23 +527,19 @@
             ...audioStream.getAudioTracks()
         ]);
 
-        // CONFIGURACIÓN CLAVE PARA WHATSAPP
-        // Preferimos MP4 (H.264), si no WebM (VP8/9)
-        // Pero no forzamos bitrates locos que rompen el header
-        let options = { mimeType: 'video/webm' }; 
-        if (MediaRecorder.isTypeSupported('video/mp4')) {
-            options = { mimeType: 'video/mp4' };
-        } else if (MediaRecorder.isTypeSupported('video/webm;codecs=h264')) {
-            options = { mimeType: 'video/webm;codecs=h264' };
-        }
-
-        console.log(`[V30] Codec: ${options.mimeType}`);
+        // CAMBIO CRÍTICO: SOLO WEBM
+        // Forzamos el contenedor y codec nativo de Android
+        // Esto elimina el conflicto de identidad MP4 vs WebM
+        const options = { mimeType: 'video/webm;codecs=vp8,opus' };
+        
+        console.log(`[V31] Codec forzado: ${options.mimeType}`);
         
         stState.chunks = [];
         try {
             stState.mediaRecorder = new MediaRecorder(combinedStream, options);
         } catch(e) {
-            stState.mediaRecorder = new MediaRecorder(combinedStream);
+            console.warn("Fallback a WebM genérico");
+            stState.mediaRecorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm' });
         }
 
         stState.mediaRecorder.ondataavailable = (e) => {
@@ -550,15 +547,17 @@
         };
 
         stState.mediaRecorder.onstop = () => {
-            console.log("[REC] Finalizando archivo...");
+            console.log("[REC] Finalizando...");
             
-            // TRUCO FINAL: Blob unificado
-            const type = stState.mediaRecorder.mimeType || 'video/mp4';
-            stState.finalBlob = new Blob(stState.chunks, { type: type });
-            stShowFinalUI(type);
+            // EXTREMADAMENTE IMPORTANTE: Extensión .webm
+            // WhatsApp aceptará esto y lo convertirá a MP4 él solito.
+            // La Galería lo reproducirá con audio.
+            const blob = new Blob(stState.chunks, { type: 'video/webm' });
+            stState.finalBlob = blob;
+            stShowFinalUI(blob);
         };
 
-        stState.mediaRecorder.start(100); // Chunks más pequeños (100ms) para mejor header
+        stState.mediaRecorder.start(); // Sin slices para mejorar metadatos
 
         const startTime = performance.now();
         const durationMs = stState.config.duration * 1000;
@@ -578,7 +577,7 @@
             if (frameCount % 10 === 0) {
                 stState.analyserNode.getByteFrequencyData(dataArray);
                 const vol = dataArray.reduce((a,b)=>a+b,0);
-                if(vol > 0) stDOM.statusText.innerHTML = `<span style="color:#0f0">🔴 GRABANDO (${vol})</span>`;
+                if(vol > 0) stDOM.statusText.innerHTML = `<span style="color:#0f0">🔴 REC WEBM (${vol})</span>`;
             }
 
             stDOM.progressFill.style.width = (elapsed / durationMs) * 100 + "%";
@@ -682,17 +681,16 @@
         stCtx.fillText("FLAC • HIFI", w/2, badgeY + 11);
     }
     
-    // --- UI FINAL ACTUALIZADA (V30) ---
-    function stShowFinalUI(mimeType) {
+    // --- UI FINAL (Extension Fix) ---
+    function stShowFinalUI(blob) {
         stDOM.loadingUI.style.display = 'none';
         stDOM.finalActions.style.display = 'block';
         console.log("[STORY MODULE] Listo.");
         
         stDOM.shareWaBtn.onclick = async () => {
-            if (!stState.finalBlob) return;
-            // Detección inteligente de extensión
-            const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
-            const file = new File([stState.finalBlob], `story.${ext}`, { type: mimeType });
+            if (!blob) return;
+            // IMPORTANTE: WhatsApp reconoce .webm y lo transcodifica si es necesario
+            const file = new File([blob], "story.webm", { type: 'video/webm' });
             
             if (navigator.canShare && navigator.canShare({ files: [file] })) {
                 try { await navigator.share({ files: [file] }); } catch (e) {}
@@ -700,10 +698,10 @@
         };
         
         stDOM.dlManualBtn.onclick = () => {
-            if (!stState.finalBlob) return;
-            const url = URL.createObjectURL(stState.finalBlob);
-            const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
-            const a = document.createElement('a'); a.href = url; a.download = `story.${ext}`;
+            if (!blob) return;
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; 
+            a.download = "story.webm"; // Forzamos extensión webm
             document.body.appendChild(a); a.click(); document.body.removeChild(a);
         };
     }
