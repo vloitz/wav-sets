@@ -295,10 +295,8 @@
     </div>
 
 <script type="module">
-    // Importamos la herramienta para arreglar la cabecera del WebM
-    import { fixWebmDuration } from 'https://esm.sh/@fix-webm-duration/fix@1.0.5';
-
-    const version = "V35: WebM Patch (Fix Duration Metadata)";
+    // V36: Sin dependencias externas. Lógica nativa pura.
+    const version = "V36: Native Recorder + Safety Stop";
     console.log(`[STORY MODULE] CARGANDO ${version}`);
 
     const stDOM = {
@@ -327,6 +325,7 @@
     const stState = {
         isEncoding: false,
         finalBlob: null,
+        finalExt: 'webm',
         audioData: new Array(20).fill(5),
         staticCanvas: null,
         config: {},
@@ -361,7 +360,7 @@
             if (realSet && wave) {
                 stState.currentSetData = realSet;
                 stState.startTime = wave.getCurrentTime();
-
+                
                 let activeTrackName = realSet.title;
                 if (realSet.tracklist) {
                     for (let i = realSet.tracklist.length - 1; i >= 0; i--) {
@@ -378,6 +377,7 @@
             }
             stDOM.overlay.classList.add('active');
             resetModule();
+            // INDICADOR VISUAL OBLIGATORIO
             stDOM.statusText.innerText = version;
             stDOM.statusText.style.color = "#00ff00";
         });
@@ -424,29 +424,34 @@
     // --- START BUTTON ---
     stDOM.startBtn.addEventListener('click', async () => {
         if (stState.isEncoding) return;
+        
+        // Bloqueo de UI inmediato para feedback visual
         stDOM.startBtn.disabled = true;
-        stDOM.startBtn.innerText = "Iniciando V35...";
+        stDOM.startBtn.innerText = "Iniciando V36...";
 
         const mainAudio = document.getElementById('audio-player');
         if (!mainAudio.paused) mainAudio.pause();
 
         try {
+            // 1. Descargar Blob
             if (!stState.blobUrl) {
-                console.log("[V35] Descargando...");
+                console.log("[V36] Descargando...");
                 const response = await fetch(stState.currentSetData.audio_url);
                 if (!response.ok) throw new Error("Error red");
                 const blob = await response.blob();
                 stState.blobUrl = URL.createObjectURL(blob);
             }
 
+            // 2. Audio Setup (Nativo)
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             stState.audioContext = new AudioContext({ latencyHint: 'playback' });
-
+            
             stState.shadowAudio = new Audio();
             stState.shadowAudio.src = stState.blobUrl;
             stState.shadowAudio.currentTime = stState.startTime;
             stState.shadowAudio.volume = 1.0;
             stState.shadowAudio.crossOrigin = "anonymous";
+            // DOM Attach invisible
             stState.shadowAudio.style.position = 'fixed';
             stState.shadowAudio.style.opacity = '0';
             stState.shadowAudio.style.pointerEvents = 'none';
@@ -454,16 +459,17 @@
 
             stState.mediaStreamDest = stState.audioContext.createMediaStreamDestination();
             stState.analyserNode = stState.audioContext.createAnalyser();
-            stState.analyserNode.fftSize = 256;
+            stState.analyserNode.fftSize = 256; 
 
             stState.sourceNode = stState.audioContext.createMediaElementSource(stState.shadowAudio);
             stState.sourceNode.connect(stState.analyserNode);
             stState.analyserNode.connect(stState.mediaStreamDest);
             stState.sourceNode.connect(stState.audioContext.destination);
 
+            // Oscilador "Keep Alive"
             const osc = stState.audioContext.createOscillator();
             const gain = stState.audioContext.createGain();
-            osc.frequency.value = 1; gain.gain.value = 0.0001;
+            osc.frequency.value = 1; gain.gain.value = 0.0001; 
             osc.connect(gain); gain.connect(stState.mediaStreamDest);
             osc.start();
             stState.keepAliveOsc = osc;
@@ -471,9 +477,9 @@
             stDOM.startBtn.innerText = "Sincronizando...";
             await stState.shadowAudio.play();
 
-            console.log("[V35] Esperando señal...");
+            console.log("[V36] Esperando señal...");
             await waitForAudioSignal();
-            console.log("[V35] Señal OK.");
+            console.log("[V36] Señal OK.");
 
         } catch (e) {
             console.error(e);
@@ -485,7 +491,7 @@
         stDOM.viewIntro.style.display = 'none';
         stDOM.viewProcess.style.display = 'block';
         stState.isEncoding = true;
-
+        
         stState.config = {
             width: 360, height: 640, duration: 15, fps: 30
         };
@@ -509,6 +515,7 @@
                 attempts++;
                 stState.analyserNode.getByteFrequencyData(dataArray);
                 const vol = dataArray.reduce((a,b) => a+b, 0);
+                // Esperar señal o timeout 3s
                 if (vol > 0 || attempts > 60) {
                     clearInterval(check);
                     resolve();
@@ -520,50 +527,59 @@
     async function startNativeRecording() {
         const canvasStream = stDOM.canvas.captureStream(30);
         const audioStream = stState.mediaStreamDest.stream;
-
+        
         const combinedStream = new MediaStream([
             ...canvasStream.getVideoTracks(),
             ...audioStream.getAudioTracks()
         ]);
 
-        // FORZAR WEBM (El formato real que Android genera)
-        const options = { mimeType: 'video/webm;codecs=vp8,opus' };
+        // ESTRATEGIA DE FORMATOS V36
+        // Intentamos forzar MP4 con perfiles "fáciles" para Android
+        let options = { mimeType: 'video/webm' };
+        let ext = 'webm';
 
+        // Lista de candidatos en orden de preferencia para WhatsApp
+        const types = [
+            'video/mp4;codecs=avc1.42E01E,mp4a.40.2', // Baseline (Muy compatible)
+            'video/mp4;codecs=h264,aac',              // Genérico H264
+            'video/mp4',                              // Genérico MP4
+            'video/webm;codecs=h264',                 // WebM raro con H264
+            'video/webm;codecs=vp8,opus'              // WebM clásico (Fallback seguro)
+        ];
+
+        for (const type of types) {
+            if (MediaRecorder.isTypeSupported(type)) {
+                options = { mimeType: type };
+                ext = type.includes('mp4') ? 'mp4' : 'webm';
+                break;
+            }
+        }
+
+        console.log(`[V36] Formato Elegido: ${options.mimeType}`);
+        
         stState.chunks = [];
         try {
             stState.mediaRecorder = new MediaRecorder(combinedStream, options);
         } catch(e) {
+            console.warn("Fallback final");
             stState.mediaRecorder = new MediaRecorder(combinedStream);
+            ext = 'webm';
         }
+
+        stState.finalExt = ext;
 
         stState.mediaRecorder.ondataavailable = (e) => {
             if (e.data.size > 0) stState.chunks.push(e.data);
         };
 
-        stState.mediaRecorder.onstop = async () => {
-            console.log("[REC] Stop. Iniciando parche de duración...");
-
-            // 1. Crear Blob crudo (Roto)
-            const rawBlob = new Blob(stState.chunks, { type: 'video/webm' });
-
-            // 2. PARCHAR EL BLOB (La Magia V35)
-            // Calculamos duración en ms
-            const durationMs = stState.config.duration * 1000;
-
-            try {
-                // Inyectar metadatos correctos
-                const patchedBlob = await fixWebmDuration(rawBlob, durationMs);
-                console.log("[REC] Blob parchado con éxito.");
-                stState.finalBlob = patchedBlob;
-            } catch (err) {
-                console.error("Error parchando WebM:", err);
-                stState.finalBlob = rawBlob; // Fallback al original si falla
-            }
-
-            stShowFinalUI();
+        stState.mediaRecorder.onstop = () => {
+            console.log("[REC] Stop. Creando archivo...");
+            const finalMime = stState.mediaRecorder.mimeType || `video/${stState.finalExt}`;
+            stState.finalBlob = new Blob(stState.chunks, { type: finalMime });
+            stShowFinalUI(finalMime);
         };
 
-        stState.mediaRecorder.start();
+        stState.mediaRecorder.start(1000); 
 
         const startTime = performance.now();
         const durationMs = stState.config.duration * 1000;
@@ -575,22 +591,27 @@
             const elapsed = now - startTime;
 
             if (elapsed >= durationMs) {
+                // CIERRE SUAVE: Detener dibujo, esperar un poco antes de cortar
                 stState.isEncoding = false;
-                stState.mediaRecorder.stop();
+                stDOM.statusText.innerText = "Cerrando archivo...";
+                // Esperar 500ms para que el buffer de audio se vacíe
+                setTimeout(() => {
+                    stState.mediaRecorder.stop();
+                }, 500);
                 return;
             }
 
             if (frameCount % 10 === 0) {
                 stState.analyserNode.getByteFrequencyData(dataArray);
                 const vol = dataArray.reduce((a,b)=>a+b,0);
-                if(vol > 0) stDOM.statusText.innerHTML = `<span style="color:#0f0">🔴 REC WEBM (${vol})</span>`;
+                if(vol > 0) stDOM.statusText.innerHTML = `<span style="color:#0f0">🔴 REC ${stState.finalExt.toUpperCase()} (${vol})</span>`;
             }
 
             stDOM.progressFill.style.width = (elapsed / durationMs) * 100 + "%";
             stUpdateAudioSimulation(frameCount);
             stCtx.drawImage(stState.staticCanvas, 0, 0);
             stDrawDynamicLayer(elapsed / 1000);
-
+            
             frameCount++;
             requestAnimationFrame(drawLoop);
         };
@@ -686,32 +707,30 @@
         stCtx.fillStyle = "#1DB954"; stCtx.font = "700 9px Inter, sans-serif";
         stCtx.fillText("FLAC • HIFI", w/2, badgeY + 11);
     }
-
-    // UI FINAL: DESCARGA COMO WEBM
-    function stShowFinalUI(blob) {
+    
+    // UI FINAL
+    function stShowFinalUI(mimeType) {
         stDOM.loadingUI.style.display = 'none';
         stDOM.finalActions.style.display = 'block';
-        console.log(`[STORY MODULE] Listo.`);
-
+        
         stDOM.shareWaBtn.onclick = async () => {
-            if (!blob) return;
-            // Enviamos como .webm. WhatsApp hará la magia de convertir a MP4
-            const file = new File([blob], "story.webm", { type: 'video/webm' });
-
+            if (!stState.finalBlob) return;
+            const ext = stState.finalExt; 
+            const file = new File([stState.finalBlob], `story.${ext}`, { type: mimeType });
+            
             if (navigator.canShare && navigator.canShare({ files: [file] })) {
                 try { await navigator.share({ files: [file] }); } catch (e) {}
             } else { alert("Usa descargar manual."); }
         };
-
+        
         stDOM.dlManualBtn.onclick = () => {
-            if (!blob) return;
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a'); a.href = url; a.download = "story.webm";
+            if (!stState.finalBlob) return;
+            const url = URL.createObjectURL(stState.finalBlob);
+            const a = document.createElement('a'); a.href = url; a.download = `story.${stState.finalExt}`;
             document.body.appendChild(a); a.click(); document.body.removeChild(a);
         };
     }
 </script>
-
 
 </body>
 </html>
