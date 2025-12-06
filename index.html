@@ -295,76 +295,10 @@
     </div>
 
 <script type="module">
-    const version = "V37: WebM EBML Duration Patcher (WhatsApp Fix)";
+    import { Muxer, ArrayBufferTarget } from 'https://esm.sh/mp4-muxer@5.1.0';
+
+    const version = "V38: MP4 Container + OPUS Audio (Fix E=0)";
     console.log(`[STORY MODULE] CARGANDO ${version}`);
-
-    // --- MINI-LIBRERÍA PARA ARREGLAR LA DURACIÓN DEL WEBM (Sin descargas externas) ---
-    // Basado en fix-webm-duration (yts/fix-webm-duration)
-    const ysFixWebmDuration = (blob, duration, cb) => {
-        const reader = new FileReader();
-        reader.addEventListener('loadend', () => {
-            try {
-                const buffer = reader.result;
-                const view = new DataView(buffer);
-                let missingDuration = true;
-                let segmentEnd = 0;
-
-                // Buscar segmento EBML
-                for (let i = 0; i < buffer.byteLength - 8; i++) {
-                    // ID de Segmento: 0x18538067
-                    if (view.getUint32(i) === 0x18538067) {
-                        let pos = i + 4;
-                        // Saltar tamaño del segmento
-                        let len = view.getUint8(pos);
-                        pos += 1;
-                        if (len >= 128) { // Tamaño codificado variable
-                            let bytes = 0;
-                            while ((len & (0x80 >> bytes)) === 0) bytes++;
-                            pos += bytes;
-                        }
-
-                        // Buscar "Info" (0x1549A966)
-                        while (pos < buffer.byteLength - 8) {
-                            const id = view.getUint32(pos);
-                            if (id === 0x1549A966) {
-                                pos += 4;
-                                // Saltar tamaño Info
-                                let len = view.getUint8(pos);
-                                pos += 1;
-                                if (len >= 128) {
-                                    let bytes = 0;
-                                    while ((len & (0x80 >> bytes)) === 0) bytes++;
-                                    pos += bytes;
-                                }
-                                const infoEnd = pos + (len & 0x7F); // Aproximado si es corto
-
-                                // Buscar "Duration" (0x4489) dentro de Info
-                                while (pos < Math.min(infoEnd + 100, buffer.byteLength - 8)) {
-                                    if (view.getUint16(pos) === 0x4489) {
-                                        // Encontrado! Escribir duración (double float)
-                                        view.setFloat64(pos + 3, duration, false); // Big Endian
-                                        missingDuration = false;
-                                        console.log(`[EBML] Duración parchada a ${duration}ms en offset ${pos}`);
-                                        break;
-                                    }
-                                    pos++;
-                                }
-                                break;
-                            }
-                            pos++;
-                        }
-                        break;
-                    }
-                }
-                cb(new Blob([buffer], { type: blob.type }));
-            } catch (ex) {
-                console.error("[EBML] Error parchando:", ex);
-                cb(blob); // Devolver original si falla
-            }
-        });
-        reader.readAsArrayBuffer(blob);
-    };
-    // -----------------------------------------------------------------------
 
     const stDOM = {
         openBtn: document.getElementById('stOpenBtn'),
@@ -392,7 +326,6 @@
     const stState = {
         isEncoding: false,
         finalBlob: null,
-        finalExt: 'webm',
         audioData: new Array(20).fill(5),
         staticCanvas: null,
         config: {},
@@ -404,15 +337,12 @@
         shadowAudio: null,
         blobUrl: null,
         analyserNode: null,
-        keepAliveOsc: null,
-        mediaRecorder: null,
-        chunks: []
+        keepAliveOsc: null
     };
 
     const stCoverImg = new Image();
     stCoverImg.crossOrigin = "Anonymous";
 
-    // --- UI EVENTS ---
     if(stDOM.hqToggle) {
         stDOM.hqToggle.addEventListener('change', () => {
             stDOM.qualityText.innerText = stDOM.hqToggle.checked ? "Alta Calidad" : "Modo Seguro";
@@ -427,7 +357,7 @@
             if (realSet && wave) {
                 stState.currentSetData = realSet;
                 stState.startTime = wave.getCurrentTime();
-
+                
                 let activeTrackName = realSet.title;
                 if (realSet.tracklist) {
                     for (let i = realSet.tracklist.length - 1; i >= 0; i--) {
@@ -468,9 +398,6 @@
     }
 
     function cleanupAudio() {
-        if (stState.mediaRecorder && stState.mediaRecorder.state !== 'inactive') {
-            stState.mediaRecorder.stop();
-        }
         if (stState.shadowAudio) {
             stState.shadowAudio.pause();
             if (document.body.contains(stState.shadowAudio)) document.body.removeChild(stState.shadowAudio);
@@ -487,29 +414,27 @@
         }
     }
 
-    // --- START BUTTON ---
     stDOM.startBtn.addEventListener('click', async () => {
         if (stState.isEncoding) return;
         stDOM.startBtn.disabled = true;
-        stDOM.startBtn.innerText = "Iniciando V37...";
+        stDOM.startBtn.innerText = "Iniciando V38...";
 
         const mainAudio = document.getElementById('audio-player');
         if (!mainAudio.paused) mainAudio.pause();
 
         try {
-            // 1. Descargar Blob
             if (!stState.blobUrl) {
-                console.log("[V37] Descargando...");
+                console.log("[V38] Descargando...");
                 const response = await fetch(stState.currentSetData.audio_url);
                 if (!response.ok) throw new Error("Error red");
                 const blob = await response.blob();
                 stState.blobUrl = URL.createObjectURL(blob);
             }
 
-            // 2. Audio Context
+            // Fresh Context
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             stState.audioContext = new AudioContext({ latencyHint: 'playback' });
-
+            
             stState.shadowAudio = new Audio();
             stState.shadowAudio.src = stState.blobUrl;
             stState.shadowAudio.currentTime = stState.startTime;
@@ -522,17 +447,17 @@
 
             stState.mediaStreamDest = stState.audioContext.createMediaStreamDestination();
             stState.analyserNode = stState.audioContext.createAnalyser();
-            stState.analyserNode.fftSize = 256;
+            stState.analyserNode.fftSize = 256; 
 
             stState.sourceNode = stState.audioContext.createMediaElementSource(stState.shadowAudio);
-
+            
             stState.sourceNode.connect(stState.analyserNode);
             stState.analyserNode.connect(stState.mediaStreamDest);
             stState.sourceNode.connect(stState.audioContext.destination);
 
             const osc = stState.audioContext.createOscillator();
             const gain = stState.audioContext.createGain();
-            osc.frequency.value = 1; gain.gain.value = 0.0001;
+            osc.frequency.value = 1; gain.gain.value = 0.0001; 
             osc.connect(gain); gain.connect(stState.mediaStreamDest);
             osc.start();
             stState.keepAliveOsc = osc;
@@ -540,9 +465,9 @@
             stDOM.startBtn.innerText = "Sincronizando...";
             await stState.shadowAudio.play();
 
-            console.log("[V37] Esperando señal...");
+            console.log("[V38] Esperando señal...");
             await waitForAudioSignal();
-            console.log("[V37] Señal OK.");
+            console.log("[V38] Señal OK.");
 
         } catch (e) {
             console.error(e);
@@ -554,18 +479,19 @@
         stDOM.viewIntro.style.display = 'none';
         stDOM.viewProcess.style.display = 'block';
         stState.isEncoding = true;
-
+        
         stState.config = {
-            width: 360, height: 640, duration: 15, fps: 30
+            width: 360, height: 640, duration: 15,
+            fps: 24, bitrate: 1500000
         };
 
         stPrepareStaticLayer();
 
-        try { await startNativeRecording(); }
+        try { await runRealTimeEncoding(); }
         catch (e) {
             console.error(e);
             stState.isEncoding = false;
-            alert("Recorder Error: " + e.message);
+            alert("Encoder error: " + e.message);
             resetModule();
         }
     });
@@ -586,84 +512,189 @@
         });
     }
 
-    async function startNativeRecording() {
-        const canvasStream = stDOM.canvas.captureStream(30);
-        const audioStream = stState.mediaStreamDest.stream;
+    // --- SANITIZADOR V38 ---
+    function cloneAndSanitizeAudioChunk(originalChunk, newTimestamp) {
+        const planeSize = originalChunk.allocationSize({ planeIndex: 0 });
+        const totalSize = planeSize * originalChunk.numberOfChannels;
+        const buffer = new ArrayBuffer(totalSize);
 
-        const combinedStream = new MediaStream([
-            ...canvasStream.getVideoTracks(),
-            ...audioStream.getAudioTracks()
-        ]);
-
-        // FORZAMOS WEBM: Es lo único que Android graba bien sin romper el audio.
-        // Pero ahora lo PARCHAREMOS al final.
-        let options = { mimeType: 'video/webm' };
-        if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')) {
-            options = { mimeType: 'video/webm;codecs=vp8,opus' };
+        for (let ch = 0; ch < originalChunk.numberOfChannels; ch++) {
+            const offset = ch * planeSize;
+            const destView = new Uint8Array(buffer, offset, planeSize);
+            originalChunk.copyTo(destView, { planeIndex: ch });
         }
 
-        console.log(`[V37] Usando WebM + Patcher: ${options.mimeType}`);
+        return new AudioData({
+            format: originalChunk.format,
+            sampleRate: originalChunk.sampleRate,
+            numberOfFrames: originalChunk.numberOfFrames,
+            numberOfChannels: originalChunk.numberOfChannels,
+            timestamp: newTimestamp,
+            data: buffer
+        });
+    }
 
-        stState.chunks = [];
-        try {
-            stState.mediaRecorder = new MediaRecorder(combinedStream, options);
-        } catch(e) {
-            stState.mediaRecorder = new MediaRecorder(combinedStream);
-        }
+    async function runRealTimeEncoding() {
+        const trackProcessor = new MediaStreamTrackProcessor({ track: stState.mediaStreamDest.stream.getAudioTracks()[0] });
+        const audioReader = trackProcessor.readable.getReader();
 
-        stState.mediaRecorder.ondataavailable = (e) => {
-            if (e.data.size > 0) stState.chunks.push(e.data);
+        // 1. LEER PRIMER PAQUETE
+        const firstChunkResult = await audioReader.read();
+        if (firstChunkResult.done) throw new Error("Stream vacío");
+        const firstChunk = firstChunkResult.value;
+        
+        const realChannels = firstChunk.numberOfChannels;
+        const realSampleRate = firstChunk.sampleRate;
+        const baseAudioTimestamp = firstChunk.timestamp;
+
+        console.log(`[V38] Config OPUS: ${realChannels}ch, ${realSampleRate}Hz`);
+
+        // 2. MUXER (MP4 Container) + Audio Codec (Opus)
+        // Esto crea un .mp4 que contiene audio Opus. Es válido, aunque raro.
+        let muxer = new Muxer({
+            target: new ArrayBufferTarget(),
+            video: { codec: 'avc', width: stState.config.width, height: stState.config.height },
+            audio: { codec: 'opus', numberOfChannels: realChannels, sampleRate: realSampleRate }, // <--- OPUS AQUÍ
+            fastStart: 'in-memory',
+            firstTimestampBehavior: 'offset'
+        });
+
+        let videoEncoder = new VideoEncoder({
+            output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+            error: e => console.error("Video Error:", e)
+        });
+        videoEncoder.configure({
+            codec: 'avc1.42001E', width: stState.config.width, height: stState.config.height,
+            bitrate: stState.config.bitrate, framerate: stState.config.fps
+        });
+
+        let audioChunkCount = 0;
+        let readChunkCount = 1;
+
+        let audioEncoder = new AudioEncoder({
+            output: (chunk, meta) => {
+                audioChunkCount++;
+                muxer.addAudioChunk(chunk, meta);
+            },
+            error: e => console.error("Audio Encoder Fatal:", e)
+        });
+        
+        // 3. AUDIO ENCODER (OPUS)
+        // Usamos Opus porque tu móvil SÍ soporta este codec nativamente.
+        audioEncoder.configure({
+            codec: 'opus', 
+            numberOfChannels: realChannels, 
+            sampleRate: realSampleRate,
+            bitrate: 128000
+        });
+
+        // Procesar primero
+        const sanitizedFirst = cloneAndSanitizeAudioChunk(firstChunk, 0); 
+        audioEncoder.encode(sanitizedFirst);
+        sanitizedFirst.close();
+        firstChunk.close();
+
+        // BUCLE
+        const processAudio = async () => {
+            while (stState.isEncoding) {
+                try {
+                    const result = await audioReader.read();
+                    if (result.done) break;
+                    readChunkCount++;
+                    
+                    const original = result.value;
+                    
+                    if (audioEncoder.state === 'configured') {
+                        const relativeTimestamp = original.timestamp - baseAudioTimestamp;
+                        if (relativeTimestamp >= 0) {
+                            const sanitized = cloneAndSanitizeAudioChunk(original, relativeTimestamp);
+                            audioEncoder.encode(sanitized);
+                            sanitized.close();
+                        }
+                    }
+                    original.close();
+                } catch (e) { break; }
+            }
         };
-
-        stState.mediaRecorder.onstop = () => {
-            stDOM.statusText.innerText = "Finalizando (Parchando)...";
-            console.log("[REC] Stop. Aplicando fix de duración...");
-
-            // 1. Blob Roto (Sin duración)
-            const rawBlob = new Blob(stState.chunks, { type: 'video/webm' });
-            const durationMs = stState.config.duration * 1000;
-
-            // 2. PARCHE MANUAL EBML (Esto arregla el bug de WhatsApp)
-            ysFixWebmDuration(rawBlob, durationMs, (fixedBlob) => {
-                console.log("[REC] Blob parchado listo.");
-                stState.finalBlob = fixedBlob;
-                stState.finalExt = 'webm'; // Decimos la verdad
-                stShowFinalUI(fixedBlob.type);
-            });
-        };
-
-        stState.mediaRecorder.start(500); // Chunks seguros
+        processAudio();
 
         const startTime = performance.now();
         const durationMs = stState.config.duration * 1000;
         let frameCount = 0;
         const dataArray = new Uint8Array(stState.analyserNode.frequencyBinCount);
 
-        const drawLoop = (now) => {
-            if (!stState.isEncoding) return;
-            const elapsed = now - startTime;
+        await new Promise((resolve) => {
+            const drawFrame = async (now) => {
+                if (!stState.isEncoding) { resolve(); return; }
+                const elapsed = now - startTime;
+                if (elapsed >= durationMs) {
+                    stState.isEncoding = false;
+                    resolve();
+                    return;
+                }
 
-            if (elapsed >= durationMs) {
-                stState.isEncoding = false;
-                stState.mediaRecorder.stop();
-                return;
-            }
+                if (frameCount % 15 === 0) {
+                    stState.analyserNode.getByteFrequencyData(dataArray);
+                    const vol = dataArray.reduce((a,b)=>a+b,0);
+                    
+                    let color = "#f00";
+                    // Si E > 0, significa que el móvil ACEPTÓ el codec Opus.
+                    if (audioChunkCount > 0) color = "#0f0";
+                    else if (readChunkCount > 5) color = "#ffa500";
 
-            if (frameCount % 10 === 0) {
-                stState.analyserNode.getByteFrequencyData(dataArray);
-                const vol = dataArray.reduce((a,b)=>a+b,0);
-                if(vol > 0) stDOM.statusText.innerHTML = `<span style="color:#0f0">🔴 REC + FIX (${vol})</span>`;
-            }
+                    stDOM.statusText.innerHTML = `<span style="color:${color}">R:${readChunkCount} | E:${audioChunkCount}</span>`;
+                }
 
-            stDOM.progressFill.style.width = (elapsed / durationMs) * 100 + "%";
-            stUpdateAudioSimulation(frameCount);
-            stCtx.drawImage(stState.staticCanvas, 0, 0);
-            stDrawDynamicLayer(elapsed / 1000);
+                stDOM.progressFill.style.width = (elapsed / durationMs) * 100 + "%";
+                stUpdateAudioSimulation(frameCount);
+                stCtx.drawImage(stState.staticCanvas, 0, 0);
+                stDrawDynamicLayer(elapsed / 1000);
 
-            frameCount++;
-            requestAnimationFrame(drawLoop);
-        };
-        requestAnimationFrame(drawLoop);
+                const vFrame = new VideoFrame(stDOM.canvas, {
+                    timestamp: now * 1000,
+                    duration: (1000 / stState.config.fps) * 1000
+                });
+
+                if (videoEncoder.encodeQueueSize < 3 && videoEncoder.state === 'configured') {
+                    videoEncoder.encode(vFrame, { keyFrame: frameCount % 30 === 0 });
+                }
+                vFrame.close();
+                frameCount++;
+                requestAnimationFrame(drawFrame);
+            };
+            requestAnimationFrame(drawFrame);
+        });
+
+        stDOM.statusText.innerText = "Finalizando...";
+        try { await audioReader.cancel(); } catch(e) {}
+        
+        try {
+            if (videoEncoder.state === 'configured') await videoEncoder.flush();
+            videoEncoder.close();
+        } catch(e){}
+        try {
+            if (audioEncoder.state === 'configured') await audioEncoder.flush();
+            audioEncoder.close();
+        } catch(e){}
+
+        if (stState.keepAliveOsc) { try{stState.keepAliveOsc.stop()}catch(e){} }
+
+        try {
+            muxer.finalize();
+            const buffer = muxer.target.buffer;
+            
+            console.log(`[V38 END] Read: ${readChunkCount}, Encoded: ${audioChunkCount}`);
+            
+            if (buffer.byteLength > 0) {
+                // EXPORTAMOS COMO MP4
+                stState.finalBlob = new Blob([buffer], { type: 'video/mp4' });
+                stShowFinalUI();
+            } else { throw new Error("0 bytes"); }
+        } catch (e) {
+            console.error(e);
+            alert("Error al guardar.");
+            resetModule();
+        }
     }
 
     function roundRect(ctx, x, y, w, h, r) {
@@ -754,26 +785,26 @@
         stCtx.fillStyle = "#1DB954"; stCtx.font = "700 9px Inter, sans-serif";
         stCtx.fillText("FLAC • HIFI", w/2, badgeY + 11);
     }
-
-    function stShowFinalUI(mimeType) {
+    
+    function stShowFinalUI() {
         stDOM.loadingUI.style.display = 'none';
         stDOM.finalActions.style.display = 'block';
-        console.log(`[STORY MODULE] Listo. Ext: .webm, Mime: ${mimeType}`);
-
+        console.log(`[STORY MODULE] Listo.`);
+        
         stDOM.shareWaBtn.onclick = async () => {
             if (!stState.finalBlob) return;
-            // WebM con cabecera parchada
-            const file = new File([stState.finalBlob], "story.webm", { type: mimeType });
-
+            // FORZAMOS MP4 (Porque el contenedor es MP4 real esta vez)
+            const file = new File([stState.finalBlob], "story.mp4", { type: 'video/mp4' });
+            
             if (navigator.canShare && navigator.canShare({ files: [file] })) {
                 try { await navigator.share({ files: [file] }); } catch (e) {}
             } else { alert("Usa descargar manual."); }
         };
-
+        
         stDOM.dlManualBtn.onclick = () => {
             if (!stState.finalBlob) return;
             const url = URL.createObjectURL(stState.finalBlob);
-            const a = document.createElement('a'); a.href = url; a.download = "story.webm";
+            const a = document.createElement('a'); a.href = url; a.download = "story.mp4";
             document.body.appendChild(a); a.click(); document.body.removeChild(a);
         };
     }
