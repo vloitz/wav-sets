@@ -295,7 +295,7 @@
     </div>
 
 <script type="module">
-    const version = "V33: Honest Formats (MP4 Priority / WebM Fallback)";
+    const version = "V34: True Format (Fix WhatsApp/Gallery)";
     console.log(`[STORY MODULE] CARGANDO ${version}`);
 
     const stDOM = {
@@ -324,7 +324,7 @@
     const stState = {
         isEncoding: false,
         finalBlob: null,
-        finalExt: 'mp4', // Por defecto
+        finalExt: 'webm', // Asumimos webm por seguridad
         audioData: new Array(20).fill(5),
         staticCanvas: null,
         config: {},
@@ -344,7 +344,6 @@
     const stCoverImg = new Image();
     stCoverImg.crossOrigin = "Anonymous";
 
-    // --- UI EVENTS ---
     if(stDOM.hqToggle) {
         stDOM.hqToggle.addEventListener('change', () => {
             stDOM.qualityText.innerText = stDOM.hqToggle.checked ? "Alta Calidad" : "Modo Seguro";
@@ -359,7 +358,6 @@
             if (realSet && wave) {
                 stState.currentSetData = realSet;
                 stState.startTime = wave.getCurrentTime();
-                
                 let activeTrackName = realSet.title;
                 if (realSet.tracklist) {
                     for (let i = realSet.tracklist.length - 1; i >= 0; i--) {
@@ -423,22 +421,20 @@
     stDOM.startBtn.addEventListener('click', async () => {
         if (stState.isEncoding) return;
         stDOM.startBtn.disabled = true;
-        stDOM.startBtn.innerText = "Iniciando V33...";
+        stDOM.startBtn.innerText = "Iniciando V34...";
 
         const mainAudio = document.getElementById('audio-player');
         if (!mainAudio.paused) mainAudio.pause();
 
         try {
-            // 1. Descargar Blob (Seguridad CORS)
             if (!stState.blobUrl) {
-                console.log("[V33] Descargando...");
+                console.log("[V34] Descargando...");
                 const response = await fetch(stState.currentSetData.audio_url);
                 if (!response.ok) throw new Error("Error red");
                 const blob = await response.blob();
                 stState.blobUrl = URL.createObjectURL(blob);
             }
 
-            // 2. Audio Context
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             stState.audioContext = new AudioContext({ latencyHint: 'playback' });
             
@@ -447,7 +443,6 @@
             stState.shadowAudio.currentTime = stState.startTime;
             stState.shadowAudio.volume = 1.0;
             stState.shadowAudio.crossOrigin = "anonymous";
-            // DOM Attach para evitar que Android lo mate
             stState.shadowAudio.style.position = 'fixed';
             stState.shadowAudio.style.opacity = '0';
             stState.shadowAudio.style.pointerEvents = 'none';
@@ -473,9 +468,9 @@
             stDOM.startBtn.innerText = "Sincronizando...";
             await stState.shadowAudio.play();
 
-            console.log("[V33] Esperando señal...");
+            console.log("[V34] Esperando señal...");
             await waitForAudioSignal();
-            console.log("[V33] Señal OK.");
+            console.log("[V34] Señal OK.");
 
         } catch (e) {
             console.error(e);
@@ -528,39 +523,37 @@
             ...audioStream.getAudioTracks()
         ]);
 
-        // ESTRATEGIA DE MIME TYPES (La clave del éxito)
-        let options = null;
-        let ext = 'webm'; // Fallback por defecto
+        // ESTRATEGIA HONESTA: Detectar qué soporta el móvil
+        let options = { mimeType: 'video/webm' }; // Fallback seguro
+        let ext = 'webm';
 
-        // 1. Intentar MP4 Real (H264 + AAC) -> El favorito de WhatsApp
-        // Android moderno suele soportar esto
-        if (MediaRecorder.isTypeSupported('video/mp4; codecs="avc1.42E01E, mp4a.40.2"')) {
-            options = { mimeType: 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"' };
-            ext = 'mp4';
-        } 
-        else if (MediaRecorder.isTypeSupported('video/mp4')) {
+        // Intentamos MP4 primero (solo si está 100% soportado)
+        if (MediaRecorder.isTypeSupported('video/mp4')) {
             options = { mimeType: 'video/mp4' };
             ext = 'mp4';
-        }
-        // 2. Fallback a WebM (VP8/9 + Opus) -> Nativo de Android
-        else {
+        } else if (MediaRecorder.isTypeSupported('video/webm;codecs=h264')) {
+            // WebM con codec H264 (Un híbrido raro pero útil)
+            options = { mimeType: 'video/webm;codecs=h264' };
+            ext = 'webm';
+        } else {
+            // WebM clásico (VP8/9) -> Lo que probablemente usa tu móvil
             options = { mimeType: 'video/webm' };
             ext = 'webm';
         }
 
-        console.log(`[V33] Grabando como: ${ext.toUpperCase()} (${options.mimeType})`);
+        console.log(`[V34] Formato Nativo: ${options.mimeType} -> Extensión: .${ext}`);
         
         stState.chunks = [];
         try {
             stState.mediaRecorder = new MediaRecorder(combinedStream, options);
         } catch(e) {
-            // Si falla la configuración MP4, forzamos WebM básico
-            console.warn("Fallback forzado a WebM básico");
-            stState.mediaRecorder = new MediaRecorder(combinedStream); // Sin opciones = default del navegador
-            ext = 'webm';
+            console.warn("Fallback final a WebM default");
+            stState.mediaRecorder = new MediaRecorder(combinedStream);
+            ext = 'webm'; // Si falla todo, es WebM seguro
         }
 
-        stState.finalExt = ext; // Guardamos la extensión real para el final
+        // GUARDAMOS LA EXTENSIÓN REAL PARA EL FINAL
+        stState.finalExt = ext;
 
         stState.mediaRecorder.ondataavailable = (e) => {
             if (e.data.size > 0) stState.chunks.push(e.data);
@@ -568,10 +561,12 @@
 
         stState.mediaRecorder.onstop = () => {
             console.log("[REC] Finalizando...");
-            // Usamos el mimeType REAL del recorder para crear el blob
+            // Usamos el tipo MIME real que reporta el grabador
             const finalMime = stState.mediaRecorder.mimeType || `video/${stState.finalExt}`;
             stState.finalBlob = new Blob(stState.chunks, { type: finalMime });
-            stShowFinalUI(finalMime);
+            
+            // Pasamos el tipo MIME y la extensión correcta a la UI
+            stShowFinalUI(finalMime, stState.finalExt);
         };
 
         stState.mediaRecorder.start(1000); 
@@ -594,9 +589,7 @@
             if (frameCount % 10 === 0) {
                 stState.analyserNode.getByteFrequencyData(dataArray);
                 const vol = dataArray.reduce((a,b)=>a+b,0);
-                // Mostrar formato en pantalla
-                const fmt = stState.finalExt.toUpperCase();
-                if(vol > 0) stDOM.statusText.innerHTML = `<span style="color:#0f0">🔴 REC ${fmt} (${vol})</span>`;
+                if(vol > 0) stDOM.statusText.innerHTML = `<span style="color:#0f0">🔴 REC .${stState.finalExt.toUpperCase()} (${vol})</span>`;
             }
 
             stDOM.progressFill.style.width = (elapsed / durationMs) * 100 + "%";
@@ -610,6 +603,7 @@
         requestAnimationFrame(drawLoop);
     }
 
+    // UTILS
     function roundRect(ctx, x, y, w, h, r) {
         if (w < 2 * r) r = w / 2; if (h < 2 * r) r = h / 2;
         ctx.moveTo(x+r, y); ctx.arcTo(x+w, y, x+w, y+h, r);
@@ -699,15 +693,14 @@
         stCtx.fillText("FLAC • HIFI", w/2, badgeY + 11);
     }
     
-    // UI FINAL: DESCARGA HONESTA
-    function stShowFinalUI(mimeType) {
+    // UI FINAL: DESCARGA CON EXTENSIÓN CORRECTA
+    function stShowFinalUI(mimeType, ext) {
         stDOM.loadingUI.style.display = 'none';
         stDOM.finalActions.style.display = 'block';
-        console.log(`[STORY MODULE] Listo. MimeType: ${mimeType}`);
+        console.log(`[STORY MODULE] Listo. Archivo: story.${ext} (${mimeType})`);
         
         stDOM.shareWaBtn.onclick = async () => {
             if (!stState.finalBlob) return;
-            const ext = stState.finalExt; // mp4 o webm
             const file = new File([stState.finalBlob], `story.${ext}`, { type: mimeType });
             
             if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -718,7 +711,7 @@
         stDOM.dlManualBtn.onclick = () => {
             if (!stState.finalBlob) return;
             const url = URL.createObjectURL(stState.finalBlob);
-            const a = document.createElement('a'); a.href = url; a.download = `story.${stState.finalExt}`;
+            const a = document.createElement('a'); a.href = url; a.download = `story.${ext}`;
             document.body.appendChild(a); a.click(); document.body.removeChild(a);
         };
     }
