@@ -295,10 +295,9 @@
     </div>
 
 <script type="module">
-    // Importamos el ensamblador WebM profesional
-    import WebMMuxer from 'https://cdn.jsdelivr.net/npm/webm-muxer@1.0.0/build/webm-muxer.mjs';
+    import { Muxer, ArrayBufferTarget } from 'https://esm.sh/mp4-muxer@5.1.0';
 
-    const version = "V44: WebM Muxer Manual (Fix Duration/Audio)";
+    const version = "V38.5: MP4 Opus 48kHz Forced (Sync Fix)";
     console.log(`[STORY MODULE] CARGANDO ${version}`);
 
     const stDOM = {
@@ -338,10 +337,7 @@
         shadowAudio: null,
         blobUrl: null,
         analyserNode: null,
-        keepAliveOsc: null,
-        muxer: null, // EL NUEVO HÉROE
-        videoEncoder: null,
-        audioEncoder: null
+        keepAliveOsc: null
     };
 
     const stCoverImg = new Image();
@@ -361,6 +357,7 @@
             if (realSet && wave) {
                 stState.currentSetData = realSet;
                 stState.startTime = wave.getCurrentTime();
+                
                 let activeTrackName = realSet.title;
                 if (realSet.tracklist) {
                     for (let i = realSet.tracklist.length - 1; i >= 0; i--) {
@@ -420,22 +417,26 @@
     stDOM.startBtn.addEventListener('click', async () => {
         if (stState.isEncoding) return;
         stDOM.startBtn.disabled = true;
-        stDOM.startBtn.innerText = "Iniciando V44...";
+        stDOM.startBtn.innerText = "Iniciando V38.5...";
 
         const mainAudio = document.getElementById('audio-player');
         if (!mainAudio.paused) mainAudio.pause();
 
         try {
             if (!stState.blobUrl) {
-                console.log("[V44] Descargando...");
+                console.log("[V38.5] Descargando...");
                 const response = await fetch(stState.currentSetData.audio_url);
                 if (!response.ok) throw new Error("Error red");
                 const blob = await response.blob();
                 stState.blobUrl = URL.createObjectURL(blob);
             }
 
+            // 1. FORZAMOS CONTEXTO A 48000Hz (Nativo de Opus)
             const AudioContext = window.AudioContext || window.webkitAudioContext;
-            stState.audioContext = new AudioContext({ latencyHint: 'playback' });
+            stState.audioContext = new AudioContext({ 
+                latencyHint: 'playback',
+                sampleRate: 48000 // <--- AQUÍ ESTÁ LA CLAVE
+            });
             
             stState.shadowAudio = new Audio();
             stState.shadowAudio.src = stState.blobUrl;
@@ -451,6 +452,7 @@
             stState.analyserNode.fftSize = 256; 
 
             stState.sourceNode = stState.audioContext.createMediaElementSource(stState.shadowAudio);
+            
             stState.sourceNode.connect(stState.analyserNode);
             stState.analyserNode.connect(stState.mediaStreamDest);
             stState.sourceNode.connect(stState.audioContext.destination);
@@ -465,9 +467,9 @@
             stDOM.startBtn.innerText = "Sincronizando...";
             await stState.shadowAudio.play();
 
-            console.log("[V44] Esperando señal...");
+            console.log("[V38.5] Esperando señal...");
             await waitForAudioSignal();
-            console.log("[V44] Señal OK.");
+            console.log("[V38.5] Señal OK.");
 
         } catch (e) {
             console.error(e);
@@ -490,7 +492,7 @@
         catch (e) {
             console.error(e);
             stState.isEncoding = false;
-            alert("Muxer Error: " + e.message);
+            alert("Encoder error: " + e.message);
             resetModule();
         }
     });
@@ -511,7 +513,7 @@
         });
     }
 
-    // --- SANITIZADOR DE AUDIO ---
+    // --- SANITIZADOR V38.5 ---
     function cloneAndSanitizeAudioChunk(originalChunk, newTimestamp) {
         const planeSize = originalChunk.allocationSize({ planeIndex: 0 });
         const totalSize = planeSize * originalChunk.numberOfChannels;
@@ -537,69 +539,72 @@
         const trackProcessor = new MediaStreamTrackProcessor({ track: stState.mediaStreamDest.stream.getAudioTracks()[0] });
         const audioReader = trackProcessor.readable.getReader();
 
-        // Leer primer paquete
+        // 1. LEER PRIMER PAQUETE
         const firstChunkResult = await audioReader.read();
         if (firstChunkResult.done) throw new Error("Stream vacío");
         const firstChunk = firstChunkResult.value;
-        const realChannels = firstChunk.numberOfChannels;
-        const realSampleRate = firstChunk.sampleRate;
         const baseAudioTimestamp = firstChunk.timestamp;
 
-        console.log(`[V44] Config: ${realChannels}ch, ${realSampleRate}Hz (VP8/Opus)`);
+        // FORZAMOS LA CONFIGURACIÓN A 48000Hz / 2 CHANNELS
+        // Ignoramos lo que diga el chunk si es diferente, confiamos en la conversión de AudioContext
+        const targetSampleRate = 48000;
+        const targetChannels = 2;
 
-        // --- WEB-MUXER MANUAL (V44) ---
-        // Aquí configuramos la duración explícitamente si se sabe, 
-        // o usamos el método de segmentos perfecto de webm-muxer
-        let muxer = new WebMMuxer({
+        console.log(`[V38.5] Config Forzada: OPUS ${targetChannels}ch @ ${targetSampleRate}Hz`);
+
+        let muxer = new Muxer({
             target: new ArrayBufferTarget(),
-            video: { codec: 'V_VP8', width: stState.config.width, height: stState.config.height, frameRate: 24 },
-            audio: { codec: 'A_OPUS', numberOfChannels: realChannels, sampleRate: realSampleRate },
+            video: { codec: 'avc', width: stState.config.width, height: stState.config.height },
+            // MUXER CONFIGURADO A 48000
+            audio: { codec: 'opus', numberOfChannels: targetChannels, sampleRate: targetSampleRate }, 
+            fastStart: 'in-memory',
             firstTimestampBehavior: 'offset'
         });
 
-        // Encoder de Video VP8 (Nativo Android)
         let videoEncoder = new VideoEncoder({
             output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
             error: e => console.error("Video Error:", e)
         });
         videoEncoder.configure({
-            codec: 'vp8', // <--- VP8 es el rey de la compatibilidad WebM
-            width: stState.config.width, height: stState.config.height,
+            codec: 'avc1.42001E', width: stState.config.width, height: stState.config.height,
             bitrate: stState.config.bitrate, framerate: stState.config.fps
         });
 
         let audioChunkCount = 0;
         let readChunkCount = 1;
 
-        // Encoder de Audio Opus (Nativo Android)
         let audioEncoder = new AudioEncoder({
             output: (chunk, meta) => {
                 audioChunkCount++;
                 muxer.addAudioChunk(chunk, meta);
             },
-            error: e => console.error("Audio Error:", e)
+            error: e => console.error("Audio Encoder Fatal:", e)
         });
         
+        // ENCODER CONFIGURADO A 48000
         audioEncoder.configure({
             codec: 'opus', 
-            numberOfChannels: realChannels, 
-            sampleRate: realSampleRate,
+            numberOfChannels: targetChannels, 
+            sampleRate: targetSampleRate,
             bitrate: 128000
         });
 
-        // Procesar primer chunk
+        // Procesar primero (Sanitizado)
         const sanitizedFirst = cloneAndSanitizeAudioChunk(firstChunk, 0); 
         audioEncoder.encode(sanitizedFirst);
         sanitizedFirst.close();
         firstChunk.close();
 
+        // BUCLE
         const processAudio = async () => {
             while (stState.isEncoding) {
                 try {
                     const result = await audioReader.read();
                     if (result.done) break;
                     readChunkCount++;
+                    
                     const original = result.value;
+                    
                     if (audioEncoder.state === 'configured') {
                         const relativeTimestamp = original.timestamp - baseAudioTimestamp;
                         if (relativeTimestamp >= 0) {
@@ -632,7 +637,11 @@
                 if (frameCount % 15 === 0) {
                     stState.analyserNode.getByteFrequencyData(dataArray);
                     const vol = dataArray.reduce((a,b)=>a+b,0);
-                    let color = audioChunkCount > 0 ? "#0f0" : (readChunkCount > 5 ? "#ffa500" : "#f00");
+                    
+                    let color = "#f00";
+                    if (audioChunkCount > 0) color = "#0f0";
+                    else if (readChunkCount > 5) color = "#ffa500";
+
                     stDOM.statusText.innerHTML = `<span style="color:${color}">R:${readChunkCount} | E:${audioChunkCount}</span>`;
                 }
 
@@ -674,11 +683,11 @@
             muxer.finalize();
             const buffer = muxer.target.buffer;
             
-            console.log(`[V44 END] Size: ${buffer.byteLength}`);
+            console.log(`[V38.5 END] Read: ${readChunkCount}, Encoded: ${audioChunkCount}`);
             
             if (buffer.byteLength > 0) {
-                // EXPORTAMOS COMO WEBM
-                stState.finalBlob = new Blob([buffer], { type: 'video/webm' });
+                // EXPORTAMOS COMO MP4
+                stState.finalBlob = new Blob([buffer], { type: 'video/mp4' });
                 stShowFinalUI();
             } else { throw new Error("0 bytes"); }
         } catch (e) {
@@ -777,6 +786,7 @@
         stCtx.fillText("FLAC • HIFI", w/2, badgeY + 11);
     }
     
+    // UI FINAL
     function stShowFinalUI() {
         stDOM.loadingUI.style.display = 'none';
         stDOM.finalActions.style.display = 'block';
@@ -784,7 +794,7 @@
         
         stDOM.shareWaBtn.onclick = async () => {
             if (!stState.finalBlob) return;
-            const file = new File([stState.finalBlob], "story.webm", { type: 'video/webm' });
+            const file = new File([stState.finalBlob], "story.mp4", { type: 'video/mp4' });
             
             if (navigator.canShare && navigator.canShare({ files: [file] })) {
                 try { await navigator.share({ files: [file] }); } catch (e) {}
@@ -794,7 +804,7 @@
         stDOM.dlManualBtn.onclick = () => {
             if (!stState.finalBlob) return;
             const url = URL.createObjectURL(stState.finalBlob);
-            const a = document.createElement('a'); a.href = url; a.download = "story.webm";
+            const a = document.createElement('a'); a.href = url; a.download = "story.mp4";
             document.body.appendChild(a); a.click(); document.body.removeChild(a);
         };
     }
