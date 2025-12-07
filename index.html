@@ -296,11 +296,10 @@
 
 <script type="module">
     import { Muxer, ArrayBufferTarget } from 'https://esm.sh/mp4-muxer@5.1.0';
-    // CLAUDE FIX: Usamos la versión 0.12.x que no requiere headers especiales
-    import { FFmpeg } from 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js';
-    import { fetchFile, toBlobURL } from 'https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js';
+    // Importamos la versión 0.11.x que funciona sin headers de seguridad y en móviles
+    import { createFFmpeg, fetchFile } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/+esm';
 
-    const version = "V47: V38.5 + FFmpeg 0.12 (Claude's Fix)";
+    const version = "V53: Sequential Memory Relay (Opus Rec -> Purge -> AAC Convert)";
     console.log(`[STORY MODULE] CARGANDO ${version}`);
 
     const stDOM = {
@@ -326,44 +325,47 @@
 
     const stCtx = stDOM.canvas.getContext('2d', { alpha: false, desynchronized: true });
 
-    const stState = {
+    // Estado global
+    let stState = {
         isEncoding: false,
         finalBlob: null,
-        audioData: new Array(20).fill(5),
-        staticCanvas: null,
+        intermediateBlob: null,
         config: {},
         currentSetData: null,
         startTime: 0,
+        // Referencias pesadas para limpiar
         audioContext: null,
         mediaStreamDest: null,
         sourceNode: null,
         shadowAudio: null,
         blobUrl: null,
         analyserNode: null,
-        keepAliveOsc: null,
         ffmpeg: null
     };
 
     const stCoverImg = new Image();
     stCoverImg.crossOrigin = "Anonymous";
 
-    // --- CARGAR FFMPEG MODERN ---
-    (async () => {
+    // --- CARGA DIFERIDA DE FFMPEG ---
+    // No lo cargamos al inicio para no ocupar RAM mientras navegas
+    const loadFFmpeg = async () => {
+        if (stState.ffmpeg) return true;
         try {
-            stState.ffmpeg = new FFmpeg();
-            stState.ffmpeg.on('log', ({ message }) => console.log('[FFmpeg]', message));
-            // Carga asíncrona de los cores
-            const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
-            await stState.ffmpeg.load({
-                coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-                wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+            console.log("[V53] Cargando motor de conversión...");
+            stDOM.statusText.innerText = "Cargando motor de audio...";
+            stState.ffmpeg = createFFmpeg({
+                log: true,
+                corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js' // Versión Single-Thread segura
             });
-            console.log("[V47] FFmpeg Cargado y Listo.");
+            await stState.ffmpeg.load();
+            console.log("[V53] Motor Listo.");
+            return true;
         } catch (e) {
-            console.error("[V47] Error cargando FFmpeg:", e);
-            stState.ffmpeg = null;
+            console.error("Error cargando FFmpeg:", e);
+            alert("No se pudo cargar el convertidor. Revisa tu conexión.");
+            return false;
         }
-    })();
+    };
 
     // --- UI EVENTS ---
     if(stDOM.hqToggle) {
@@ -380,7 +382,6 @@
             if (realSet && wave) {
                 stState.currentSetData = realSet;
                 stState.startTime = wave.getCurrentTime();
-
                 let activeTrackName = realSet.title;
                 if (realSet.tracklist) {
                     for (let i = realSet.tracklist.length - 1; i >= 0; i--) {
@@ -405,7 +406,7 @@
     stDOM.closeBtn.addEventListener('click', () => {
         stDOM.overlay.classList.remove('active');
         stState.isEncoding = false;
-        cleanupAudio();
+        fullCleanup();
     });
     stDOM.retryBtn.addEventListener('click', resetModule);
 
@@ -417,16 +418,21 @@
         stState.isEncoding = false;
         stDOM.startBtn.disabled = false;
         stDOM.startBtn.innerText = "CREAR STORY";
-        cleanupAudio();
+        fullCleanup();
     }
 
-    function cleanupAudio() {
+    // --- LIMPIEZA AGRESIVA (EL PURGADO) ---
+    function fullCleanup() {
         if (stState.shadowAudio) {
             stState.shadowAudio.pause();
             if (document.body.contains(stState.shadowAudio)) document.body.removeChild(stState.shadowAudio);
             stState.shadowAudio.src = "";
             stState.shadowAudio = null;
         }
+        if (stState.sourceNode) { try{stState.sourceNode.disconnect();}catch(e){} stState.sourceNode=null; }
+        if (stState.analyserNode) { try{stState.analyserNode.disconnect();}catch(e){} stState.analyserNode=null; }
+        if (stState.mediaStreamDest) { stState.mediaStreamDest=null; }
+
         if (stState.audioContext) {
             try { stState.audioContext.close(); } catch(e){}
             stState.audioContext = null;
@@ -435,27 +441,34 @@
             URL.revokeObjectURL(stState.blobUrl);
             stState.blobUrl = null;
         }
+        // Forzamos al recolector de basura de JS soltando referencias
+        stState.audioData = new Array(20).fill(5);
     }
 
-    // --- START BUTTON ---
+    // --- START BUTTON (SECUENCIAL) ---
     stDOM.startBtn.addEventListener('click', async () => {
         if (stState.isEncoding) return;
         stDOM.startBtn.disabled = true;
-        stDOM.startBtn.innerText = "Iniciando V47...";
 
+        // FASE 1: Cargar Motor
+        if (!await loadFFmpeg()) {
+            resetModule();
+            return;
+        }
+
+        stDOM.startBtn.innerText = "Grabando (Paso 1)...";
         const mainAudio = document.getElementById('audio-player');
         if (!mainAudio.paused) mainAudio.pause();
 
         try {
             if (!stState.blobUrl) {
-                console.log("[V47] Descargando...");
                 const response = await fetch(stState.currentSetData.audio_url);
                 if (!response.ok) throw new Error("Error red");
                 const blob = await response.blob();
                 stState.blobUrl = URL.createObjectURL(blob);
             }
 
-            // Usamos V38.5 Logic (Opus 48k)
+            // Configuración Base (La que funciona: Opus 48k)
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             stState.audioContext = new AudioContext({ latencyHint: 'playback', sampleRate: 48000 });
 
@@ -477,23 +490,13 @@
             stState.analyserNode.connect(stState.mediaStreamDest);
             stState.sourceNode.connect(stState.audioContext.destination);
 
-            const osc = stState.audioContext.createOscillator();
-            const gain = stState.audioContext.createGain();
-            osc.frequency.value = 1; gain.gain.value = 0.0001;
-            osc.connect(gain); gain.connect(stState.mediaStreamDest);
-            osc.start();
-            stState.keepAliveOsc = osc;
-
             stDOM.startBtn.innerText = "Sincronizando...";
             await stState.shadowAudio.play();
-
-            console.log("[V47] Esperando señal...");
             await waitForAudioSignal();
-            console.log("[V47] Señal OK.");
 
         } catch (e) {
             console.error(e);
-            alert("Error: " + e.message);
+            alert("Error inicio: " + e.message);
             resetModule();
             return;
         }
@@ -502,17 +505,15 @@
         stDOM.viewProcess.style.display = 'block';
         stState.isEncoding = true;
 
-        stState.config = {
-            width: 360, height: 640, duration: 15, fps: 24, bitrate: 1500000
-        };
+        stState.config = { width: 360, height: 640, duration: 15, fps: 24, bitrate: 1500000 };
 
         stPrepareStaticLayer();
 
-        try { await runRealTimeEncoding(); }
+        try { await runRecordingPhase(); }
         catch (e) {
             console.error(e);
             stState.isEncoding = false;
-            alert("Encoder error: " + e.message);
+            alert("Error grabación: " + e.message);
             resetModule();
         }
     });
@@ -552,33 +553,8 @@
         });
     }
 
-    // --- TRANSCODIFICADOR V47 (FFmpeg 0.12) ---
-    async function convertToAAC(originalBlob) {
-        if (!stState.ffmpeg) throw new Error("FFmpeg no cargó. Refresca la página.");
-
-        stDOM.statusText.innerHTML = `<span style="color:#ffa500">⚙️ FFmpeg: OPUS → AAC...</span>`;
-        const ffmpeg = stState.ffmpeg;
-        const inputName = 'input.mp4';
-        const outputName = 'output.mp4';
-
-        // Escribir archivo
-        await ffmpeg.writeFile(inputName, await fetchFile(originalBlob));
-
-        // Ejecutar: Copiar video, Convertir Audio
-        // El flag -strict experimental a veces ayuda con AAC nativo en wasm
-        await ffmpeg.exec(['-i', inputName, '-c:v', 'copy', '-c:a', 'aac', '-b:a', '128k', outputName]);
-
-        // Leer
-        const data = await ffmpeg.readFile(outputName);
-
-        // Limpiar (Crucial para no colapsar la RAM)
-        await ffmpeg.deleteFile(inputName);
-        await ffmpeg.deleteFile(outputName);
-
-        return new Blob([data.buffer], { type: 'video/mp4' });
-    }
-
-    async function runRealTimeEncoding() {
+    // --- FASE 1: GRABACIÓN (Genera MP4 Opus) ---
+    async function runRecordingPhase() {
         const trackProcessor = new MediaStreamTrackProcessor({ track: stState.mediaStreamDest.stream.getAudioTracks()[0] });
         const audioReader = trackProcessor.readable.getReader();
         const firstChunkResult = await audioReader.read();
@@ -606,8 +582,6 @@
         });
 
         let audioChunkCount = 0;
-        let readChunkCount = 1;
-
         let audioEncoder = new AudioEncoder({
             output: (chunk, meta) => {
                 audioChunkCount++;
@@ -633,7 +607,6 @@
                 try {
                     const result = await audioReader.read();
                     if (result.done) break;
-                    readChunkCount++;
 
                     const original = result.value;
                     if (audioEncoder.state === 'configured') {
@@ -669,7 +642,7 @@
                     stState.analyserNode.getByteFrequencyData(dataArray);
                     const vol = dataArray.reduce((a,b)=>a+b,0);
                     let color = audioChunkCount > 0 ? "#0f0" : "#f00";
-                    stDOM.statusText.innerHTML = `<span style="color:${color}">REC OPUS (${vol})</span>`;
+                    stDOM.statusText.innerHTML = `<span style="color:${color}">GRABANDO (${vol})</span>`;
                 }
 
                 stDOM.progressFill.style.width = (elapsed / durationMs) * 100 + "%";
@@ -692,50 +665,83 @@
             requestAnimationFrame(drawFrame);
         });
 
-        stDOM.statusText.innerText = "Finalizando...";
+        stDOM.statusText.innerText = "Finalizando grabación...";
         try { await audioReader.cancel(); } catch(e) {}
 
         try {
             if (videoEncoder.state === 'configured') await videoEncoder.flush();
             videoEncoder.close();
-        } catch(e){}
-        try {
             if (audioEncoder.state === 'configured') await audioEncoder.flush();
             audioEncoder.close();
         } catch(e){}
 
-        if (stState.keepAliveOsc) { try{stState.keepAliveOsc.stop()}catch(e){} }
+        muxer.finalize();
+        const buffer = muxer.target.buffer;
 
-        try {
-            muxer.finalize();
-            const buffer = muxer.target.buffer;
+        if (buffer.byteLength > 0) {
+            stState.intermediateBlob = new Blob([buffer], { type: 'video/mp4' });
 
-            if (buffer.byteLength > 0) {
-                const opusBlob = new Blob([buffer], { type: 'video/mp4' });
+            // FASE 2: PURGADO
+            console.log("[V53] Purgando memoria...");
+            fullCleanup(); // Liberamos RAM antes de FFmpeg
 
-                // INTENTO DE CONVERSIÓN V47
-                if (stState.ffmpeg) {
-                    try {
-                        const aacBlob = await convertToAAC(opusBlob);
-                        stState.finalBlob = aacBlob;
-                    } catch (err) {
-                        console.error("FFmpeg Falló:", err);
-                        stState.finalBlob = opusBlob; // Fallback
-                        alert("Conversión falló por RAM. Se descarga original.");
-                    }
-                } else {
-                    stState.finalBlob = opusBlob;
-                }
-
-                stShowFinalUI();
-            } else { throw new Error("0 bytes"); }
-        } catch (e) {
-            console.error(e);
-            alert("Error al guardar.");
+            // FASE 3: CONVERSIÓN
+            setTimeout(runConversionPhase, 500); // Pequeña pausa
+        } else {
+            alert("Error: 0 bytes.");
             resetModule();
         }
     }
 
+    // --- FASE 3: CONVERSIÓN (El "FreeConvert" Local) ---
+    async function runConversionPhase() {
+        stDOM.statusText.innerHTML = `<span style="color:#ffa500">⚙️ CONVIRTIENDO AUDIO (AAC)...</span>`;
+        console.log("[V53] Iniciando transcodificación...");
+
+        const ffmpeg = stState.ffmpeg;
+        const inputName = 'temp_opus.mp4';
+        const outputName = 'story_aac.mp4';
+
+        try {
+            // 1. Escribir archivo (Opus)
+            await ffmpeg.FS('writeFile', inputName, await fetchFile(stState.intermediateBlob));
+
+            // 2. Ejecutar FFmpeg (Solo Audio)
+            // -c:v copy: No gasta RAM en video
+            // -c:a aac: Convierte el audio para WhatsApp
+            await ffmpeg.run(
+                '-i', inputName,
+                '-c:v', 'copy',
+                '-c:a', 'aac',
+                '-b:a', '128k',
+                '-strict', 'experimental', // Clave para AAC
+                outputName
+            );
+
+            // 3. Leer resultado
+            const data = await ffmpeg.FS('readFile', outputName);
+
+            // 4. Limpiar
+            try {
+                ffmpeg.FS('unlink', inputName);
+                ffmpeg.FS('unlink', outputName);
+            } catch(e){}
+
+            // 5. Entregar
+            stState.finalBlob = new Blob([data.buffer], { type: 'video/mp4' });
+            console.log("[V53] ¡ÉXITO! Archivo AAC generado.");
+            stShowFinalUI();
+
+        } catch (e) {
+            console.error("[V53] Falló FFmpeg:", e);
+            // Fallback: Entregar el original (al menos se ve en Chrome)
+            stState.finalBlob = stState.intermediateBlob;
+            alert("Memoria insuficiente para convertir audio. Se descarga el original.");
+            stShowFinalUI();
+        }
+    }
+
+    // UTILS GRAFICOS (Igual)
     function roundRect(ctx, x, y, w, h, r) {
         if (w < 2 * r) r = w / 2; if (h < 2 * r) r = h / 2;
         ctx.moveTo(x+r, y); ctx.arcTo(x+w, y, x+w, y+h, r);
@@ -834,7 +840,6 @@
         stDOM.shareWaBtn.onclick = async () => {
             if (!stState.finalBlob) return;
             const file = new File([stState.finalBlob], "story.mp4", { type: 'video/mp4' });
-
             if (navigator.canShare && navigator.canShare({ files: [file] })) {
                 try { await navigator.share({ files: [file] }); } catch (e) {}
             } else { alert("Usa descargar manual."); }
@@ -848,5 +853,6 @@
         };
     }
 </script>
+
 </body>
 </html>
