@@ -296,11 +296,8 @@
 
 <script type="module">
     import { Muxer, ArrayBufferTarget } from 'https://esm.sh/mp4-muxer@5.1.0';
-    // CLAUDE FIX: Usamos la versión 0.12.x que no requiere headers especiales
-    import { FFmpeg } from 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js';
-    import { fetchFile, toBlobURL } from 'https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js';
 
-    const version = "V47: V38.5 + FFmpeg 0.12 (Claude's Fix)";
+    const version = "V48: MP4 AAC + Int16 PCM Conversion (Legacy Format)";
     console.log(`[STORY MODULE] CARGANDO ${version}`);
 
     const stDOM = {
@@ -340,32 +337,13 @@
         shadowAudio: null,
         blobUrl: null,
         analyserNode: null,
-        keepAliveOsc: null,
-        ffmpeg: null
+        scriptProcessor: null,
+        keepAliveOsc: null
     };
 
     const stCoverImg = new Image();
     stCoverImg.crossOrigin = "Anonymous";
 
-    // --- CARGAR FFMPEG MODERN ---
-    (async () => {
-        try {
-            stState.ffmpeg = new FFmpeg();
-            stState.ffmpeg.on('log', ({ message }) => console.log('[FFmpeg]', message));
-            // Carga asíncrona de los cores
-            const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
-            await stState.ffmpeg.load({
-                coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-                wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-            });
-            console.log("[V47] FFmpeg Cargado y Listo.");
-        } catch (e) {
-            console.error("[V47] Error cargando FFmpeg:", e);
-            stState.ffmpeg = null;
-        }
-    })();
-
-    // --- UI EVENTS ---
     if(stDOM.hqToggle) {
         stDOM.hqToggle.addEventListener('change', () => {
             stDOM.qualityText.innerText = stDOM.hqToggle.checked ? "Alta Calidad" : "Modo Seguro";
@@ -380,7 +358,7 @@
             if (realSet && wave) {
                 stState.currentSetData = realSet;
                 stState.startTime = wave.getCurrentTime();
-
+                
                 let activeTrackName = realSet.title;
                 if (realSet.tracklist) {
                     for (let i = realSet.tracklist.length - 1; i >= 0; i--) {
@@ -427,6 +405,10 @@
             stState.shadowAudio.src = "";
             stState.shadowAudio = null;
         }
+        if (stState.scriptProcessor) {
+            stState.scriptProcessor.disconnect();
+            stState.scriptProcessor = null;
+        }
         if (stState.audioContext) {
             try { stState.audioContext.close(); } catch(e){}
             stState.audioContext = null;
@@ -441,24 +423,27 @@
     stDOM.startBtn.addEventListener('click', async () => {
         if (stState.isEncoding) return;
         stDOM.startBtn.disabled = true;
-        stDOM.startBtn.innerText = "Iniciando V47...";
+        stDOM.startBtn.innerText = "Iniciando V48...";
 
         const mainAudio = document.getElementById('audio-player');
         if (!mainAudio.paused) mainAudio.pause();
 
         try {
             if (!stState.blobUrl) {
-                console.log("[V47] Descargando...");
+                console.log("[V48] Descargando...");
                 const response = await fetch(stState.currentSetData.audio_url);
                 if (!response.ok) throw new Error("Error red");
                 const blob = await response.blob();
                 stState.blobUrl = URL.createObjectURL(blob);
             }
 
-            // Usamos V38.5 Logic (Opus 48k)
+            // 1. FORZAR 44100Hz (Estándar AAC WhatsApp)
             const AudioContext = window.AudioContext || window.webkitAudioContext;
-            stState.audioContext = new AudioContext({ latencyHint: 'playback', sampleRate: 48000 });
-
+            stState.audioContext = new AudioContext({ 
+                latencyHint: 'playback',
+                sampleRate: 44100 
+            });
+            
             stState.shadowAudio = new Audio();
             stState.shadowAudio.src = stState.blobUrl;
             stState.shadowAudio.currentTime = stState.startTime;
@@ -468,28 +453,32 @@
             stState.shadowAudio.style.opacity = '0';
             document.body.appendChild(stState.shadowAudio);
 
-            stState.mediaStreamDest = stState.audioContext.createMediaStreamDestination();
             stState.analyserNode = stState.audioContext.createAnalyser();
-            stState.analyserNode.fftSize = 256;
+            stState.analyserNode.fftSize = 256; 
 
             stState.sourceNode = stState.audioContext.createMediaElementSource(stState.shadowAudio);
+            
+            // 2. Buffer de 2048 para procesamiento Int16
+            stState.scriptProcessor = stState.audioContext.createScriptProcessor(2048, 2, 2);
+
             stState.sourceNode.connect(stState.analyserNode);
-            stState.analyserNode.connect(stState.mediaStreamDest);
+            stState.analyserNode.connect(stState.scriptProcessor);
+            stState.scriptProcessor.connect(stState.audioContext.destination);
             stState.sourceNode.connect(stState.audioContext.destination);
 
             const osc = stState.audioContext.createOscillator();
             const gain = stState.audioContext.createGain();
-            osc.frequency.value = 1; gain.gain.value = 0.0001;
-            osc.connect(gain); gain.connect(stState.mediaStreamDest);
+            osc.frequency.value = 1; gain.gain.value = 0.0001; 
+            osc.connect(gain); gain.connect(stState.audioContext.destination);
             osc.start();
             stState.keepAliveOsc = osc;
 
             stDOM.startBtn.innerText = "Sincronizando...";
             await stState.shadowAudio.play();
 
-            console.log("[V47] Esperando señal...");
+            console.log("[V48] Esperando señal...");
             await waitForAudioSignal();
-            console.log("[V47] Señal OK.");
+            console.log("[V48] Señal OK.");
 
         } catch (e) {
             console.error(e);
@@ -501,7 +490,7 @@
         stDOM.viewIntro.style.display = 'none';
         stDOM.viewProcess.style.display = 'block';
         stState.isEncoding = true;
-
+        
         stState.config = {
             width: 360, height: 640, duration: 15, fps: 24, bitrate: 1500000
         };
@@ -533,65 +522,25 @@
         });
     }
 
-    function cloneAndSanitizeAudioChunk(originalChunk, newTimestamp) {
-        const planeSize = originalChunk.allocationSize({ planeIndex: 0 });
-        const totalSize = planeSize * originalChunk.numberOfChannels;
-        const buffer = new ArrayBuffer(totalSize);
-        for (let ch = 0; ch < originalChunk.numberOfChannels; ch++) {
-            const offset = ch * planeSize;
-            const destView = new Uint8Array(buffer, offset, planeSize);
-            originalChunk.copyTo(destView, { planeIndex: ch });
+    // --- CONVERSOR MATEMÁTICO: FLOAT -> INT16 ---
+    function floatTo16BitPCM(input) {
+        const output = new Int16Array(input.length);
+        for (let i = 0; i < input.length; i++) {
+            const s = Math.max(-1, Math.min(1, input[i]));
+            // Multiplicamos por 32767 para pasar de 0.xxx a Entero
+            output[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
         }
-        return new AudioData({
-            format: originalChunk.format,
-            sampleRate: originalChunk.sampleRate,
-            numberOfFrames: originalChunk.numberOfFrames,
-            numberOfChannels: originalChunk.numberOfChannels,
-            timestamp: newTimestamp,
-            data: buffer
-        });
-    }
-
-    // --- TRANSCODIFICADOR V47 (FFmpeg 0.12) ---
-    async function convertToAAC(originalBlob) {
-        if (!stState.ffmpeg) throw new Error("FFmpeg no cargó. Refresca la página.");
-
-        stDOM.statusText.innerHTML = `<span style="color:#ffa500">⚙️ FFmpeg: OPUS → AAC...</span>`;
-        const ffmpeg = stState.ffmpeg;
-        const inputName = 'input.mp4';
-        const outputName = 'output.mp4';
-
-        // Escribir archivo
-        await ffmpeg.writeFile(inputName, await fetchFile(originalBlob));
-
-        // Ejecutar: Copiar video, Convertir Audio
-        // El flag -strict experimental a veces ayuda con AAC nativo en wasm
-        await ffmpeg.exec(['-i', inputName, '-c:v', 'copy', '-c:a', 'aac', '-b:a', '128k', outputName]);
-
-        // Leer
-        const data = await ffmpeg.readFile(outputName);
-
-        // Limpiar (Crucial para no colapsar la RAM)
-        await ffmpeg.deleteFile(inputName);
-        await ffmpeg.deleteFile(outputName);
-
-        return new Blob([data.buffer], { type: 'video/mp4' });
+        return output;
     }
 
     async function runRealTimeEncoding() {
-        const trackProcessor = new MediaStreamTrackProcessor({ track: stState.mediaStreamDest.stream.getAudioTracks()[0] });
-        const audioReader = trackProcessor.readable.getReader();
-        const firstChunkResult = await audioReader.read();
-        const firstChunk = firstChunkResult.value;
-        const baseAudioTimestamp = firstChunk.timestamp;
-
-        const targetSampleRate = 48000;
-        const targetChannels = 2;
+        const sampleRate = 44100;
+        console.log("[ENGINE] V48: Int16 + AAC");
 
         let muxer = new Muxer({
             target: new ArrayBufferTarget(),
             video: { codec: 'avc', width: stState.config.width, height: stState.config.height },
-            audio: { codec: 'opus', numberOfChannels: targetChannels, sampleRate: targetSampleRate },
+            audio: { codec: 'aac', numberOfChannels: 2, sampleRate: sampleRate },
             fastStart: 'in-memory',
             firstTimestampBehavior: 'offset'
         });
@@ -606,7 +555,8 @@
         });
 
         let audioChunkCount = 0;
-        let readChunkCount = 1;
+        let readChunkCount = 0;
+        let nextTimestamp = 0;
 
         let audioEncoder = new AudioEncoder({
             output: (chunk, meta) => {
@@ -615,40 +565,53 @@
             },
             error: e => console.error("Audio Encoder Fatal:", e)
         });
-
+        
+        // CONFIGURACIÓN CRÍTICA: AAC Standard
         audioEncoder.configure({
-            codec: 'opus',
-            numberOfChannels: targetChannels,
-            sampleRate: targetSampleRate,
+            codec: 'mp4a.40.2', 
+            numberOfChannels: 2, 
+            sampleRate: sampleRate,
             bitrate: 128000
         });
 
-        const sanitizedFirst = cloneAndSanitizeAudioChunk(firstChunk, 0);
-        audioEncoder.encode(sanitizedFirst);
-        sanitizedFirst.close();
-        firstChunk.close();
+        // --- PROCESAMIENTO CON CONVERSIÓN DE FORMATO ---
+        stState.scriptProcessor.onaudioprocess = (e) => {
+            if (!stState.isEncoding) return;
+            if (audioEncoder.state !== 'configured') return;
 
-        const processAudio = async () => {
-            while (stState.isEncoding) {
-                try {
-                    const result = await audioReader.read();
-                    if (result.done) break;
-                    readChunkCount++;
+            const inputBuffer = e.inputBuffer;
+            const frameCount = inputBuffer.length;
+            
+            // 1. Convertir Canales a Int16
+            const leftInt16 = floatTo16BitPCM(inputBuffer.getChannelData(0));
+            const rightInt16 = floatTo16BitPCM(inputBuffer.getChannelData(1));
 
-                    const original = result.value;
-                    if (audioEncoder.state === 'configured') {
-                        const relativeTimestamp = original.timestamp - baseAudioTimestamp;
-                        if (relativeTimestamp >= 0) {
-                            const sanitized = cloneAndSanitizeAudioChunk(original, relativeTimestamp);
-                            audioEncoder.encode(sanitized);
-                            sanitized.close();
-                        }
-                    }
-                    original.close();
-                } catch (e) { break; }
+            // 2. Intercalar (LRLRLR...) en un buffer Int16
+            const interleavedBuffer = new Int16Array(frameCount * 2);
+            for (let i = 0; i < frameCount; i++) {
+                interleavedBuffer[i * 2] = leftInt16[i];
+                interleavedBuffer[i * 2 + 1] = rightInt16[i];
             }
+
+            const durationUs = (frameCount * 1_000_000) / sampleRate;
+
+            // 3. Crear AudioData especificando formato 's16' (Signed 16-bit)
+            // Esto es lo que la mayoría de los hardwares Android esperan
+            const audioData = new AudioData({
+                format: 's16', // <--- CAMBIO CLAVE V48
+                sampleRate: sampleRate,
+                numberOfFrames: frameCount,
+                numberOfChannels: 2,
+                timestamp: nextTimestamp,
+                data: interleavedBuffer.buffer // Pasamos el ArrayBuffer subyacente
+            });
+
+            audioEncoder.encode(audioData);
+            audioData.close();
+
+            nextTimestamp += durationUs;
+            readChunkCount++;
         };
-        processAudio();
 
         const startTime = performance.now();
         const durationMs = stState.config.duration * 1000;
@@ -668,8 +631,12 @@
                 if (frameCount % 15 === 0) {
                     stState.analyserNode.getByteFrequencyData(dataArray);
                     const vol = dataArray.reduce((a,b)=>a+b,0);
-                    let color = audioChunkCount > 0 ? "#0f0" : "#f00";
-                    stDOM.statusText.innerHTML = `<span style="color:${color}">REC OPUS (${vol})</span>`;
+                    
+                    let color = "#f00";
+                    if (audioChunkCount > 0) color = "#0f0";
+                    else if (readChunkCount > 10) color = "#ff0";
+
+                    stDOM.statusText.innerHTML = `<span style="color:${color}">R:${readChunkCount} | E:${audioChunkCount}</span>`;
                 }
 
                 stDOM.progressFill.style.width = (elapsed / durationMs) * 100 + "%";
@@ -693,8 +660,12 @@
         });
 
         stDOM.statusText.innerText = "Finalizando...";
-        try { await audioReader.cancel(); } catch(e) {}
-
+        
+        if (stState.scriptProcessor) {
+            stState.scriptProcessor.onaudioprocess = null;
+            stState.scriptProcessor.disconnect();
+        }
+        
         try {
             if (videoEncoder.state === 'configured') await videoEncoder.flush();
             videoEncoder.close();
@@ -709,24 +680,10 @@
         try {
             muxer.finalize();
             const buffer = muxer.target.buffer;
-
+            console.log(`[V48 END] Encoded: ${audioChunkCount}`);
+            
             if (buffer.byteLength > 0) {
-                const opusBlob = new Blob([buffer], { type: 'video/mp4' });
-
-                // INTENTO DE CONVERSIÓN V47
-                if (stState.ffmpeg) {
-                    try {
-                        const aacBlob = await convertToAAC(opusBlob);
-                        stState.finalBlob = aacBlob;
-                    } catch (err) {
-                        console.error("FFmpeg Falló:", err);
-                        stState.finalBlob = opusBlob; // Fallback
-                        alert("Conversión falló por RAM. Se descarga original.");
-                    }
-                } else {
-                    stState.finalBlob = opusBlob;
-                }
-
+                stState.finalBlob = new Blob([buffer], { type: 'video/mp4' });
                 stShowFinalUI();
             } else { throw new Error("0 bytes"); }
         } catch (e) {
@@ -736,6 +693,7 @@
         }
     }
 
+    // UTILS (Sin cambios)
     function roundRect(ctx, x, y, w, h, r) {
         if (w < 2 * r) r = w / 2; if (h < 2 * r) r = h / 2;
         ctx.moveTo(x+r, y); ctx.arcTo(x+w, y, x+w, y+h, r);
@@ -824,22 +782,21 @@
         stCtx.fillStyle = "#1DB954"; stCtx.font = "700 9px Inter, sans-serif";
         stCtx.fillText("FLAC • HIFI", w/2, badgeY + 11);
     }
-
-    // UI FINAL
+    
     function stShowFinalUI() {
         stDOM.loadingUI.style.display = 'none';
         stDOM.finalActions.style.display = 'block';
         console.log(`[STORY MODULE] Listo.`);
-
+        
         stDOM.shareWaBtn.onclick = async () => {
             if (!stState.finalBlob) return;
             const file = new File([stState.finalBlob], "story.mp4", { type: 'video/mp4' });
-
+            
             if (navigator.canShare && navigator.canShare({ files: [file] })) {
                 try { await navigator.share({ files: [file] }); } catch (e) {}
             } else { alert("Usa descargar manual."); }
         };
-
+        
         stDOM.dlManualBtn.onclick = () => {
             if (!stState.finalBlob) return;
             const url = URL.createObjectURL(stState.finalBlob);
