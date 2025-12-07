@@ -293,83 +293,16 @@
             </div>
         </div>
     </div>
+
 <script type="module">
-    const version = "V44: WebM Nativo + Inyector EBML Duro";
+    import { Muxer, ArrayBufferTarget } from 'https://esm.sh/mp4-muxer@5.1.0';
+    // Importamos FFmpeg para la conversión final
+    // Usamos una versión compatible con navegadores sin headers especiales
+    import { createFFmpeg, fetchFile } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/+esm';
+
+    const version = "V46: V38.5 Generator + FFmpeg Transcoder (AAC Fix)";
     console.log(`[STORY MODULE] CARGANDO ${version}`);
 
-    // --- INYECTOR DE DURACIÓN WEBM (ROBUSTO) ---
-    // Esta función reescribe la estructura binaria del archivo
-    const injectDuration = async (blob, durationMs) => {
-        const buffer = await blob.arrayBuffer();
-        const view = new DataView(buffer);
-        const newBuffer = buffer.slice(0); // Clonar
-        const newView = new DataView(newBuffer);
-        
-        let pos = 0;
-        
-        // 1. Buscar Segment (0x18538067)
-        while (pos < newView.byteLength - 4) {
-            if (newView.getUint32(pos) === 0x18538067) {
-                pos += 4;
-                break;
-            }
-            pos++;
-        }
-        
-        if (pos >= newView.byteLength - 4) return blob; // No es WebM válido
-
-        // Saltar tamaño del segmento
-        // (Simplificado: asumimos que el header es estándar de Chrome Android)
-        
-        // 2. Buscar "Info" (0x1549A966)
-        let infoPos = -1;
-        while (pos < newView.byteLength - 4) {
-            if (newView.getUint32(pos) === 0x1549A966) {
-                infoPos = pos;
-                break;
-            }
-            pos++;
-        }
-
-        if (infoPos !== -1) {
-            // Encontramos la sección INFO.
-            // Chrome a veces NO escribe la duración. Vamos a buscar si existe.
-            let searchPos = infoPos + 4; // Saltar ID
-            // Saltar tamaño (varint)
-            let len = newView.getUint8(searchPos);
-            searchPos++;
-            if (len >= 128) { // Ajuste varint
-                let bytes = 0;
-                while ((len & (0x80 >> bytes)) === 0) bytes++;
-                searchPos += bytes;
-            }
-
-            // Buscar tag Duration (0x4489) en los siguientes 100 bytes
-            let durationPos = -1;
-            for (let i = 0; i < 100; i++) {
-                if (newView.getUint16(searchPos + i) === 0x4489) {
-                    durationPos = searchPos + i;
-                    break;
-                }
-            }
-
-            if (durationPos !== -1) {
-                // YA EXISTE: Sobrescribir
-                console.log(`[FIX] Sobrescribiendo duración en ${durationPos}`);
-                newView.setFloat64(durationPos + 2, durationMs, false); // +2 por el ID 4489
-                return new Blob([newBuffer], { type: 'video/webm' });
-            } else {
-                // NO EXISTE: Esto es lo difícil. Insertar bytes es complejo sin librería.
-                console.warn("[FIX] No se encontró tag Duration. Usando WebM tal cual.");
-                // En este caso, confiamos en que el Muxer nativo lo hizo bien o fallará.
-                return blob; 
-            }
-        }
-        
-        return blob;
-    };
-
-    // --- VARIABLES ---
     const stDOM = {
         openBtn: document.getElementById('stOpenBtn'),
         closeBtn: document.getElementById('stCloseBtn'),
@@ -396,7 +329,6 @@
     const stState = {
         isEncoding: false,
         finalBlob: null,
-        finalExt: 'webm', // La verdad
         audioData: new Array(20).fill(5),
         staticCanvas: null,
         config: {},
@@ -409,12 +341,31 @@
         blobUrl: null,
         analyserNode: null,
         keepAliveOsc: null,
-        mediaRecorder: null,
-        chunks: []
+        ffmpeg: null // Instancia del convertidor
     };
 
     const stCoverImg = new Image();
     stCoverImg.crossOrigin = "Anonymous";
+
+    // --- CARGAR FFMPEG AL INICIO ---
+    // Intentamos cargar el motor en segundo plano para ganar tiempo
+    (async () => {
+        try {
+            // Verificamos soporte básico
+            if (typeof SharedArrayBuffer === 'undefined') {
+                console.warn("[V46] SharedArrayBuffer no disponible. FFmpeg podría ser lento o fallar.");
+            }
+            stState.ffmpeg = createFFmpeg({ 
+                log: true, 
+                corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js'
+            });
+            await stState.ffmpeg.load();
+            console.log("[V46] Motor de conversión listo.");
+        } catch (e) {
+            console.error("[V46] No se pudo cargar FFmpeg. Se usará modo Fallback.", e);
+            stState.ffmpeg = null;
+        }
+    })();
 
     // --- UI EVENTS ---
     if(stDOM.hqToggle) {
@@ -472,9 +423,6 @@
     }
 
     function cleanupAudio() {
-        if (stState.mediaRecorder && stState.mediaRecorder.state !== 'inactive') {
-            stState.mediaRecorder.stop();
-        }
         if (stState.shadowAudio) {
             stState.shadowAudio.pause();
             if (document.body.contains(stState.shadowAudio)) document.body.removeChild(stState.shadowAudio);
@@ -495,22 +443,23 @@
     stDOM.startBtn.addEventListener('click', async () => {
         if (stState.isEncoding) return;
         stDOM.startBtn.disabled = true;
-        stDOM.startBtn.innerText = "Iniciando V44...";
+        stDOM.startBtn.innerText = "Generando Base V46...";
 
         const mainAudio = document.getElementById('audio-player');
         if (!mainAudio.paused) mainAudio.pause();
 
         try {
             if (!stState.blobUrl) {
-                console.log("[V44] Descargando...");
+                console.log("[V46] Descargando...");
                 const response = await fetch(stState.currentSetData.audio_url);
                 if (!response.ok) throw new Error("Error red");
                 const blob = await response.blob();
                 stState.blobUrl = URL.createObjectURL(blob);
             }
 
+            // 1. GENERACIÓN BASE: Usamos la confiable V38.5 (Opus 48k)
             const AudioContext = window.AudioContext || window.webkitAudioContext;
-            stState.audioContext = new AudioContext({ latencyHint: 'playback' });
+            stState.audioContext = new AudioContext({ latencyHint: 'playback', sampleRate: 48000 });
             
             stState.shadowAudio = new Audio();
             stState.shadowAudio.src = stState.blobUrl;
@@ -519,7 +468,6 @@
             stState.shadowAudio.crossOrigin = "anonymous";
             stState.shadowAudio.style.position = 'fixed';
             stState.shadowAudio.style.opacity = '0';
-            stState.shadowAudio.style.pointerEvents = 'none';
             document.body.appendChild(stState.shadowAudio);
 
             stState.mediaStreamDest = stState.audioContext.createMediaStreamDestination();
@@ -541,9 +489,9 @@
             stDOM.startBtn.innerText = "Sincronizando...";
             await stState.shadowAudio.play();
 
-            console.log("[V44] Esperando señal...");
+            console.log("[V46] Esperando señal...");
             await waitForAudioSignal();
-            console.log("[V44] Señal OK.");
+            console.log("[V46] Señal OK.");
 
         } catch (e) {
             console.error(e);
@@ -557,16 +505,16 @@
         stState.isEncoding = true;
         
         stState.config = {
-            width: 360, height: 640, duration: 15, fps: 30
+            width: 360, height: 640, duration: 15, fps: 24, bitrate: 1500000
         };
 
         stPrepareStaticLayer();
 
-        try { await startNativeRecording(); }
+        try { await runRealTimeEncoding(); }
         catch (e) {
             console.error(e);
             stState.isEncoding = false;
-            alert("Recorder Error: " + e.message);
+            alert("Encoder error: " + e.message);
             resetModule();
         }
     });
@@ -587,74 +535,210 @@
         });
     }
 
-    async function startNativeRecording() {
-        const canvasStream = stDOM.canvas.captureStream(30);
-        const audioStream = stState.mediaStreamDest.stream;
-        
-        const combinedStream = new MediaStream([
-            ...canvasStream.getVideoTracks(),
-            ...audioStream.getAudioTracks()
-        ]);
-
-        // FORZAR WEBM PURO
-        const options = { mimeType: 'video/webm;codecs=vp8,opus' };
-        
-        stState.chunks = [];
-        try {
-            stState.mediaRecorder = new MediaRecorder(combinedStream, options);
-        } catch(e) {
-            stState.mediaRecorder = new MediaRecorder(combinedStream);
+    // --- SANITIZADOR V38.5 ---
+    function cloneAndSanitizeAudioChunk(originalChunk, newTimestamp) {
+        const planeSize = originalChunk.allocationSize({ planeIndex: 0 });
+        const totalSize = planeSize * originalChunk.numberOfChannels;
+        const buffer = new ArrayBuffer(totalSize);
+        for (let ch = 0; ch < originalChunk.numberOfChannels; ch++) {
+            const offset = ch * planeSize;
+            const destView = new Uint8Array(buffer, offset, planeSize);
+            originalChunk.copyTo(destView, { planeIndex: ch });
         }
+        return new AudioData({
+            format: originalChunk.format,
+            sampleRate: originalChunk.sampleRate,
+            numberOfFrames: originalChunk.numberOfFrames,
+            numberOfChannels: originalChunk.numberOfChannels,
+            timestamp: newTimestamp,
+            data: buffer
+        });
+    }
 
-        stState.mediaRecorder.ondataavailable = (e) => {
-            if (e.data.size > 0) stState.chunks.push(e.data);
+    // --- FUNCIÓN DE CONVERSIÓN FFMPEG (AAC) ---
+    async function convertToAAC(originalBlob) {
+        if (!stState.ffmpeg) throw new Error("FFmpeg no cargó");
+        
+        stDOM.statusText.innerHTML = `<span style="color:#ffa500">⚙️ CONVIRTIENDO A AAC...</span>`;
+        console.log("[V46] Iniciando transcodificación...");
+
+        const ffmpeg = stState.ffmpeg;
+        const inputName = 'input.mp4';
+        const outputName = 'output.mp4';
+
+        // Escribir archivo en memoria virtual
+        ffmpeg.FS('writeFile', inputName, await fetchFile(originalBlob));
+
+        // Ejecutar comando: Copiar video, Convertir audio a AAC
+        // -c:v copy (Rápido, no gasta RAM en video)
+        // -c:a aac (El objetivo)
+        await ffmpeg.run('-i', inputName, '-c:v', 'copy', '-c:a', 'aac', '-b:a', '128k', outputName);
+
+        // Leer resultado
+        const data = ffmpeg.FS('readFile', outputName);
+        
+        // Limpiar memoria
+        ffmpeg.FS('unlink', inputName);
+        ffmpeg.FS('unlink', outputName);
+
+        return new Blob([data.buffer], { type: 'video/mp4' });
+    }
+
+    async function runRealTimeEncoding() {
+        // ... (Lógica V38.5 idéntica para generar el archivo base) ...
+        const trackProcessor = new MediaStreamTrackProcessor({ track: stState.mediaStreamDest.stream.getAudioTracks()[0] });
+        const audioReader = trackProcessor.readable.getReader();
+        const firstChunkResult = await audioReader.read();
+        const firstChunk = firstChunkResult.value;
+        const baseAudioTimestamp = firstChunk.timestamp;
+        const targetSampleRate = 48000;
+        const targetChannels = 2;
+
+        let muxer = new Muxer({
+            target: new ArrayBufferTarget(),
+            video: { codec: 'avc', width: stState.config.width, height: stState.config.height },
+            audio: { codec: 'opus', numberOfChannels: targetChannels, sampleRate: targetSampleRate }, 
+            fastStart: 'in-memory',
+            firstTimestampBehavior: 'offset'
+        });
+
+        let videoEncoder = new VideoEncoder({
+            output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+            error: e => console.error("Video Error:", e)
+        });
+        videoEncoder.configure({
+            codec: 'avc1.42001E', width: stState.config.width, height: stState.config.height,
+            bitrate: stState.config.bitrate, framerate: stState.config.fps
+        });
+
+        let audioChunkCount = 0;
+        let audioEncoder = new AudioEncoder({
+            output: (chunk, meta) => {
+                audioChunkCount++;
+                muxer.addAudioChunk(chunk, meta);
+            },
+            error: e => console.error("Audio Encoder Fatal:", e)
+        });
+        
+        audioEncoder.configure({
+            codec: 'opus', 
+            numberOfChannels: targetChannels, 
+            sampleRate: targetSampleRate,
+            bitrate: 128000
+        });
+
+        const sanitizedFirst = cloneAndSanitizeAudioChunk(firstChunk, 0); 
+        audioEncoder.encode(sanitizedFirst);
+        sanitizedFirst.close();
+        firstChunk.close();
+
+        const processAudio = async () => {
+            while (stState.isEncoding) {
+                try {
+                    const result = await audioReader.read();
+                    if (result.done) break;
+                    
+                    const original = result.value;
+                    if (audioEncoder.state === 'configured') {
+                        const relativeTimestamp = original.timestamp - baseAudioTimestamp;
+                        if (relativeTimestamp >= 0) {
+                            const sanitized = cloneAndSanitizeAudioChunk(original, relativeTimestamp);
+                            audioEncoder.encode(sanitized);
+                            sanitized.close();
+                        }
+                    }
+                    original.close();
+                } catch (e) { break; }
+            }
         };
-
-        stState.mediaRecorder.onstop = async () => {
-            console.log("[REC] Stop. Iniciando parche...");
-            
-            const rawBlob = new Blob(stState.chunks, { type: 'video/webm' });
-            const durationMs = stState.config.duration * 1000;
-
-            // INTENTO DE REPARACIÓN
-            const fixedBlob = await injectDuration(rawBlob, durationMs);
-            
-            stState.finalBlob = fixedBlob;
-            stShowFinalUI(fixedBlob.type);
-        };
-
-        stState.mediaRecorder.start(1000); 
+        processAudio();
 
         const startTime = performance.now();
         const durationMs = stState.config.duration * 1000;
         let frameCount = 0;
         const dataArray = new Uint8Array(stState.analyserNode.frequencyBinCount);
 
-        const drawLoop = (now) => {
-            if (!stState.isEncoding) return;
-            const elapsed = now - startTime;
+        await new Promise((resolve) => {
+            const drawFrame = async (now) => {
+                if (!stState.isEncoding) { resolve(); return; }
+                const elapsed = now - startTime;
+                if (elapsed >= durationMs) {
+                    stState.isEncoding = false;
+                    resolve();
+                    return;
+                }
 
-            if (elapsed >= durationMs) {
-                stState.isEncoding = false;
-                stState.mediaRecorder.stop();
-                return;
-            }
+                if (frameCount % 15 === 0) {
+                    stState.analyserNode.getByteFrequencyData(dataArray);
+                    const vol = dataArray.reduce((a,b)=>a+b,0);
+                    let color = audioChunkCount > 0 ? "#0f0" : "#f00";
+                    stDOM.statusText.innerHTML = `<span style="color:${color}">REC OPUS (${vol})</span>`;
+                }
 
-            if (frameCount % 10 === 0) {
-                stState.analyserNode.getByteFrequencyData(dataArray);
-                const vol = dataArray.reduce((a,b)=>a+b,0);
-                if(vol > 0) stDOM.statusText.innerHTML = `<span style="color:#0f0">🔴 REC WEBM (${vol})</span>`;
-            }
+                stDOM.progressFill.style.width = (elapsed / durationMs) * 100 + "%";
+                stUpdateAudioSimulation(frameCount);
+                stCtx.drawImage(stState.staticCanvas, 0, 0);
+                stDrawDynamicLayer(elapsed / 1000);
 
-            stDOM.progressFill.style.width = (elapsed / durationMs) * 100 + "%";
-            stUpdateAudioSimulation(frameCount);
-            stCtx.drawImage(stState.staticCanvas, 0, 0);
-            stDrawDynamicLayer(elapsed / 1000);
+                const vFrame = new VideoFrame(stDOM.canvas, {
+                    timestamp: now * 1000,
+                    duration: (1000 / stState.config.fps) * 1000
+                });
+
+                if (videoEncoder.encodeQueueSize < 3 && videoEncoder.state === 'configured') {
+                    videoEncoder.encode(vFrame, { keyFrame: frameCount % 30 === 0 });
+                }
+                vFrame.close();
+                frameCount++;
+                requestAnimationFrame(drawFrame);
+            };
+            requestAnimationFrame(drawFrame);
+        });
+
+        stDOM.statusText.innerText = "Finalizando...";
+        try { await audioReader.cancel(); } catch(e) {}
+        
+        try {
+            if (videoEncoder.state === 'configured') await videoEncoder.flush();
+            videoEncoder.close();
+        } catch(e){}
+        try {
+            if (audioEncoder.state === 'configured') await audioEncoder.flush();
+            audioEncoder.close();
+        } catch(e){}
+
+        if (stState.keepAliveOsc) { try{stState.keepAliveOsc.stop()}catch(e){} }
+
+        try {
+            muxer.finalize();
+            const buffer = muxer.target.buffer;
             
-            frameCount++;
-            requestAnimationFrame(drawLoop);
-        };
-        requestAnimationFrame(drawLoop);
+            if (buffer.byteLength > 0) {
+                const opusBlob = new Blob([buffer], { type: 'video/mp4' });
+                
+                // --- INTENTO DE CONVERSIÓN ---
+                if (stState.ffmpeg) {
+                    try {
+                        const aacBlob = await convertToAAC(opusBlob);
+                        console.log("[V46] Conversión Exitosa!");
+                        stState.finalBlob = aacBlob;
+                    } catch (convErr) {
+                        console.error("[V46] Falló conversión (RAM?), usando original:", convErr);
+                        stState.finalBlob = opusBlob;
+                        alert("Conversión falló (Memoria llena). Se descargará el original (Opus).");
+                    }
+                } else {
+                    console.log("[V46] FFmpeg no disponible, usando original.");
+                    stState.finalBlob = opusBlob;
+                }
+                
+                stShowFinalUI();
+            } else { throw new Error("0 bytes"); }
+        } catch (e) {
+            console.error(e);
+            alert("Error al guardar.");
+            resetModule();
+        }
     }
 
     // UTILS
@@ -748,14 +832,14 @@
     }
     
     // UI FINAL
-    function stShowFinalUI(mimeType) {
+    function stShowFinalUI() {
         stDOM.loadingUI.style.display = 'none';
         stDOM.finalActions.style.display = 'block';
         console.log(`[STORY MODULE] Listo.`);
         
         stDOM.shareWaBtn.onclick = async () => {
             if (!stState.finalBlob) return;
-            const file = new File([stState.finalBlob], "story.webm", { type: mimeType });
+            const file = new File([stState.finalBlob], "story.mp4", { type: 'video/mp4' });
             
             if (navigator.canShare && navigator.canShare({ files: [file] })) {
                 try { await navigator.share({ files: [file] }); } catch (e) {}
@@ -765,7 +849,7 @@
         stDOM.dlManualBtn.onclick = () => {
             if (!stState.finalBlob) return;
             const url = URL.createObjectURL(stState.finalBlob);
-            const a = document.createElement('a'); a.href = url; a.download = "story.webm";
+            const a = document.createElement('a'); a.href = url; a.download = "story.mp4";
             document.body.appendChild(a); a.click(); document.body.removeChild(a);
         };
     }
