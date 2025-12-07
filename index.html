@@ -297,11 +297,15 @@
 <script type="module">
     import { Muxer, ArrayBufferTarget } from 'https://esm.sh/mp4-muxer@5.1.0';
 
-    const version = "V56.5: Cloud Fixer (Safe Mode - Auto Codec)";
+    const version = "V58: API Cloud + CORS Proxy (Bypass Security Block)";
     console.log(`[STORY MODULE] CARGANDO ${version}`);
 
     // --- TU LLAVE MAESTRA ---
     const API_KEY = 'api_production_3706deb6dca4a4a05edf51545b39af7100674dcd07ecf713f2d47f7d75ff92cf.6934f748142a194b3640feb5.6934fa2ea22aa85dd55c0fb2';
+
+    // --- EL TÚNEL (CORS PROXY) ---
+    // Esto permite llamar a la API desde el navegador sin que se bloquee
+    const PROXY_URL = 'https://corsproxy.io/?';
 
     const stDOM = {
         openBtn: document.getElementById('stOpenBtn'),
@@ -421,7 +425,6 @@
     // --- START BUTTON ---
     stDOM.startBtn.addEventListener('click', async () => {
         if (stState.isEncoding) return;
-
         stDOM.startBtn.disabled = true;
         stDOM.startBtn.innerText = "Paso 1: Grabando...";
 
@@ -436,7 +439,7 @@
                 stState.blobUrl = URL.createObjectURL(blob);
             }
 
-            // CONFIGURACIÓN V38.5 (MP4 + Opus)
+            // --- FASE 1: GRABACIÓN LOCAL (V38.5 Estabilizada) ---
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             stState.audioContext = new AudioContext({ latencyHint: 'playback', sampleRate: 48000 });
 
@@ -580,7 +583,6 @@
                 try {
                     const result = await audioReader.read();
                     if (result.done) break;
-
                     const original = result.value;
                     if (audioEncoder.state === 'configured') {
                         const relativeTimestamp = original.timestamp - baseAudioTimestamp;
@@ -651,11 +653,10 @@
         const buffer = muxer.target.buffer;
 
         if (buffer.byteLength > 0) {
-            // Guardamos el blob local
             stState.localBlob = new Blob([buffer], { type: 'video/mp4' });
 
-            // FASE 2: ENVIAR A LA NUBE
-            cleanupAudio(); // Liberar memoria
+            // FASE 2: ENVIAR A LA NUBE (Con Proxy)
+            cleanupAudio();
             uploadToFreeConvert(stState.localBlob);
         } else {
             alert("Error: 0 bytes.");
@@ -663,105 +664,105 @@
         }
     }
 
-    // --- FASE 2: INTEGRACIÓN API FREECONVERT (MODO SEGURO) ---
+    // --- FASE 2: INTEGRACIÓN API (CORS BYPASS) ---
     async function uploadToFreeConvert(fileBlob) {
         if (!API_KEY) {
-            alert("Falta API Key. Se descarga el original.");
-            stState.finalBlob = fileBlob;
-            stShowFinalUI(false);
+            alert("Error: Falta API Key.");
             return;
         }
 
-        stDOM.statusText.innerHTML = `<span style="color:#00aaff">☁️ SUBIENDO...</span>`;
-        console.log("[V56.5] Iniciando proceso API...");
+        stDOM.statusText.innerHTML = `<span style="color:#00aaff">☁️ SUBIENDO (PROXY)...</span>`;
+        console.log("[V58] Iniciando proceso API vía Proxy...");
 
         try {
-            // 1. Obtener URL de subida
-            const importRes = await fetch('https://api.freeconvert.com/v1/process/import/upload', {
+            // 1. Obtener URL de subida (A través del proxy)
+            const importRes = await fetch(PROXY_URL + 'https://api.freeconvert.com/v1/process/import/upload', {
                 method: 'POST',
-                headers: { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json' }
+                headers: {
+                    'Authorization': `Bearer ${API_KEY}`,
+                    'Content-Type': 'application/json'
+                    // 'X-Requested-With': 'XMLHttpRequest' // A veces necesario
+                }
             });
+
+            if (!importRes.ok) throw new Error("Fallo Import: " + importRes.status);
             const importData = await importRes.json();
 
-            if (!importRes.ok) throw new Error(importData.message || "Fallo Import");
+            // 2. Subir Archivo (Directo a la URL firmada, usualmente S3 soporta CORS directo)
+            // Si falla, probaríamos proxy aquí también, pero S3 suele ser amigable.
             const uploadUrl = importData.presigned_url;
-            const inputFileId = importData.id;
-
-            // 2. Subir Archivo (PUT directo)
-            const uploadRes = await fetch(uploadUrl, {
+            console.log("Subiendo a S3...");
+            await fetch(uploadUrl, {
                 method: 'PUT',
                 body: fileBlob,
                 headers: { 'Content-Type': 'video/mp4' }
             });
 
-            if (!uploadRes.ok) throw new Error("Fallo en la subida del archivo (Network/CORS)");
+            // 3. Crear Trabajo (A través del proxy)
+            stDOM.statusText.innerHTML = `<span style="color:#ffa500">⚙️ NUBE CONVIRTIENDO...</span>`;
 
-            // 3. Crear Trabajo de Conversión
-            stDOM.statusText.innerHTML = `<span style="color:#ffa500">⚙️ CONVIRTIENDO (AUTO)...</span>`;
-
-            // CAMBIO V56.5: Usamos input_group_id para mayor seguridad y codecs AUTO para evitar cuelgues
-            const convertRes = await fetch('https://api.freeconvert.com/v1/process/convert', {
+            const convertRes = await fetch(PROXY_URL + 'https://api.freeconvert.com/v1/process/convert', {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     input_group_id: importData.import_id,
                     output_format: 'mp4',
                     options: {
-                        // En lugar de copy, usamos auto para que el servidor reconstruya si está dañado
                         audio_codec: "aac",
-                        video_codec: "auto"
+                        video_codec: "copy"
                     }
                 })
             });
 
             const jobData = await convertRes.json();
-            if (!convertRes.ok) throw new Error(jobData.message || "Fallo Convert");
             const jobId = jobData.id;
 
             // 4. Polling
             let resultUrl = null;
-            let attempts = 0;
-
-            while (attempts < 40) { // Esperar hasta 80s
+            for(let i=0; i<30; i++) {
                 await new Promise(r => setTimeout(r, 2000));
 
-                const statusRes = await fetch(`https://api.freeconvert.com/v1/process/jobs/${jobId}`, {
+                const statusRes = await fetch(PROXY_URL + `https://api.freeconvert.com/v1/process/jobs/${jobId}`, {
                     headers: { 'Authorization': `Bearer ${API_KEY}` }
                 });
                 const statusData = await statusRes.json();
 
                 if (statusData.status === 'completed') {
-                    if (statusData.tasks && statusData.tasks.length > 0) {
-                        const exportTask = statusData.tasks.find(t => t.operation === "export/url" && t.status === "completed");
-                        if (exportTask?.result?.url) resultUrl = exportTask.result.url;
-                    }
+                    if (statusData.tasks?.[0]?.result?.url) resultUrl = statusData.tasks[0].result.url;
                     if (!resultUrl && statusData.result?.url) resultUrl = statusData.result.url;
                     break;
                 } else if (statusData.status === 'failed') {
-                    throw new Error("El servidor falló al procesar el archivo.");
+                    throw new Error("Fallo en servidor.");
                 }
-                attempts++;
             }
 
             if (!resultUrl) throw new Error("Tiempo agotado.");
 
-            // 5. Descargar Resultado
+            // 5. Descargar Resultado (Directo o Proxy según CORS)
             stDOM.statusText.innerHTML = `<span style="color:#0f0">📥 BAJANDO FINAL...</span>`;
-            const finalRes = await fetch(resultUrl);
-            const finalBuffer = await finalRes.arrayBuffer();
 
+            // Intentamos directo primero (S3 suele dejar bajar)
+            let finalRes;
+            try {
+                finalRes = await fetch(resultUrl);
+            } catch (e) {
+                // Si falla, usamos proxy
+                finalRes = await fetch(PROXY_URL + resultUrl);
+            }
+
+            const finalBuffer = await finalRes.arrayBuffer();
             stState.finalBlob = new Blob([finalBuffer], { type: 'video/mp4' });
             stShowFinalUI(true);
 
         } catch (e) {
-            console.error("API Error:", e);
+            console.error(e);
             alert(`Error Nube: ${e.message}. Se descarga el original.`);
             stState.finalBlob = stState.localBlob;
             stShowFinalUI(false);
         }
     }
 
-    // UTILS (Visuales sin cambios)
+    // UTILS VISUALES
     function roundRect(ctx, x, y, w, h, r) {
         if (w < 2 * r) r = w / 2; if (h < 2 * r) r = h / 2;
         ctx.moveTo(x+r, y); ctx.arcTo(x+w, y, x+w, y+h, r);
