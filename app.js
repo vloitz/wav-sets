@@ -1698,23 +1698,4 @@ window.addEventListener('appinstalled', () => {
 });
 
 
-// --- CONECTOR STORY CREATOR (Fase 10) ---
-    const storyBtn = document.getElementById('stOpenBtn'); // Asegúrate de que este ID existe en tu HTML
-
-    if (storyBtn) {
-        storyBtn.addEventListener('click', () => {
-            if (!currentLoadedSet) return;
-
-            // 1. Preparar datos
-            const title = encodeURIComponent(currentLoadedSet.title);
-            const cover = encodeURIComponent(currentLoadedSet.cover_art_url);
-
-            // 2. Abrir la herramienta aislada
-            // Se abre en nueva pestaña para no detener la música del player principal
-            const storyUrl = `story.html?title=${title}&cover=${cover}`;
-            window.open(storyUrl, '_blank');
-        });
-    }
-
-
 });
