@@ -296,11 +296,11 @@
 
 <script type="module">
     import { Muxer, ArrayBufferTarget } from 'https://esm.sh/mp4-muxer@5.1.0';
-    // Importamos FFmpeg versión compatible (Single Thread para móviles)
+    // Importamos FFmpeg 0.12 (Versión Moderna) y Utilidades
     import { FFmpeg } from 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js';
     import { fetchFile, toBlobURL } from 'https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js';
 
-    const version = "V48: Local FFmpeg Transcoder (The Client-Side Hope)";
+    const version = "V51: V38.5 Generator + FFmpeg 0.12 Transcoder (The Final Fix)";
     console.log(`[STORY MODULE] CARGANDO ${version}`);
 
     const stDOM = {
@@ -341,29 +341,33 @@
         blobUrl: null,
         analyserNode: null,
         keepAliveOsc: null,
-        ffmpeg: null // Instancia del convertidor
+        ffmpeg: null
     };
 
     const stCoverImg = new Image();
     stCoverImg.crossOrigin = "Anonymous";
 
-    // --- CARGAR FFMPEG EN SEGUNDO PLANO ---
+    // --- CARGAR FFMPEG (ASÍNCRONO) ---
     (async () => {
         try {
             stState.ffmpeg = new FFmpeg();
             stState.ffmpeg.on('log', ({ message }) => console.log('[FFmpeg]', message));
             
-            // Usamos la versión "core-mt" (Multi-Thread) si es posible, o fallback
-            // Para GitHub Pages y móviles, la versión single-thread (sin mt) es más segura
+            // Usamos la versión core 0.12.6
             const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+            
+            // Cargar con URLs explícitas
             await stState.ffmpeg.load({
                 coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
                 wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
             });
-            console.log("[V48] Motor de Conversión Listo.");
+            
+            console.log("[V51] FFmpeg Cargado y Listo.");
+            if(stDOM.startBtn) stDOM.startBtn.innerText = "CREAR STORY (Listo)";
         } catch (e) {
-            console.error("[V48] Error cargando motor:", e);
-            stState.ffmpeg = null; // Marcar como no disponible
+            console.error("[V51] Error cargando FFmpeg:", e);
+            stDOM.statusText.innerText = "Error cargando motor de video. Recarga la página.";
+            stState.ffmpeg = null;
         }
     })();
 
@@ -382,6 +386,7 @@
             if (realSet && wave) {
                 stState.currentSetData = realSet;
                 stState.startTime = wave.getCurrentTime();
+                
                 let activeTrackName = realSet.title;
                 if (realSet.tracklist) {
                     for (let i = realSet.tracklist.length - 1; i >= 0; i--) {
@@ -441,29 +446,28 @@
     // --- START BUTTON ---
     stDOM.startBtn.addEventListener('click', async () => {
         if (stState.isEncoding) return;
-
-        // Check FFmpeg
+        
         if (!stState.ffmpeg) {
-            alert("El motor de conversión aún no carga (o falló). Espera 5s e intenta de nuevo.");
+            alert("El motor de conversión aún no está listo. Espera unos segundos.");
             return;
         }
 
         stDOM.startBtn.disabled = true;
-        stDOM.startBtn.innerText = "Generando Base (V38.5)...";
+        stDOM.startBtn.innerText = "Iniciando V51...";
 
         const mainAudio = document.getElementById('audio-player');
         if (!mainAudio.paused) mainAudio.pause();
 
         try {
             if (!stState.blobUrl) {
-                console.log("[V48] Descargando...");
+                console.log("[V51] Descargando...");
                 const response = await fetch(stState.currentSetData.audio_url);
                 if (!response.ok) throw new Error("Error red");
                 const blob = await response.blob();
                 stState.blobUrl = URL.createObjectURL(blob);
             }
 
-            // Usamos V38.5 Logic (Opus 48k - El que funciona)
+            // Usamos lógica V38.5 (Opus 48k - El generador fiable)
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             stState.audioContext = new AudioContext({ latencyHint: 'playback', sampleRate: 48000 });
             
@@ -495,9 +499,9 @@
             stDOM.startBtn.innerText = "Sincronizando...";
             await stState.shadowAudio.play();
 
-            console.log("[V48] Esperando señal...");
+            console.log("[V51] Esperando señal...");
             await waitForAudioSignal();
-            console.log("[V48] Señal OK.");
+            console.log("[V51] Señal OK.");
 
         } catch (e) {
             console.error(e);
@@ -541,38 +545,6 @@
         });
     }
 
-    // --- EL MAGO: TRANSCODIFICADOR INTERNO ---
-    async function convertToAAC(originalBlob) {
-        const ffmpeg = stState.ffmpeg;
-        if (!ffmpeg) throw new Error("FFmpeg perdido");
-
-        stDOM.statusText.innerHTML = `<span style="color:#ffa500">⚙️ CONVIRTIENDO (Espere)...</span>`;
-        console.log("[V48] Iniciando conversión FFmpeg...");
-
-        const inputName = 'input.mp4';
-        const outputName = 'output.mp4';
-
-        // 1. Escribir archivo virtual
-        await ffmpeg.writeFile(inputName, await fetchFile(originalBlob));
-
-        // 2. Ejecutar conversión
-        // -c:v copy: COPIA EL VIDEO (Ultrarrápido, 0 costo)
-        // -c:a aac: Convierte el audio de Opus a AAC
-        // -b:a 128k: Calidad estándar
-        // -strict experimental: A veces necesario para AAC nativo en wasm
-        await ffmpeg.exec(['-i', inputName, '-c:v', 'copy', '-c:a', 'aac', '-b:a', '128k', outputName]);
-
-        // 3. Leer resultado
-        const data = await ffmpeg.readFile(outputName);
-        
-        // 4. Limpiar memoria (CRÍTICO en 2GB RAM)
-        await ffmpeg.deleteFile(inputName);
-        await ffmpeg.deleteFile(outputName);
-
-        return new Blob([data.buffer], { type: 'video/mp4' });
-    }
-
-    // --- SANITIZADOR V38.5 (Necesario para el paso 1) ---
     function cloneAndSanitizeAudioChunk(originalChunk, newTimestamp) {
         const planeSize = originalChunk.allocationSize({ planeIndex: 0 });
         const totalSize = planeSize * originalChunk.numberOfChannels;
@@ -592,8 +564,39 @@
         });
     }
 
+    // --- CONVERSOR FFMPEG (La Magia de FreeConvert local) ---
+    async function convertToAAC(originalBlob) {
+        const ffmpeg = stState.ffmpeg;
+        if (!ffmpeg) throw new Error("FFmpeg no disponible");
+
+        stDOM.statusText.innerHTML = `<span style="color:#ffa500">⚙️ CONVIRTIENDO (Esto tarda)...</span>`;
+        console.log("[V51] Iniciando conversión FFmpeg...");
+
+        const inputName = 'input.mp4';
+        const outputName = 'output.mp4';
+
+        // 1. Escribir archivo en memoria virtual
+        await ffmpeg.writeFile(inputName, await fetchFile(originalBlob));
+
+        // 2. Ejecutar conversión
+        // -c:v copy: No tocamos el video (rápido y barato en RAM)
+        // -c:a aac: Convertimos Opus a AAC (Lo que WhatsApp quiere)
+        // -b:a 128k: Bitrate estándar
+        // -strict experimental: Para asegurar compatibilidad
+        await ffmpeg.exec(['-i', inputName, '-c:v', 'copy', '-c:a', 'aac', '-b:a', '128k', outputName]);
+
+        // 3. Leer resultado
+        const data = await ffmpeg.readFile(outputName);
+        
+        // 4. Limpiar memoria (Crucial para no crashear en 2GB RAM)
+        await ffmpeg.deleteFile(inputName);
+        await ffmpeg.deleteFile(outputName);
+
+        return new Blob([data.buffer], { type: 'video/mp4' });
+    }
+
     async function runRealTimeEncoding() {
-        // --- CÓDIGO V38.5 (GENERADOR BASE) ---
+        // --- MOTOR V38.5 (GENERADOR BASE) ---
         const trackProcessor = new MediaStreamTrackProcessor({ track: stState.mediaStreamDest.stream.getAudioTracks()[0] });
         const audioReader = trackProcessor.readable.getReader();
         const firstChunkResult = await audioReader.read();
@@ -621,6 +624,8 @@
         });
 
         let audioChunkCount = 0;
+        let readChunkCount = 1;
+
         let audioEncoder = new AudioEncoder({
             output: (chunk, meta) => {
                 audioChunkCount++;
@@ -681,7 +686,7 @@
                     stState.analyserNode.getByteFrequencyData(dataArray);
                     const vol = dataArray.reduce((a,b)=>a+b,0);
                     let color = audioChunkCount > 0 ? "#0f0" : "#f00";
-                    stDOM.statusText.innerHTML = `<span style="color:${color}">REC (${vol})</span>`;
+                    stDOM.statusText.innerHTML = `<span style="color:${color}">REC OPUS (${vol})</span>`;
                 }
 
                 stDOM.progressFill.style.width = (elapsed / durationMs) * 100 + "%";
@@ -725,15 +730,19 @@
             if (buffer.byteLength > 0) {
                 const opusBlob = new Blob([buffer], { type: 'video/mp4' });
                 
-                // --- EL PASO FINAL: CONVERSIÓN ---
-                try {
-                    const aacBlob = await convertToAAC(opusBlob);
-                    stState.finalBlob = aacBlob;
-                    console.log("[V48] Éxito Total.");
-                } catch (e) {
-                    console.error("[V48] Conversión falló:", e);
-                    stState.finalBlob = opusBlob; // Plan B: El archivo original
-                    alert("Falló la conversión (RAM). Se descargará el original.");
+                // --- FASE 2: CONVERSIÓN CON FFMPEG ---
+                if (stState.ffmpeg) {
+                    try {
+                        const aacBlob = await convertToAAC(opusBlob);
+                        console.log("[V51] Conversión Exitosa!");
+                        stState.finalBlob = aacBlob;
+                    } catch (err) {
+                        console.error("FFmpeg Falló:", err);
+                        stState.finalBlob = opusBlob; // Fallback
+                        alert("Conversión falló (Memoria insuficiente). Se descarga original.");
+                    }
+                } else {
+                    stState.finalBlob = opusBlob;
                 }
                 
                 stShowFinalUI();
