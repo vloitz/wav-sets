@@ -295,13 +295,12 @@
     </div>
 
 <script type="module">
-    import { Muxer, ArrayBufferTarget } from 'https://esm.sh/mp4-muxer@5.1.0';
-
-    const version = "V63: Instant Start (Stream) + Server Fix";
+    // V64: Soluciona el corte de audio iniciando la grabación ANTES de reproducir (Pre-Roll)
+    const version = "V64: Pre-Roll Sync (No-Cut Audio) + Cloud Fix";
     console.log(`[STORY MODULE] CARGANDO ${version}`);
 
-    // --- TU SERVIDOR PROPIO ---
-    const SERVER_URL = 'https://vloitz-server.onrender.com'; 
+    // --- TU SERVIDOR ---
+    const SERVER_URL = 'https://vloitz-server.onrender.com';
 
     const stDOM = {
         openBtn: document.getElementById('stOpenBtn'),
@@ -340,7 +339,9 @@
         sourceNode: null,
         shadowAudio: null,
         analyserNode: null,
-        keepAliveOsc: null
+        keepAliveOsc: null,
+        mediaRecorder: null,
+        chunks: []
     };
 
     const stCoverImg = new Image();
@@ -361,7 +362,7 @@
             if (realSet && wave) {
                 stState.currentSetData = realSet;
                 stState.startTime = wave.getCurrentTime();
-                
+
                 let activeTrackName = realSet.title;
                 if (realSet.tracklist) {
                     for (let i = realSet.tracklist.length - 1; i >= 0; i--) {
@@ -404,7 +405,6 @@
     function cleanupAudio() {
         if (stState.shadowAudio) {
             stState.shadowAudio.pause();
-            // Remover del DOM si existe
             if (stState.shadowAudio.parentNode) {
                 stState.shadowAudio.parentNode.removeChild(stState.shadowAudio);
             }
@@ -415,82 +415,77 @@
             try { stState.audioContext.close(); } catch(e){}
             stState.audioContext = null;
         }
-        // No revocamos blobUrl porque ya no usamos blobUrl
     }
 
-    // --- START BUTTON (OPTIMIZADO V63) ---
+    // --- START BUTTON (PRE-ROLL) ---
     stDOM.startBtn.addEventListener('click', async () => {
         if (stState.isEncoding) return;
-        
-        stDOM.startBtn.disabled = true;
-        stDOM.startBtn.innerText = "Conectando (Streaming)...";
 
-        // Pausar audio principal para no oír doble
+        stDOM.startBtn.disabled = true;
+        stDOM.startBtn.innerText = "Cargando Audio...";
+
         const mainAudio = document.getElementById('audio-player');
         if (!mainAudio.paused) mainAudio.pause();
 
         try {
-            // 1. CONFIGURACIÓN DE AUDIO (Sin fetch previo)
+            // 1. CONFIGURACIÓN INICIAL
             const AudioContext = window.AudioContext || window.webkitAudioContext;
-            // Usamos 48000Hz que es lo nativo de Opus/Android
             stState.audioContext = new AudioContext({ latencyHint: 'playback', sampleRate: 48000 });
-            
-            // 2. SHADOW PLAYER (Streaming Directo desde URL)
+
+            // 2. SHADOW PLAYER (Streaming)
             stState.shadowAudio = new Audio();
-            stState.shadowAudio.crossOrigin = "anonymous"; // Vital para CORS
-            // ¡AQUÍ ESTÁ LA MAGIA! Usamos la URL directa, no un Blob descargado
-            stState.shadowAudio.src = stState.currentSetData.audio_url; 
-            stState.shadowAudio.currentTime = stState.startTime; 
+            stState.shadowAudio.crossOrigin = "anonymous";
+            stState.shadowAudio.src = stState.currentSetData.audio_url;
+            stState.shadowAudio.currentTime = stState.startTime;
             stState.shadowAudio.volume = 1.0;
-            
-            // Truco del DOM invisible para que Android priorice la carga
+
+            // Dom Invisible
             stState.shadowAudio.style.position = 'fixed';
             stState.shadowAudio.style.opacity = '0.01';
             stState.shadowAudio.style.pointerEvents = 'none';
             document.body.appendChild(stState.shadowAudio);
 
-            // 3. CONEXIONES WEB AUDIO
+            // 3. CONEXIONES
             stState.mediaStreamDest = stState.audioContext.createMediaStreamDestination();
             stState.analyserNode = stState.audioContext.createAnalyser();
-            stState.analyserNode.fftSize = 256; 
+            stState.analyserNode.fftSize = 256;
 
             stState.sourceNode = stState.audioContext.createMediaElementSource(stState.shadowAudio);
             stState.sourceNode.connect(stState.analyserNode);
             stState.analyserNode.connect(stState.mediaStreamDest);
-            stState.sourceNode.connect(stState.audioContext.destination); // Monitor
+            stState.sourceNode.connect(stState.audioContext.destination);
 
-            // 4. OSCILADOR (Keep-Alive)
+            // Oscilador
             const osc = stState.audioContext.createOscillator();
             const gain = stState.audioContext.createGain();
-            osc.frequency.value = 1; gain.gain.value = 0.0001; 
+            osc.frequency.value = 1; gain.gain.value = 0.0001;
             osc.connect(gain); gain.connect(stState.mediaStreamDest);
             osc.start();
             stState.keepAliveOsc = osc;
 
-            // 5. INICIAR REPRODUCCIÓN Y ESPERAR SEÑAL
-            stDOM.startBtn.innerText = "Sincronizando...";
-            console.log("[V63] Iniciando reproducción streaming...");
-            
-            // Promesa que espera a que el audio empiece a sonar realmente
-            // Usamos 'canplay' como primer indicador, luego play()
+            // 4. ESPERAR "BUFFER LLENO" (canplaythrough)
+            // Esto asegura que el audio está listo para sonar sin tirones
+            console.log("[V64] Esperando buffer...");
             await new Promise((resolve, reject) => {
-                const onCanPlay = () => {
-                    stState.shadowAudio.play()
-                        .then(resolve)
-                        .catch(e => reject(e));
-                };
-                stState.shadowAudio.addEventListener('canplay', onCanPlay, { once: true });
-                stState.shadowAudio.addEventListener('error', (e) => reject("Error cargando audio"), { once: true });
-                
-                // Timeout de seguridad por si la red falla
-                setTimeout(() => reject("Timeout red"), 15000);
+                const timeout = setTimeout(() => reject("Timeout carga"), 20000);
+
+                // Si ya está listo, salimos
+                if (stState.shadowAudio.readyState >= 3) {
+                    clearTimeout(timeout);
+                    resolve();
+                    return;
+                }
+
+                stState.shadowAudio.addEventListener('canplaythrough', () => {
+                    clearTimeout(timeout);
+                    resolve();
+                }, { once: true });
+
+                stState.shadowAudio.addEventListener('error', (e) => reject("Error audio"), { once: true });
+                stState.shadowAudio.load(); // Forzar carga
             });
 
-            console.log("[V63] Play iniciado. Esperando señal de audio...");
-            
-            // EL SEMÁFORO: No pasamos de aquí hasta que haya sonido real
-            await waitForAudioSignal();
-            console.log("[V63] ¡Señal OK! Iniciando grabación.");
+            console.log("[V64] Buffer listo. Iniciando Motor...");
 
         } catch (e) {
             console.error(e);
@@ -502,11 +497,11 @@
         stDOM.viewIntro.style.display = 'none';
         stDOM.viewProcess.style.display = 'block';
         stState.isEncoding = true;
-        
-        stState.config = { width: 360, height: 640, duration: 15, fps: 24, bitrate: 1500000 };
+
+        stState.config = { width: 360, height: 640, duration: 15, fps: 30 };
         stPrepareStaticLayer();
 
-        try { await runRecordingPhase(); }
+        try { await startNativeRecordingWithPreRoll(); }
         catch (e) {
             console.error(e);
             stState.isEncoding = false;
@@ -515,195 +510,98 @@
         }
     });
 
-    // --- EL SEMÁFORO DE AUDIO ---
-    function waitForAudioSignal() {
-        return new Promise((resolve) => {
-            const dataArray = new Uint8Array(stState.analyserNode.frequencyBinCount);
-            let attempts = 0;
-            // Revisamos cada 50ms si hay volumen
-            const check = setInterval(() => {
-                attempts++;
-                stState.analyserNode.getByteFrequencyData(dataArray);
-                const vol = dataArray.reduce((a,b) => a+b, 0);
-                
-                // Si hay volumen O si hemos esperado demasiado (para no bloquear)
-                if (vol > 0 || attempts > 100) { 
-                    clearInterval(check);
-                    resolve();
-                }
-            }, 50); 
-        });
-    }
+    // --- GRABACIÓN NATIVA CON PRE-ROLL ---
+    async function startNativeRecordingWithPreRoll() {
+        const canvasStream = stDOM.canvas.captureStream(30);
+        const audioStream = stState.mediaStreamDest.stream;
+        const combinedStream = new MediaStream([ ...canvasStream.getVideoTracks(), ...audioStream.getAudioTracks() ]);
+        const options = { mimeType: 'video/webm;codecs=vp8,opus' };
 
-    // --- SANITIZADOR V38.5 ---
-    function cloneAndSanitizeAudioChunk(originalChunk, newTimestamp) {
-        const planeSize = originalChunk.allocationSize({ planeIndex: 0 });
-        const totalSize = planeSize * originalChunk.numberOfChannels;
-        const buffer = new ArrayBuffer(totalSize);
-        for (let ch = 0; ch < originalChunk.numberOfChannels; ch++) {
-            const offset = ch * planeSize;
-            const destView = new Uint8Array(buffer, offset, planeSize);
-            originalChunk.copyTo(destView, { planeIndex: ch });
+        stState.chunks = [];
+        try {
+            stState.mediaRecorder = new MediaRecorder(combinedStream, options);
+        } catch(e) {
+            stState.mediaRecorder = new MediaRecorder(combinedStream);
         }
-        return new AudioData({
-            format: originalChunk.format,
-            sampleRate: originalChunk.sampleRate,
-            numberOfFrames: originalChunk.numberOfFrames,
-            numberOfChannels: originalChunk.numberOfChannels,
-            timestamp: newTimestamp,
-            data: buffer
-        });
-    }
 
-    // --- FASE 1: GRABAR EN MÓVIL (MP4+OPUS V38.5) ---
-    async function runRecordingPhase() {
-        const trackProcessor = new MediaStreamTrackProcessor({ track: stState.mediaStreamDest.stream.getAudioTracks()[0] });
-        const audioReader = trackProcessor.readable.getReader();
-        const firstChunkResult = await audioReader.read();
-        const firstChunk = firstChunkResult.value;
-        const baseAudioTimestamp = firstChunk.timestamp;
-        
-        const targetSampleRate = 48000; 
-        const targetChannels = 2;
-
-        let muxer = new Muxer({
-            target: new ArrayBufferTarget(),
-            video: { codec: 'avc', width: stState.config.width, height: stState.config.height },
-            audio: { codec: 'opus', numberOfChannels: targetChannels, sampleRate: targetSampleRate }, 
-            fastStart: 'in-memory',
-            firstTimestampBehavior: 'offset'
-        });
-
-        let videoEncoder = new VideoEncoder({
-            output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
-            error: e => console.error("Video Error:", e)
-        });
-        videoEncoder.configure({
-            codec: 'avc1.42001E', width: stState.config.width, height: stState.config.height,
-            bitrate: stState.config.bitrate, framerate: stState.config.fps
-        });
-
-        let audioChunkCount = 0;
-        let audioEncoder = new AudioEncoder({
-            output: (chunk, meta) => {
-                audioChunkCount++;
-                muxer.addAudioChunk(chunk, meta);
-            },
-            error: e => console.error("Audio Encoder Fatal:", e)
-        });
-        
-        audioEncoder.configure({
-            codec: 'opus', 
-            numberOfChannels: targetChannels, 
-            sampleRate: targetSampleRate,
-            bitrate: 128000
-        });
-
-        const sanitizedFirst = cloneAndSanitizeAudioChunk(firstChunk, 0); 
-        audioEncoder.encode(sanitizedFirst);
-        sanitizedFirst.close();
-        firstChunk.close();
-
-        const processAudio = async () => {
-            while (stState.isEncoding) {
-                try {
-                    const result = await audioReader.read();
-                    if (result.done) break;
-                    
-                    const original = result.value;
-                    if (audioEncoder.state === 'configured') {
-                        const relativeTimestamp = original.timestamp - baseAudioTimestamp;
-                        if (relativeTimestamp >= 0) {
-                            const sanitized = cloneAndSanitizeAudioChunk(original, relativeTimestamp);
-                            audioEncoder.encode(sanitized);
-                            sanitized.close();
-                        }
-                    }
-                    original.close();
-                } catch (e) { break; }
-            }
+        stState.mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) stState.chunks.push(e.data);
         };
-        processAudio();
 
+        stState.mediaRecorder.onstop = () => {
+            const blob = new Blob(stState.chunks, { type: 'video/webm' });
+            stState.localBlob = blob;
+            cleanupAudio();
+            uploadToServer(stState.localBlob); // Subir a Render
+        };
+
+        // --- LA MAGIA DEL PRE-ROLL ---
+        stDOM.statusText.innerHTML = "Iniciando Grabadora...";
+
+        // 1. INICIAR GRABACIÓN (Capturando "nada" o silencio)
+        stState.mediaRecorder.start(1000);
+        console.log("[V64] Grabadora ENCENDIDA.");
+
+        // 2. ESPERAR 300ms (Estabilización del motor de video)
+        await new Promise(r => setTimeout(r, 300));
+
+        // 3. SOLTAR EL AUDIO (¡ACCIÓN!)
+        stDOM.statusText.innerHTML = `<span style="color:#0f0">GRABANDO...</span>`;
+        console.log("[V64] Audio PLAY.");
+
+        try {
+            await stState.shadowAudio.play();
+        } catch(e) {
+            console.error("Play error:", e);
+            // Si falla el play automático (raro a estas alturas), abortar
+        }
+
+        // 4. Bucle visual
         const startTime = performance.now();
         const durationMs = stState.config.duration * 1000;
         let frameCount = 0;
         const dataArray = new Uint8Array(stState.analyserNode.frequencyBinCount);
 
-        await new Promise((resolve) => {
-            const drawFrame = async (now) => {
-                if (!stState.isEncoding) { resolve(); return; }
-                const elapsed = now - startTime;
-                if (elapsed >= durationMs) {
-                    stState.isEncoding = false;
-                    resolve();
-                    return;
-                }
+        const drawLoop = (now) => {
+            if (!stState.isEncoding) return;
+            const elapsed = now - startTime;
 
-                if (frameCount % 15 === 0) {
-                    stState.analyserNode.getByteFrequencyData(dataArray);
-                    const vol = dataArray.reduce((a,b)=>a+b,0);
-                    let color = audioChunkCount > 0 ? "#0f0" : "#f00";
-                    stDOM.statusText.innerHTML = `<span style="color:${color}">GRABANDO (${vol})</span>`;
-                }
+            if (elapsed >= durationMs) {
+                stState.isEncoding = false;
+                stState.mediaRecorder.stop();
+                return;
+            }
 
-                stDOM.progressFill.style.width = (elapsed / durationMs) * 100 + "%";
-                stUpdateAudioSimulation(frameCount);
-                stCtx.drawImage(stState.staticCanvas, 0, 0);
-                stDrawDynamicLayer(elapsed / 1000);
+            // Diagnóstico visual
+            if (frameCount % 10 === 0) {
+                stState.analyserNode.getByteFrequencyData(dataArray);
+                const vol = dataArray.reduce((a,b)=>a+b,0);
+                if (vol > 0) stDOM.statusText.innerHTML = `<span style="color:#0f0">🔴 REC (${vol})</span>`;
+            }
 
-                const vFrame = new VideoFrame(stDOM.canvas, {
-                    timestamp: now * 1000,
-                    duration: (1000 / stState.config.fps) * 1000
-                });
+            stDOM.progressFill.style.width = (elapsed / durationMs) * 100 + "%";
+            stUpdateAudioSimulation(frameCount);
+            stCtx.drawImage(stState.staticCanvas, 0, 0);
+            stDrawDynamicLayer(elapsed / 1000);
 
-                if (videoEncoder.encodeQueueSize < 3 && videoEncoder.state === 'configured') {
-                    videoEncoder.encode(vFrame, { keyFrame: frameCount % 30 === 0 });
-                }
-                vFrame.close();
-                frameCount++;
-                requestAnimationFrame(drawFrame);
-            };
-            requestAnimationFrame(drawFrame);
-        });
-
-        stDOM.statusText.innerText = "Procesando...";
-        try { await audioReader.cancel(); } catch(e) {}
-        try {
-            if (videoEncoder.state === 'configured') await videoEncoder.flush();
-            videoEncoder.close();
-            if (audioEncoder.state === 'configured') await audioEncoder.flush();
-            audioEncoder.close();
-        } catch(e){}
-
-        muxer.finalize();
-        const buffer = muxer.target.buffer;
-        
-        if (buffer.byteLength > 0) {
-            stState.localBlob = new Blob([buffer], { type: 'video/mp4' });
-            cleanupAudio(); // Liberar memoria
-            
-            // FASE 2: ENVIAR A TU SERVIDOR RENDER
-            uploadToServer(stState.localBlob);
-        } else {
-            alert("Error: 0 bytes.");
-            resetModule();
-        }
+            frameCount++;
+            requestAnimationFrame(drawLoop);
+        };
+        requestAnimationFrame(drawLoop);
     }
 
-    // --- FASE 2: COMUNICACIÓN CON TU BACKEND (ROBUSTA) ---
+    // --- FASE 2: SERVIDOR (Igual que V61) ---
     async function uploadToServer(blob) {
-        stDOM.statusText.innerHTML = `<span style="color:#00aaff">🚀 OPTIMIZANDO...</span>`;
-        
+        stDOM.statusText.innerHTML = `<span style="color:#00aaff">🚀 OPTIMIZANDO (Nube)...</span>`;
+
         const formData = new FormData();
         formData.append('video', blob, 'video.mp4');
 
         try {
-            // AUMENTAMOS EL TIEMPO DE ESPERA A 5 MINUTOS (300000ms)
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 300000); 
+            const timeoutId = setTimeout(() => controller.abort(), 300000);
 
-            console.log(`[V62] Enviando a ${SERVER_URL}/convert ...`);
+            console.log(`[V64] Enviando a servidor...`);
 
             const response = await fetch(`${SERVER_URL}/convert`, {
                 method: 'POST',
@@ -714,27 +612,27 @@
 
             if (!response.ok) {
                 const text = await response.text();
-                throw new Error(`Servidor respondió: ${response.status} - ${text}`);
+                throw new Error(`Servidor: ${response.status} - ${text}`);
             }
 
-            stDOM.statusText.innerHTML = `<span style="color:#0f0">📥 DESCARGANDO...</span>`;
+            stDOM.statusText.innerHTML = `<span style="color:#0f0">📥 LISTO!</span>`;
             const finalBlob = await response.blob();
-            
+
             stState.finalBlob = finalBlob;
             stShowFinalUI();
 
         } catch (e) {
             console.error(e);
             let msg = e.message;
-            if (e.name === 'AbortError') msg = "Tiempo de espera agotado (Servidor lento o archivo muy pesado).";
-            
-            alert(`Error: ${msg}. Se descargará el original.`);
-            stState.finalBlob = blob; // Fallback al original
+            if (e.name === 'AbortError') msg = "Tiempo agotado (Servidor despertando).";
+
+            alert(`Error: ${msg}. Se descargará original.`);
+            stState.finalBlob = blob;
             stShowFinalUI();
         }
     }
 
-    // UTILS GRAFICOS (Iguales)
+    // UTILS
     function roundRect(ctx, x, y, w, h, r) {
         if (w < 2 * r) r = w / 2; if (h < 2 * r) r = h / 2;
         ctx.moveTo(x+r, y); ctx.arcTo(x+w, y, x+w, y+h, r);
@@ -823,15 +721,13 @@
         stCtx.fillStyle = "#1DB954"; stCtx.font = "700 9px Inter, sans-serif";
         stCtx.fillText("FLAC • HIFI", w/2, badgeY + 11);
     }
-    
+
     // UI FINAL
     function stShowFinalUI() {
         stDOM.loadingUI.style.display = 'none';
         stDOM.finalActions.style.display = 'block';
         console.log(`[STORY MODULE] Listo.`);
-        
-        stDOM.statusText.innerHTML = `<span style="color:#0f0">✅ LISTO PARA WHATSAPP</span>`;
-        
+
         stDOM.shareWaBtn.onclick = async () => {
             if (!stState.finalBlob) return;
             const file = new File([stState.finalBlob], "story.mp4", { type: 'video/mp4' });
@@ -839,7 +735,7 @@
                 try { await navigator.share({ files: [file] }); } catch (e) {}
             } else { alert("Usa descargar manual."); }
         };
-        
+
         stDOM.dlManualBtn.onclick = () => {
             if (!stState.finalBlob) return;
             const url = URL.createObjectURL(stState.finalBlob);
