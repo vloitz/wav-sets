@@ -297,13 +297,11 @@
 <script type="module">
     import { Muxer, ArrayBufferTarget } from 'https://esm.sh/mp4-muxer@5.1.0';
 
-    const version = "V54: Script-Tag FFmpeg + Sequential Flow (Robust Loader)";
+    const version = "V56: Cloud Fixer (API Key Integrada)";
     console.log(`[STORY MODULE] CARGANDO ${version}`);
 
-    // --- VARIABLES GLOBALES ---
-    let ffmpeg = null;
-    const FFmpegLibURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js';
-    const FFmpegCoreURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js';
+    // --- TU LLAVE MAESTRA (Ya integrada) ---
+    const API_KEY = 'api_production_3706deb6dca4a4a05edf51545b39af7100674dcd07ecf713f2d47f7d75ff92cf.6934f748142a194b3640feb5.6934fa2ea22aa85dd55c0fb2';
 
     const stDOM = {
         openBtn: document.getElementById('stOpenBtn'),
@@ -331,7 +329,7 @@
     const stState = {
         isEncoding: false,
         finalBlob: null,
-        intermediateBlob: null,
+        localBlob: null, // Respaldo del archivo Opus
         audioData: new Array(20).fill(5),
         staticCanvas: null,
         config: {},
@@ -348,42 +346,6 @@
 
     const stCoverImg = new Image();
     stCoverImg.crossOrigin = "Anonymous";
-
-    // --- CARGADOR ROBUSTO DE FFMPEG ---
-    function loadFFmpegScript() {
-        return new Promise((resolve, reject) => {
-            if (window.FFmpeg) { resolve(); return; } // Ya existe
-
-            const script = document.createElement('script');
-            script.src = FFmpegLibURL;
-            script.onload = () => {
-                console.log("[V54] Librería FFmpeg descargada.");
-                resolve();
-            };
-            script.onerror = () => reject(new Error("No se pudo descargar FFmpeg.js"));
-            document.body.appendChild(script);
-        });
-    }
-
-    async function initFFmpeg() {
-        try {
-            await loadFFmpegScript();
-
-            const { createFFmpeg } = window.FFmpeg;
-            ffmpeg = createFFmpeg({
-                log: true,
-                corePath: FFmpegCoreURL // URL explícita para evitar errores de ruta
-            });
-
-            await ffmpeg.load();
-            console.log("[V54] Motor FFmpeg INICIALIZADO.");
-            return true;
-        } catch (e) {
-            console.error("[V54] Error crítico cargando motor:", e);
-            alert(`Error cargando convertidor: ${e.message}. Revisa tu internet.`);
-            return false;
-        }
-    }
 
     // --- UI EVENTS ---
     if(stDOM.hqToggle) {
@@ -418,16 +380,13 @@
             resetModule();
             stDOM.statusText.innerText = version;
             stDOM.statusText.style.color = "#00ff00";
-
-            // Precargar motor al abrir el modal (ahorra tiempo)
-            if (!ffmpeg) initFFmpeg();
         });
     }
 
     stDOM.closeBtn.addEventListener('click', () => {
         stDOM.overlay.classList.remove('active');
         stState.isEncoding = false;
-        fullCleanup();
+        cleanupAudio();
     });
     stDOM.retryBtn.addEventListener('click', resetModule);
 
@@ -439,10 +398,10 @@
         stState.isEncoding = false;
         stDOM.startBtn.disabled = false;
         stDOM.startBtn.innerText = "CREAR STORY";
-        fullCleanup();
+        cleanupAudio();
     }
 
-    function fullCleanup() {
+    function cleanupAudio() {
         if (stState.shadowAudio) {
             stState.shadowAudio.pause();
             if (document.body.contains(stState.shadowAudio)) document.body.removeChild(stState.shadowAudio);
@@ -457,25 +416,14 @@
             URL.revokeObjectURL(stState.blobUrl);
             stState.blobUrl = null;
         }
-        stState.audioData = new Array(20).fill(5);
     }
 
-    // --- START BUTTON (SECURE FLOW) ---
+    // --- START BUTTON ---
     stDOM.startBtn.addEventListener('click', async () => {
         if (stState.isEncoding) return;
         stDOM.startBtn.disabled = true;
-
-        // VERIFICACIÓN DE MOTOR
-        if (!ffmpeg || !ffmpeg.isLoaded()) {
-            stDOM.startBtn.innerText = "Cargando Motor...";
-            const loaded = await initFFmpeg();
-            if (!loaded) {
-                resetModule();
-                return;
-            }
-        }
-
         stDOM.startBtn.innerText = "Paso 1: Grabando...";
+
         const mainAudio = document.getElementById('audio-player');
         if (!mainAudio.paused) mainAudio.pause();
 
@@ -487,7 +435,8 @@
                 stState.blobUrl = URL.createObjectURL(blob);
             }
 
-            // Motor V38.5 (Opus 48k)
+            // --- CONFIGURACIÓN ESTABLE V38.5 (MP4 + OPUS) ---
+            // Usamos 48000Hz porque es lo que tu móvil soporta bien
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             stState.audioContext = new AudioContext({ latencyHint: 'playback', sampleRate: 48000 });
 
@@ -532,7 +481,6 @@
         stState.isEncoding = true;
 
         stState.config = { width: 360, height: 640, duration: 15, fps: 24, bitrate: 1500000 };
-
         stPrepareStaticLayer();
 
         try { await runRecordingPhase(); }
@@ -579,7 +527,7 @@
         });
     }
 
-    // --- FASE 1: GRABAR OPUS (Lo que tu móvil sabe hacer) ---
+    // --- GRABACIÓN LOCAL (V38.5 - Estable) ---
     async function runRecordingPhase() {
         const trackProcessor = new MediaStreamTrackProcessor({ track: stState.mediaStreamDest.stream.getAudioTracks()[0] });
         const audioReader = trackProcessor.readable.getReader();
@@ -693,7 +641,6 @@
 
         stDOM.statusText.innerText = "Finalizando grabación...";
         try { await audioReader.cancel(); } catch(e) {}
-
         try {
             if (videoEncoder.state === 'configured') await videoEncoder.flush();
             videoEncoder.close();
@@ -705,70 +652,126 @@
         const buffer = muxer.target.buffer;
 
         if (buffer.byteLength > 0) {
-            stState.intermediateBlob = new Blob([buffer], { type: 'video/mp4' });
+            // Guardamos el blob crudo (MP4+Opus)
+            stState.localBlob = new Blob([buffer], { type: 'video/mp4' });
 
-            // FASE 2: PURGADO TOTAL DE MEMORIA
-            console.log("[V54] Purgando RAM...");
-            fullCleanup(); // Liberamos RAM del navegador
-
-            // FASE 3: CONVERSIÓN
-            // Pequeño delay para que el Garbage Collector respire
-            setTimeout(runConversionPhase, 1000);
+            // FASE 2: ENVIAR A LA NUBE (FreeConvert)
+            cleanupAudio(); // Liberar memoria
+            uploadAndConvertAPI(stState.localBlob);
         } else {
             alert("Error: 0 bytes.");
             resetModule();
         }
     }
 
-    // --- FASE 3: CONVERSIÓN (El Milagro) ---
-    async function runConversionPhase() {
-        stDOM.statusText.innerHTML = `<span style="color:#ffa500">⚙️ CONVIRTIENDO (Paso 2)...</span>`;
-        console.log("[V54] Iniciando conversión FFmpeg...");
+    // --- FASE 2: INTEGRACIÓN API FREECONVERT ---
+    async function uploadAndConvertAPI(blob) {
+        // Usamos la API Key integrada
+        const key = API_KEY;
+        if (!key) {
+            alert("Error: Falta API Key. Descargando original.");
+            stState.finalBlob = blob;
+            stShowFinalUI(false);
+            return;
+        }
 
-        const { fetchFile } = window.FFmpeg;
-        const inputName = 'temp_opus.mp4';
-        const outputName = 'story_aac.mp4';
+        stDOM.statusText.innerHTML = `<span style="color:#00aaff">☁️ SUBIENDO A FREECONVERT...</span>`;
 
         try {
-            // 1. Escribir archivo (Opus)
-            await ffmpeg.FS('writeFile', inputName, await fetchFile(stState.intermediateBlob));
+            // 1. Obtener URL de subida
+            const importRes = await fetch('https://api.freeconvert.com/v1/process/import/upload', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' }
+            });
 
-            // 2. Ejecutar FFmpeg (Solo Audio)
-            // -c:v copy: No gasta RAM en video
-            // -c:a aac: Convierte el audio para WhatsApp
-            await ffmpeg.run(
-                '-i', inputName,
-                '-c:v', 'copy',
-                '-c:a', 'aac',
-                '-b:a', '128k',
-                '-strict', 'experimental',
-                outputName
-            );
+            if (!importRes.ok) {
+                const errData = await importRes.json();
+                throw new Error(errData.message || "Error API Init");
+            }
 
-            // 3. Leer resultado
-            const data = await ffmpeg.FS('readFile', outputName);
+            const importData = await importRes.json();
+            const uploadUrl = importData.presigned_url;
 
-            // 4. Limpiar
-            try {
-                ffmpeg.FS('unlink', inputName);
-                ffmpeg.FS('unlink', outputName);
-            } catch(e){}
+            // 2. Subir Archivo
+            await fetch(uploadUrl, {
+                method: 'PUT',
+                body: blob,
+                headers: { 'Content-Type': 'video/mp4' }
+            });
 
-            // 5. Entregar
-            stState.finalBlob = new Blob([data.buffer], { type: 'video/mp4' });
-            console.log("[V54] ¡ÉXITO! Archivo AAC generado.");
-            stShowFinalUI();
+            // 3. Crear Trabajo de Conversión
+            stDOM.statusText.innerHTML = `<span style="color:#ffa500">⚙️ PROCESANDO (COPY VIDEO + AAC)...</span>`;
+
+            const convertRes = await fetch('https://api.freeconvert.com/v1/process/convert', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    input_group_id: importData.import_id, // Identificador del archivo subido
+                    output_format: 'mp4',
+                    options: {
+                        audio_codec: "aac", // LA CLAVE: Forzar AAC
+                        video_codec: "copy" // RAPIDEZ: No tocar video
+                    }
+                })
+            });
+
+            if (!convertRes.ok) {
+                const errData = await convertRes.json();
+                throw new Error(errData.message || "Fallo en Convert");
+            }
+
+            const jobData = await convertRes.json();
+            const jobId = jobData.id;
+
+            // 4. Polling (Esperar resultado)
+            let resultUrl = null;
+            let attempts = 0;
+
+            while (attempts < 30) { // Max 60 seg
+                await new Promise(r => setTimeout(r, 2000));
+
+                const statusRes = await fetch(`https://api.freeconvert.com/v1/process/jobs/${jobId}`, {
+                    headers: { 'Authorization': `Bearer ${key}` }
+                });
+                const statusData = await statusRes.json();
+
+                if (statusData.status === 'completed') {
+                    // Buscar la URL del resultado
+                    if (statusData.tasks) {
+                        const exportTask = statusData.tasks.find(t => t.operation === "export/url" && t.status === "completed");
+                        if (exportTask && exportTask.result) {
+                            resultUrl = exportTask.result.url;
+                        }
+                    }
+                    if (!resultUrl && statusData.result && statusData.result.url) {
+                         resultUrl = statusData.result.url;
+                    }
+                    break;
+                } else if (statusData.status === 'failed') {
+                    throw new Error("El trabajo falló en el servidor.");
+                }
+                attempts++;
+            }
+
+            if (!resultUrl) throw new Error("Tiempo de espera agotado.");
+
+            // 5. Descargar Resultado
+            stDOM.statusText.innerHTML = `<span style="color:#0f0">📥 BAJANDO MP4 FINAL...</span>`;
+            const finalRes = await fetch(resultUrl);
+            const finalBuffer = await finalRes.arrayBuffer();
+
+            stState.finalBlob = new Blob([finalBuffer], { type: 'video/mp4' });
+            stShowFinalUI(true);
 
         } catch (e) {
-            console.error("[V54] Falló FFmpeg:", e);
-            // Fallback: Entregar el original
-            stState.finalBlob = stState.intermediateBlob;
-            alert("Memoria insuficiente para convertir audio. Se descarga el original.");
-            stShowFinalUI();
+            console.error(e);
+            alert(`Error API: ${e.message}. Se descarga el original (Opus).`);
+            stState.finalBlob = stState.localBlob;
+            stShowFinalUI(false);
         }
     }
 
-    // UTILS GRAFICOS
+    // UTILS VISUALES
     function roundRect(ctx, x, y, w, h, r) {
         if (w < 2 * r) r = w / 2; if (h < 2 * r) r = h / 2;
         ctx.moveTo(x+r, y); ctx.arcTo(x+w, y, x+w, y+h, r);
@@ -859,14 +862,18 @@
     }
 
     // UI FINAL
-    function stShowFinalUI() {
+    function stShowFinalUI(isCloudSuccess) {
         stDOM.loadingUI.style.display = 'none';
         stDOM.finalActions.style.display = 'block';
         console.log(`[STORY MODULE] Listo.`);
 
+        if (isCloudSuccess) stDOM.statusText.innerHTML = `<span style="color:#0f0">✅ LISTO PARA WHATSAPP</span>`;
+        else stDOM.statusText.innerHTML = `<span style="color:#f00">⚠️ ORIGINAL (OPUS)</span>`;
+
         stDOM.shareWaBtn.onclick = async () => {
             if (!stState.finalBlob) return;
             const file = new File([stState.finalBlob], "story.mp4", { type: 'video/mp4' });
+
             if (navigator.canShare && navigator.canShare({ files: [file] })) {
                 try { await navigator.share({ files: [file] }); } catch (e) {}
             } else { alert("Usa descargar manual."); }
