@@ -295,73 +295,179 @@
     </div>
 
 <script type="module">
-    // Importar FFmpeg.wasm (Asegúrate de usar las versiones compatibles con tu proyecto)
+    // --- IMPORTACIONES (FFmpeg motor de video) ---
     import { FFmpeg } from 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.7/dist/esm/index.js';
     import { fetchFile, toBlobURL } from 'https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js';
 
-    const ffmpeg = new FFmpeg();
+    // Variables Globales
+    let ffmpeg = null;
+    let mediaRecorder;
+    let recordedChunks = [];
+    let audioStream, canvasStream, combinedStream;
+    let isProcessing = false;
 
-    const renderVideo = async (videoBlob, audioBlob) => {
-        const messageEl = document.getElementById('status-message'); // Asumiendo que tienes un elemento para logs
+    // Referencias UI
+    const startBtn = document.getElementById('stStartBtn');
+    const statusText = document.getElementById('stStatusText');
+    const canvas = document.getElementById('storyCanvas');
+    const ctx = canvas.getContext('2d');
+    const uiCover = document.getElementById('stUiCover'); // La imagen de portada
+
+    // --- 1. INICIALIZAR FFMPEG (El Motor) ---
+    async function initFFmpeg() {
+        if (ffmpeg) return; // Ya cargado
         
-        // 1. Cargar FFmpeg
-        if (!ffmpeg.loaded) {
-            messageEl.textContent = 'Cargando motor de video (FFmpeg)...';
-            const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.4/dist/esm';
+        ffmpeg = new FFmpeg();
+        
+        // Log para depurar
+        ffmpeg.on('log', ({ message }) => console.log('[FFmpeg]', message));
+
+        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.4/dist/esm';
+        try {
             await ffmpeg.load({
                 coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
                 wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
             });
+            console.log("FFmpeg cargado correctamente.");
+        } catch (e) {
+            console.error("Error cargando FFmpeg (Posible falta de headers COOP/COEP):", e);
+            statusText.innerText = "Error: Motor de video no compatible.";
         }
+    }
 
-        messageEl.textContent = 'Procesando archivos...';
-
-        // 2. Escribir los archivos en la memoria virtual
-        // Asumimos que recibes los blobs de tu grabación o inputs
-        await ffmpeg.writeFile('input_video.mp4', await fetchFile(videoBlob));
-        await ffmpeg.writeFile('input_audio.wav', await fetchFile(audioBlob)); 
-
-        messageEl.textContent = 'Renderizando para WhatsApp (H.264 + AAC)...';
-
-        // 3. EL COMANDO MÁGICO (Aquí está la solución)
-        // -c:v copy : Copia el video si ya es h264 (más rápido). Si falla, usa 'libx264'.
-        // -c:a aac  : FUERZA el audio a AAC (Esto arregla el silencio en WhatsApp).
-        // -strict experimental : A veces necesario para AAC en versiones web.
-        await ffmpeg.exec([
-            '-i', 'input_video.mp4',
-            '-i', 'input_audio.wav',
-            '-map', '0:v',        // Toma el video del archivo 0
-            '-map', '1:a',        // Toma el audio del archivo 1
-            '-c:v', 'copy',       // Copia el video tal cual (Rápido) - Si da error visual, cambia a 'libx264'
-            '-c:a', 'aac',        // <--- LA CLAVE: Usar códec AAC
-            '-b:a', '192k',       // Calidad de audio
-            '-shortest',          // Cortar al terminar el más corto
-            '-movflags', '+faststart', // Optimización para web/chat
-            'output_whatsapp.mp4'
-        ]);
-
-        // 4. Leer el resultado
-        const data = await ffmpeg.readFile('output_whatsapp.mp4');
+    // --- 2. LÓGICA DE CÁMARA Y DIBUJO (Restaurada) ---
+    async function startRecording() {
+        if (isProcessing) return;
         
-        // 5. Crear el Blob final compatible
-        const finalBlob = new Blob([data.buffer], { type: 'video/mp4' });
-        const finalUrl = URL.createObjectURL(finalBlob);
+        try {
+            // A. Iniciar Motor (si no está listo)
+            statusText.innerText = "Cargando motor...";
+            await initFFmpeg();
 
-        // 6. Descargar o mostrar
-        messageEl.textContent = '¡Video Listo!';
-        const a = document.createElement('a');
-        a.href = finalUrl;
-        a.download = 'Vloitz_Set_WhatsApp.mp4';
-        a.click();
-    };
+            // B. Obtener Audio (Micrófono o Sistema)
+            statusText.innerText = "Accediendo a cámara/audio...";
+            audioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
 
-    // Exponer la función globalmente para que tus botones la usen
-    window.iniciarRenderizado = async () => {
-        // AQUÍ SIMULAS O OBTIENES TUS BLOBS REALES
-        // Ejemplo: const videoBlob = recorder.getBlob();
-        // renderVideo(videoBlob, audioBlob);
-        console.log("Llama a renderVideo() con tus blobs de audio y video");
-    };
+            // C. Preparar Canvas (Dibujar la portada)
+            // Loop de dibujo simple (puedes mejorar esto con tu visualizador)
+            const drawLoop = () => {
+                if (!isProcessing) requestAnimationFrame(drawLoop);
+                
+                // Fondo Negro
+                ctx.fillStyle = '#000';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Dibujar Portada (Centrada)
+                if (uiCover && uiCover.src) {
+                    const imgSize = 300;
+                    const x = (canvas.width - imgSize) / 2;
+                    const y = (canvas.height - imgSize) / 2 - 50;
+                    try {
+                        ctx.drawImage(uiCover, x, y, imgSize, imgSize);
+                    } catch (e) { /* Esperar carga */ }
+                }
+                
+                // Texto (Artista)
+                ctx.fillStyle = '#fff';
+                ctx.font = '20px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText("Vloitz - Now Playing", canvas.width / 2, canvas.height - 100);
+            };
+            drawLoop();
+
+            // D. Grabar el Canvas + Audio
+            canvasStream = canvas.captureStream(30); // 30 FPS
+            combinedStream = new MediaStream([
+                ...canvasStream.getVideoTracks(),
+                ...audioStream.getAudioTracks()
+            ]);
+
+            mediaRecorder = new MediaRecorder(combinedStream, {
+                mimeType: 'video/webm;codecs=vp8,opus' // Formato web estándar temporal
+            });
+
+            recordedChunks = [];
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) recordedChunks.push(e.data);
+            };
+
+            mediaRecorder.onstop = async () => {
+                // AL TERMINAR LA GRABACIÓN -> PROCESAR CON FFMPEG
+                const webmBlob = new Blob(recordedChunks, { type: 'video/webm' });
+                await processVideoForWhatsApp(webmBlob);
+            };
+
+            // E. Iniciar Grabación (Duración fija por ahora: 15s)
+            mediaRecorder.start();
+            statusText.innerText = "Grabando (15s)...";
+            isProcessing = true;
+            startBtn.disabled = true;
+
+            // Parar automáticamente a los 15 segundos
+            setTimeout(() => {
+                if (mediaRecorder.state === 'recording') mediaRecorder.stop();
+                // Limpiar streams
+                audioStream.getTracks().forEach(track => track.stop());
+                statusText.innerText = "Procesando video...";
+            }, 15000); // 15 Segundos
+
+        } catch (err) {
+            console.error(err);
+            statusText.innerText = "Error al iniciar grabación: " + err.message;
+            isProcessing = false;
+            startBtn.disabled = false;
+        }
+    }
+
+    // --- 3. CONVERSIÓN FFMPEG (AAC FIX) ---
+    async function processVideoForWhatsApp(webmBlob) {
+        try {
+            if (!ffmpeg.loaded) await initFFmpeg();
+
+            statusText.innerText = "Convirtiendo audio a AAC...";
+            
+            // Escribir archivo temporal
+            await ffmpeg.writeFile('input.webm', await fetchFile(webmBlob));
+
+            // EJECUTAR COMANDO (Video H264 + Audio AAC)
+            // Esto arregla el silencio en WhatsApp
+            await ffmpeg.exec([
+                '-i', 'input.webm',
+                '-c:v', 'copy',       // Copia el video (rápido)
+                '-c:a', 'aac',        // <--- EL FIX: Forzar AAC
+                '-b:a', '192k',       // Calidad audio
+                '-movflags', '+faststart',
+                'output_whatsapp.mp4'
+            ]);
+
+            // Leer resultado
+            const data = await ffmpeg.readFile('output_whatsapp.mp4');
+            const mp4Blob = new Blob([data.buffer], { type: 'video/mp4' });
+            const mp4Url = URL.createObjectURL(mp4Blob);
+
+            // Descargar
+            statusText.innerText = "¡Listo! Descargando...";
+            const a = document.createElement('a');
+            a.href = mp4Url;
+            a.download = `Vloitz_Story_${Date.now()}.mp4`;
+            a.click();
+
+        } catch (e) {
+            console.error(e);
+            statusText.innerText = "Error en conversión FFmpeg.";
+        } finally {
+            isProcessing = false;
+            startBtn.disabled = false;
+        }
+    }
+
+    // --- LISTENERS ---
+    if (startBtn) {
+        startBtn.addEventListener('click', startRecording);
+    } else {
+        console.error("No se encontró el botón stStartBtn");
+    }
+
 </script>
 
 
