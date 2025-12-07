@@ -294,183 +294,559 @@
         </div>
     </div>
 
-<script src="coi-serviceworker.js"></script>
-
 <script type="module">
-    import { FFmpeg } from 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.7/dist/esm/index.js';
+    import { Muxer, ArrayBufferTarget } from 'https://esm.sh/mp4-muxer@5.1.0';
+    // CLAUDE FIX: Usamos la versión 0.12.x que no requiere headers especiales
+    import { FFmpeg } from 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js';
     import { fetchFile, toBlobURL } from 'https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js';
 
-    let ffmpeg = null;
-    let mediaRecorder;
-    let recordedChunks = [];
-    let isProcessing = false;
+    const version = "V47: V38.5 + FFmpeg 0.12 (Claude's Fix)";
+    console.log(`[STORY MODULE] CARGANDO ${version}`);
 
-    // Elementos UI
-    const startBtn = document.getElementById('stStartBtn');
-    const statusText = document.getElementById('stStatusText');
-    const canvas = document.getElementById('storyCanvas');
-    const ctx = canvas.getContext('2d');
-    const uiCover = document.getElementById('stUiCover');
+    const stDOM = {
+        openBtn: document.getElementById('stOpenBtn'),
+        closeBtn: document.getElementById('stCloseBtn'),
+        overlay: document.getElementById('storyOverlay'),
+        viewIntro: document.getElementById('stViewIntro'),
+        viewProcess: document.getElementById('stViewProcess'),
+        startBtn: document.getElementById('stStartBtn'),
+        retryBtn: document.getElementById('stRetryBtn'),
+        hqToggle: document.getElementById('stHqToggle'),
+        qualityText: document.getElementById('stQualityText'),
+        statusText: document.getElementById('stStatusText'),
+        progressFill: document.getElementById('stProgressFill'),
+        loadingUI: document.getElementById('stLoadingUI'),
+        finalActions: document.getElementById('stFinalActions'),
+        shareWaBtn: document.getElementById('stShareWaBtn'),
+        dlManualBtn: document.getElementById('stDlManualBtn'),
+        canvas: document.getElementById('storyCanvas'),
+        uiTitle: document.getElementById('stUiTitle'),
+        uiCover: document.getElementById('stUiCover')
+    };
 
-    // CONFIGURACIÓN DE BAJOS RECURSOS (2GB RAM FRIENDLY)
-    const CANVAS_WIDTH = 360;  // 360p (Ligero)
-    const CANVAS_HEIGHT = 640;
-    const VIDEO_FPS = 24;      // Bajamos FPS para ahorrar RAM
+    const stCtx = stDOM.canvas.getContext('2d', { alpha: false, desynchronized: true });
 
-    // Ajustar canvas real
-    canvas.width = CANVAS_WIDTH;
-    canvas.height = CANVAS_HEIGHT;
+    const stState = {
+        isEncoding: false,
+        finalBlob: null,
+        audioData: new Array(20).fill(5),
+        staticCanvas: null,
+        config: {},
+        currentSetData: null,
+        startTime: 0,
+        audioContext: null,
+        mediaStreamDest: null,
+        sourceNode: null,
+        shadowAudio: null,
+        blobUrl: null,
+        analyserNode: null,
+        keepAliveOsc: null,
+        ffmpeg: null
+    };
 
-    // 1. Cargar FFmpeg (Solo una vez)
-    async function loadFFmpeg() {
-        if (ffmpeg) return;
-        statusText.innerText = "Cargando motor...";
+    const stCoverImg = new Image();
+    stCoverImg.crossOrigin = "Anonymous";
 
-        ffmpeg = new FFmpeg();
-        ffmpeg.on('log', ({ message }) => console.log('[FFmpeg]', message));
+    // --- CARGAR FFMPEG MODERN ---
+    (async () => {
+        try {
+            stState.ffmpeg = new FFmpeg();
+            stState.ffmpeg.on('log', ({ message }) => console.log('[FFmpeg]', message));
+            // Carga asíncrona de los cores
+            const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+            await stState.ffmpeg.load({
+                coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+                wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+            });
+            console.log("[V47] FFmpeg Cargado y Listo.");
+        } catch (e) {
+            console.error("[V47] Error cargando FFmpeg:", e);
+            stState.ffmpeg = null;
+        }
+    })();
 
-        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.4/dist/esm';
-        await ffmpeg.load({
-            coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-            wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+    // --- UI EVENTS ---
+    if(stDOM.hqToggle) {
+        stDOM.hqToggle.addEventListener('change', () => {
+            stDOM.qualityText.innerText = stDOM.hqToggle.checked ? "Alta Calidad" : "Modo Seguro";
+            stDOM.qualityText.style.color = stDOM.hqToggle.checked ? "#fff" : "#1DB954";
         });
-        console.log("Motor listo.");
     }
 
-    // 2. Dibujar y Grabar
-    async function startRecording() {
-        if (isProcessing) return;
-        startBtn.disabled = true;
+    if(stDOM.openBtn) {
+        stDOM.openBtn.addEventListener('click', () => {
+            const realSet = window.currentLoadedSet;
+            const wave = window.wavesurfer;
+            if (realSet && wave) {
+                stState.currentSetData = realSet;
+                stState.startTime = wave.getCurrentTime();
+                
+                let activeTrackName = realSet.title;
+                if (realSet.tracklist) {
+                    for (let i = realSet.tracklist.length - 1; i >= 0; i--) {
+                        const t = realSet.tracklist[i];
+                        const parts = t.time.split(':');
+                        const tSecs = parseInt(parts[0])*60 + parseInt(parts[1]);
+                        if (stState.startTime >= tSecs) { activeTrackName = t.title; break; }
+                    }
+                }
+                stState.currentTrackTitle = activeTrackName;
+                stDOM.uiTitle.innerText = activeTrackName;
+                stDOM.uiCover.src = realSet.cover_art_url;
+                stCoverImg.src = realSet.cover_art_url;
+            }
+            stDOM.overlay.classList.add('active');
+            resetModule();
+            stDOM.statusText.innerText = version;
+            stDOM.statusText.style.color = "#00ff00";
+        });
+    }
+
+    stDOM.closeBtn.addEventListener('click', () => {
+        stDOM.overlay.classList.remove('active');
+        stState.isEncoding = false;
+        cleanupAudio();
+    });
+    stDOM.retryBtn.addEventListener('click', resetModule);
+
+    function resetModule() {
+        stDOM.viewIntro.style.display = 'block';
+        stDOM.viewProcess.style.display = 'none';
+        stDOM.loadingUI.style.display = 'flex';
+        stDOM.finalActions.style.display = 'none';
+        stState.isEncoding = false;
+        stDOM.startBtn.disabled = false;
+        stDOM.startBtn.innerText = "CREAR STORY";
+        cleanupAudio();
+    }
+
+    function cleanupAudio() {
+        if (stState.shadowAudio) {
+            stState.shadowAudio.pause();
+            if (document.body.contains(stState.shadowAudio)) document.body.removeChild(stState.shadowAudio);
+            stState.shadowAudio.src = "";
+            stState.shadowAudio = null;
+        }
+        if (stState.audioContext) {
+            try { stState.audioContext.close(); } catch(e){}
+            stState.audioContext = null;
+        }
+        if (stState.blobUrl) {
+            URL.revokeObjectURL(stState.blobUrl);
+            stState.blobUrl = null;
+        }
+    }
+
+    // --- START BUTTON ---
+    stDOM.startBtn.addEventListener('click', async () => {
+        if (stState.isEncoding) return;
+        stDOM.startBtn.disabled = true;
+        stDOM.startBtn.innerText = "Iniciando V47...";
+
+        const mainAudio = document.getElementById('audio-player');
+        if (!mainAudio.paused) mainAudio.pause();
 
         try {
-            await loadFFmpeg(); // Asegurar que el motor esté listo antes de grabar
+            if (!stState.blobUrl) {
+                console.log("[V47] Descargando...");
+                const response = await fetch(stState.currentSetData.audio_url);
+                if (!response.ok) throw new Error("Error red");
+                const blob = await response.blob();
+                stState.blobUrl = URL.createObjectURL(blob);
+            }
 
-            // Audio del sistema/mic
-            statusText.innerText = "Preparando...";
-            const audioStream = await navigator.mediaDevices.getUserMedia({
-                audio: true,
-                video: false
-            });
+            // Usamos V38.5 Logic (Opus 48k)
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            stState.audioContext = new AudioContext({ latencyHint: 'playback', sampleRate: 48000 });
+            
+            stState.shadowAudio = new Audio();
+            stState.shadowAudio.src = stState.blobUrl;
+            stState.shadowAudio.currentTime = stState.startTime;
+            stState.shadowAudio.volume = 1.0;
+            stState.shadowAudio.crossOrigin = "anonymous";
+            stState.shadowAudio.style.position = 'fixed';
+            stState.shadowAudio.style.opacity = '0';
+            document.body.appendChild(stState.shadowAudio);
 
-            // Loop de dibujo (Visualizador simple)
-            const draw = () => {
-                if (!isProcessing) requestAnimationFrame(draw);
+            stState.mediaStreamDest = stState.audioContext.createMediaStreamDestination();
+            stState.analyserNode = stState.audioContext.createAnalyser();
+            stState.analyserNode.fftSize = 256; 
 
-                // Fondo oscuro
-                ctx.fillStyle = '#111';
-                ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            stState.sourceNode = stState.audioContext.createMediaElementSource(stState.shadowAudio);
+            stState.sourceNode.connect(stState.analyserNode);
+            stState.analyserNode.connect(stState.mediaStreamDest);
+            stState.sourceNode.connect(stState.audioContext.destination);
 
-                // Portada
-                if (uiCover && uiCover.src) {
-                    const size = 280;
-                    ctx.drawImage(uiCover, (CANVAS_WIDTH - size)/2, 100, size, size);
+            const osc = stState.audioContext.createOscillator();
+            const gain = stState.audioContext.createGain();
+            osc.frequency.value = 1; gain.gain.value = 0.0001; 
+            osc.connect(gain); gain.connect(stState.mediaStreamDest);
+            osc.start();
+            stState.keepAliveOsc = osc;
+
+            stDOM.startBtn.innerText = "Sincronizando...";
+            await stState.shadowAudio.play();
+
+            console.log("[V47] Esperando señal...");
+            await waitForAudioSignal();
+            console.log("[V47] Señal OK.");
+
+        } catch (e) {
+            console.error(e);
+            alert("Error: " + e.message);
+            resetModule();
+            return;
+        }
+
+        stDOM.viewIntro.style.display = 'none';
+        stDOM.viewProcess.style.display = 'block';
+        stState.isEncoding = true;
+        
+        stState.config = {
+            width: 360, height: 640, duration: 15, fps: 24, bitrate: 1500000
+        };
+
+        stPrepareStaticLayer();
+
+        try { await runRealTimeEncoding(); }
+        catch (e) {
+            console.error(e);
+            stState.isEncoding = false;
+            alert("Encoder error: " + e.message);
+            resetModule();
+        }
+    });
+
+    function waitForAudioSignal() {
+        return new Promise((resolve) => {
+            const dataArray = new Uint8Array(stState.analyserNode.frequencyBinCount);
+            let attempts = 0;
+            const check = setInterval(() => {
+                attempts++;
+                stState.analyserNode.getByteFrequencyData(dataArray);
+                const vol = dataArray.reduce((a,b) => a+b, 0);
+                if (vol > 0 || attempts > 60) {
+                    clearInterval(check);
+                    resolve();
+                }
+            }, 50);
+        });
+    }
+
+    function cloneAndSanitizeAudioChunk(originalChunk, newTimestamp) {
+        const planeSize = originalChunk.allocationSize({ planeIndex: 0 });
+        const totalSize = planeSize * originalChunk.numberOfChannels;
+        const buffer = new ArrayBuffer(totalSize);
+        for (let ch = 0; ch < originalChunk.numberOfChannels; ch++) {
+            const offset = ch * planeSize;
+            const destView = new Uint8Array(buffer, offset, planeSize);
+            originalChunk.copyTo(destView, { planeIndex: ch });
+        }
+        return new AudioData({
+            format: originalChunk.format,
+            sampleRate: originalChunk.sampleRate,
+            numberOfFrames: originalChunk.numberOfFrames,
+            numberOfChannels: originalChunk.numberOfChannels,
+            timestamp: newTimestamp,
+            data: buffer
+        });
+    }
+
+    // --- TRANSCODIFICADOR V47 (FFmpeg 0.12) ---
+    async function convertToAAC(originalBlob) {
+        if (!stState.ffmpeg) throw new Error("FFmpeg no cargó. Refresca la página.");
+        
+        stDOM.statusText.innerHTML = `<span style="color:#ffa500">⚙️ FFmpeg: OPUS → AAC...</span>`;
+        const ffmpeg = stState.ffmpeg;
+        const inputName = 'input.mp4';
+        const outputName = 'output.mp4';
+
+        // Escribir archivo
+        await ffmpeg.writeFile(inputName, await fetchFile(originalBlob));
+
+        // Ejecutar: Copiar video, Convertir Audio
+        // El flag -strict experimental a veces ayuda con AAC nativo en wasm
+        await ffmpeg.exec(['-i', inputName, '-c:v', 'copy', '-c:a', 'aac', '-b:a', '128k', outputName]);
+
+        // Leer
+        const data = await ffmpeg.readFile(outputName);
+        
+        // Limpiar (Crucial para no colapsar la RAM)
+        await ffmpeg.deleteFile(inputName);
+        await ffmpeg.deleteFile(outputName);
+
+        return new Blob([data.buffer], { type: 'video/mp4' });
+    }
+
+    async function runRealTimeEncoding() {
+        const trackProcessor = new MediaStreamTrackProcessor({ track: stState.mediaStreamDest.stream.getAudioTracks()[0] });
+        const audioReader = trackProcessor.readable.getReader();
+        const firstChunkResult = await audioReader.read();
+        const firstChunk = firstChunkResult.value;
+        const baseAudioTimestamp = firstChunk.timestamp;
+        
+        const targetSampleRate = 48000; 
+        const targetChannels = 2;
+
+        let muxer = new Muxer({
+            target: new ArrayBufferTarget(),
+            video: { codec: 'avc', width: stState.config.width, height: stState.config.height },
+            audio: { codec: 'opus', numberOfChannels: targetChannels, sampleRate: targetSampleRate }, 
+            fastStart: 'in-memory',
+            firstTimestampBehavior: 'offset'
+        });
+
+        let videoEncoder = new VideoEncoder({
+            output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+            error: e => console.error("Video Error:", e)
+        });
+        videoEncoder.configure({
+            codec: 'avc1.42001E', width: stState.config.width, height: stState.config.height,
+            bitrate: stState.config.bitrate, framerate: stState.config.fps
+        });
+
+        let audioChunkCount = 0;
+        let readChunkCount = 1;
+
+        let audioEncoder = new AudioEncoder({
+            output: (chunk, meta) => {
+                audioChunkCount++;
+                muxer.addAudioChunk(chunk, meta);
+            },
+            error: e => console.error("Audio Encoder Fatal:", e)
+        });
+        
+        audioEncoder.configure({
+            codec: 'opus', 
+            numberOfChannels: targetChannels, 
+            sampleRate: targetSampleRate,
+            bitrate: 128000
+        });
+
+        const sanitizedFirst = cloneAndSanitizeAudioChunk(firstChunk, 0); 
+        audioEncoder.encode(sanitizedFirst);
+        sanitizedFirst.close();
+        firstChunk.close();
+
+        const processAudio = async () => {
+            while (stState.isEncoding) {
+                try {
+                    const result = await audioReader.read();
+                    if (result.done) break;
+                    readChunkCount++;
+                    
+                    const original = result.value;
+                    if (audioEncoder.state === 'configured') {
+                        const relativeTimestamp = original.timestamp - baseAudioTimestamp;
+                        if (relativeTimestamp >= 0) {
+                            const sanitized = cloneAndSanitizeAudioChunk(original, relativeTimestamp);
+                            audioEncoder.encode(sanitized);
+                            sanitized.close();
+                        }
+                    }
+                    original.close();
+                } catch (e) { break; }
+            }
+        };
+        processAudio();
+
+        const startTime = performance.now();
+        const durationMs = stState.config.duration * 1000;
+        let frameCount = 0;
+        const dataArray = new Uint8Array(stState.analyserNode.frequencyBinCount);
+
+        await new Promise((resolve) => {
+            const drawFrame = async (now) => {
+                if (!stState.isEncoding) { resolve(); return; }
+                const elapsed = now - startTime;
+                if (elapsed >= durationMs) {
+                    stState.isEncoding = false;
+                    resolve();
+                    return;
                 }
 
-                // Texto
-                ctx.fillStyle = 'white';
-                ctx.font = '16px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText("VLOITZ - NOW PLAYING", CANVAS_WIDTH/2, CANVAS_HEIGHT - 80);
+                if (frameCount % 15 === 0) {
+                    stState.analyserNode.getByteFrequencyData(dataArray);
+                    const vol = dataArray.reduce((a,b)=>a+b,0);
+                    let color = audioChunkCount > 0 ? "#0f0" : "#f00";
+                    stDOM.statusText.innerHTML = `<span style="color:${color}">REC OPUS (${vol})</span>`;
+                }
 
-                // Barra de progreso animada (falsa)
-                ctx.fillStyle = '#1DB954';
-                const barWidth = (Date.now() % 2000) / 2000 * 200;
-                ctx.fillRect((CANVAS_WIDTH - 200)/2, CANVAS_HEIGHT - 60, barWidth, 4);
+                stDOM.progressFill.style.width = (elapsed / durationMs) * 100 + "%";
+                stUpdateAudioSimulation(frameCount);
+                stCtx.drawImage(stState.staticCanvas, 0, 0);
+                stDrawDynamicLayer(elapsed / 1000);
+
+                const vFrame = new VideoFrame(stDOM.canvas, {
+                    timestamp: now * 1000,
+                    duration: (1000 / stState.config.fps) * 1000
+                });
+
+                if (videoEncoder.encodeQueueSize < 3 && videoEncoder.state === 'configured') {
+                    videoEncoder.encode(vFrame, { keyFrame: frameCount % 30 === 0 });
+                }
+                vFrame.close();
+                frameCount++;
+                requestAnimationFrame(drawFrame);
             };
+            requestAnimationFrame(drawFrame);
+        });
 
-            isProcessing = true;
-            draw(); // Iniciar animación
+        stDOM.statusText.innerText = "Finalizando...";
+        try { await audioReader.cancel(); } catch(e) {}
+        
+        try {
+            if (videoEncoder.state === 'configured') await videoEncoder.flush();
+            videoEncoder.close();
+        } catch(e){}
+        try {
+            if (audioEncoder.state === 'configured') await audioEncoder.flush();
+            audioEncoder.close();
+        } catch(e){}
 
-            // Combinar streams
-            const canvasStream = canvas.captureStream(VIDEO_FPS);
-            const finalStream = new MediaStream([
-                ...canvasStream.getVideoTracks(),
-                ...audioStream.getAudioTracks()
-            ]);
-
-            // Grabar en trozos pequeños para no llenar la RAM
-            mediaRecorder = new MediaRecorder(finalStream, {
-                mimeType: 'video/webm;codecs=vp8,opus',
-                videoBitsPerSecond: 1500000 // 1.5 Mbps (Bajo bitrate para no llenar RAM)
-            });
-
-            recordedChunks = [];
-            mediaRecorder.ondataavailable = (e) => {
-                if (e.data.size > 0) recordedChunks.push(e.data);
-            };
-
-            mediaRecorder.onstop = async () => {
-                // Parar tracks
-                audioStream.getTracks().forEach(t => t.stop());
-                canvasStream.getTracks().forEach(t => t.stop());
-
-                // Procesar
-                const webmBlob = new Blob(recordedChunks, { type: 'video/webm' });
-                await convertToWhatsApp(webmBlob);
-            };
-
-            mediaRecorder.start();
-            statusText.innerText = "Grabando 15s...";
-
-            // Parar a los 15s
-            setTimeout(() => {
-                if (mediaRecorder.state === 'recording') mediaRecorder.stop();
-            }, 15000);
-
-        } catch (e) {
-            console.error(e);
-            statusText.innerText = "Error: " + e.message;
-            isProcessing = false;
-            startBtn.disabled = false;
-        }
-    }
-
-    // 3. Conversión Ligera (RAM Friendly)
-    async function convertToWhatsApp(blob) {
-        statusText.innerText = "Optimizando para WhatsApp...";
+        if (stState.keepAliveOsc) { try{stState.keepAliveOsc.stop()}catch(e){} }
 
         try {
-            const data = await fetchFile(blob);
-            await ffmpeg.writeFile('input.webm', data);
-
-            // COMANDO OPTIMIZADO PARA RAM BAJA
-            // -preset ultrafast: Menos uso de CPU/RAM
-            // -s 360x640: Asegurar tamaño pequeño
-            await ffmpeg.exec([
-                '-i', 'input.webm',
-                '-c:v', 'libx264',   // H.264 estandar
-                '-preset', 'ultrafast', // Rápido, poca compresión (usa menos RAM)
-                '-pix_fmt', 'yuv420p',  // Colores compatibles
-                '-c:a', 'aac',       // Audio AAC (Obligatorio)
-                '-b:a', '128k',      // Audio ligero
-                'output.mp4'
-            ]);
-
-            const outputData = await ffmpeg.readFile('output.mp4');
-            const mp4Blob = new Blob([outputData.buffer], { type: 'video/mp4' });
-            const url = URL.createObjectURL(mp4Blob);
-
-            statusText.innerText = "¡Video Listo!";
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `Vloitz_Story_${Date.now()}.mp4`;
-            a.click();
-
-            // Limpiar memoria
-            await ffmpeg.deleteFile('input.webm');
-            await ffmpeg.deleteFile('output.mp4');
-
+            muxer.finalize();
+            const buffer = muxer.target.buffer;
+            
+            if (buffer.byteLength > 0) {
+                const opusBlob = new Blob([buffer], { type: 'video/mp4' });
+                
+                // INTENTO DE CONVERSIÓN V47
+                if (stState.ffmpeg) {
+                    try {
+                        const aacBlob = await convertToAAC(opusBlob);
+                        stState.finalBlob = aacBlob;
+                    } catch (err) {
+                        console.error("FFmpeg Falló:", err);
+                        stState.finalBlob = opusBlob; // Fallback
+                        alert("Conversión falló por RAM. Se descarga original.");
+                    }
+                } else {
+                    stState.finalBlob = opusBlob;
+                }
+                
+                stShowFinalUI();
+            } else { throw new Error("0 bytes"); }
         } catch (e) {
             console.error(e);
-            statusText.innerText = "Error al convertir (Posible falta de RAM).";
-        } finally {
-            isProcessing = false;
-            startBtn.disabled = false;
+            alert("Error al guardar.");
+            resetModule();
         }
     }
 
-    startBtn.addEventListener('click', startRecording);
+    function roundRect(ctx, x, y, w, h, r) {
+        if (w < 2 * r) r = w / 2; if (h < 2 * r) r = h / 2;
+        ctx.moveTo(x+r, y); ctx.arcTo(x+w, y, x+w, y+h, r);
+        ctx.arcTo(x+w, y+h, x, y+h, r); ctx.arcTo(x, y+h, x, y, r);
+        ctx.arcTo(x, y, x+w, y, r); ctx.closePath();
+    }
+    function drawFitText(ctx, text, x, y, maxWidth, initialSize) {
+        let size = initialSize;
+        ctx.font = "900 " + size + "px Inter, sans-serif";
+        while (ctx.measureText(text).width > maxWidth && size > 10) {
+            size--;
+            ctx.font = "900 " + size + "px Inter, sans-serif";
+        }
+        ctx.fillText(text, x, y);
+    }
+    function stPrepareStaticLayer() {
+        stState.staticCanvas = document.createElement('canvas');
+        stState.staticCanvas.width = stState.config.width;
+        stState.staticCanvas.height = stState.config.height;
+        const sCtx = stState.staticCanvas.getContext('2d');
+        const w = stState.config.width; const h = stState.config.height;
+        sCtx.fillStyle = '#000000'; sCtx.fillRect(0, 0, w, h);
+        const cardW = w * 0.90; const cardH = h * 0.75;
+        const cardX = (w - cardW) / 2; const cardY = (h - cardH) / 2;
+        sCtx.shadowColor = 'rgba(29, 185, 84, 0.6)'; sCtx.shadowBlur = 80;
+        sCtx.fillStyle = '#121212';
+        sCtx.beginPath(); roundRect(sCtx, cardX, cardY, cardW, cardH, 20); sCtx.fill();
+        sCtx.shadowBlur = 0; sCtx.strokeStyle = '#282828'; sCtx.lineWidth = 1; sCtx.stroke();
+        const imgSize = cardW * 0.85; const imgX = (w - imgSize) / 2; const imgY = cardY + 25;
+        sCtx.save(); sCtx.beginPath(); roundRect(sCtx, imgX, imgY, imgSize, imgSize, 8);
+        sCtx.clip();
+        try { sCtx.drawImage(stCoverImg, imgX, imgY, imgSize, imgSize); }
+        catch(e) { sCtx.fillStyle = "#333"; sCtx.fillRect(imgX, imgY, imgSize, imgSize); }
+        sCtx.restore();
+        const title = stState.currentTrackTitle || "Track Desconocido";
+        const artist = stState.currentSetData ? stState.currentSetData.title : "Vloitz Set";
+        const textX = imgX; let cursorY = imgY + imgSize + 25;
+        sCtx.textAlign = "left"; sCtx.fillStyle = "#1DB954"; sCtx.font = "700 10px Inter, sans-serif";
+        sCtx.fillText("NOW PLAYING 🎵", textX, cursorY);
+        cursorY += 20; sCtx.fillStyle = "#FFFFFF";
+        drawFitText(sCtx, title, textX, cursorY, imgSize, 20);
+        cursorY += 18; sCtx.fillStyle = "#B3B3B3"; sCtx.font = "500 12px Inter, sans-serif";
+        sCtx.fillText(artist, textX, cursorY);
+        const cardBottom = cardY + cardH;
+        sCtx.textAlign = "center"; sCtx.fillStyle = "#333"; sCtx.font = "400 9px Inter, sans-serif";
+        sCtx.fillText("Escúchalo en vloitz.github.io/wav-sets", w/2, cardBottom - 15);
+    }
+    function stUpdateAudioSimulation(frame) {
+        const isKick = frame % (stState.config.fps === 15 ? 12 : 24) === 0;
+        for (let i = 0; i < 20; i++) {
+            let targetHeight = 5 + Math.abs(Math.sin(frame * 0.2 + i) * 15) + Math.random() * 10;
+            if (isKick && i < 6) targetHeight += 30;
+            if (i > 6 && i < 14) targetHeight += Math.random() * 15;
+            if (targetHeight > stState.audioData[i]) stState.audioData[i] = targetHeight;
+            else stState.audioData[i] *= 0.85;
+        }
+    }
+    function stDrawDynamicLayer(secondsElapsed) {
+        const w = stState.config.width; const h = stState.config.height;
+        const cardW = w * 0.90; const cardH = h * 0.75;
+        const startX = (w - (w * 0.90 * 0.85)) / 2;
+        const imgSize = w * 0.90 * 0.85;
+        const cardY = (h - cardH) / 2;
+        const cursorY = (cardY + 25) + imgSize + 25 + 20 + 18;
+        const barsBaseY = cursorY + 40;
+        const gap = 3; const barWidth = (imgSize - (19*gap)) / 20;
+        for(let i=0; i < 20; i++) {
+            let height = Math.max(4, stState.audioData[i]);
+            if (i === 13) stCtx.fillStyle = "#1DB954"; else stCtx.fillStyle = "#3E3E3E";
+            stCtx.fillRect(startX + (i * (barWidth + gap)), barsBaseY - height, barWidth, height);
+        }
+        const progY = barsBaseY + 10;
+        stCtx.fillStyle = "#333"; stCtx.fillRect(startX, progY, imgSize, 3);
+        const progress = Math.min(1, secondsElapsed / stState.config.duration);
+        stCtx.fillStyle = "#1DB954"; stCtx.fillRect(startX, progY, imgSize * progress, 3);
+        stCtx.beginPath(); stCtx.arc(startX + (imgSize * progress), progY + 1.5, 3, 0, Math.PI*2); stCtx.fill();
+        const timeY = barsBaseY + 10 + 15;
+        stCtx.fillStyle = "#666"; stCtx.font = "400 9px Inter, sans-serif"; stCtx.textAlign = "left";
+        const currentTotalSecs = Math.floor(stState.startTime + secondsElapsed);
+        const m = Math.floor(currentTotalSecs / 60); const s = currentTotalSecs % 60;
+        stCtx.fillText(`${m}:${s.toString().padStart(2,'0')}`, startX, timeY);
+        stCtx.textAlign = "right"; stCtx.fillText("HIFI", startX + imgSize, timeY);
+        const badgeY = timeY + 5;
+        stCtx.textAlign = "center"; stCtx.strokeStyle = "#1DB954"; stCtx.lineWidth = 1;
+        stCtx.strokeRect((w - 60)/2, badgeY, 60, 16);
+        stCtx.fillStyle = "#1DB954"; stCtx.font = "700 9px Inter, sans-serif";
+        stCtx.fillText("FLAC • HIFI", w/2, badgeY + 11);
+    }
+    
+    // UI FINAL
+    function stShowFinalUI() {
+        stDOM.loadingUI.style.display = 'none';
+        stDOM.finalActions.style.display = 'block';
+        console.log(`[STORY MODULE] Listo.`);
+        
+        stDOM.shareWaBtn.onclick = async () => {
+            if (!stState.finalBlob) return;
+            const file = new File([stState.finalBlob], "story.mp4", { type: 'video/mp4' });
+            
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                try { await navigator.share({ files: [file] }); } catch (e) {}
+            } else { alert("Usa descargar manual."); }
+        };
+        
+        stDOM.dlManualBtn.onclick = () => {
+            if (!stState.finalBlob) return;
+            const url = URL.createObjectURL(stState.finalBlob);
+            const a = document.createElement('a'); a.href = url; a.download = "story.mp4";
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        };
+    }
 </script>
-
 </body>
 </html>
