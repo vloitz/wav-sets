@@ -297,7 +297,7 @@
 <script type="module">
     import { Muxer, ArrayBufferTarget } from 'https://esm.sh/mp4-muxer@5.1.0';
 
-    const version = "V68: Dual Stream Strategy (Perfect Video + Native Audio)";
+    const version = "V69: Force-Flush Safety (Anti-Freeze) + Server V69";
     console.log(`[STORY MODULE] CARGANDO ${version}`);
 
     const SERVER_URL = 'https://vloitz-server.onrender.com';
@@ -328,8 +328,7 @@
     let stState = {
         isEncoding: false,
         finalBlob: null,
-        videoBlob: null, // Stream 1: Video H.264
-        audioBlob: null, // Stream 2: Audio Opus
+        localBlob: null,
         audioData: new Array(20).fill(5),
         staticCanvas: null,
         config: {},
@@ -340,8 +339,6 @@
         sourceNode: null,
         shadowAudio: null,
         analyserNode: null,
-        mediaRecorder: null, // Para el audio
-        audioChunks: [],
         keepAliveOsc: null
     };
 
@@ -426,7 +423,6 @@
         if (!mainAudio.paused) mainAudio.pause();
 
         try {
-            // 1. AUDIO SETUP (Streaming)
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             stState.audioContext = new AudioContext({ latencyHint: 'playback', sampleRate: 48000 });
 
@@ -435,6 +431,7 @@
             stState.shadowAudio.src = stState.currentSetData.audio_url;
             stState.shadowAudio.currentTime = stState.startTime;
             stState.shadowAudio.volume = 1.0;
+
             stState.shadowAudio.style.position = 'fixed';
             stState.shadowAudio.style.opacity = '0.01';
             stState.shadowAudio.style.pointerEvents = 'none';
@@ -446,10 +443,9 @@
 
             stState.sourceNode = stState.audioContext.createMediaElementSource(stState.shadowAudio);
             stState.sourceNode.connect(stState.analyserNode);
-            stState.sourceNode.connect(stState.mediaStreamDest); // Para grabar
-            stState.sourceNode.connect(stState.audioContext.destination); // Para oír
+            stState.analyserNode.connect(stState.mediaStreamDest);
+            stState.sourceNode.connect(stState.audioContext.destination);
 
-            // Oscilador
             const osc = stState.audioContext.createOscillator();
             const gain = stState.audioContext.createGain();
             osc.frequency.value = 1; gain.gain.value = 0.0001;
@@ -457,18 +453,20 @@
             osc.start();
             stState.keepAliveOsc = osc;
 
-            // Esperar carga
+            stDOM.startBtn.innerText = "Cargando audio...";
+
+            // Esperar carga mínima (sin semáforo para no cortar)
             await new Promise((resolve, reject) => {
-                const timeout = setTimeout(() => reject("Timeout carga"), 20000);
+                const timeout = setTimeout(() => reject("Timeout red"), 25000);
                 const onReady = () => { clearTimeout(timeout); resolve(); };
-                if (stState.shadowAudio.readyState >= 2) onReady();
-                else stState.shadowAudio.addEventListener('canplay', onReady, { once: true });
+                if (stState.shadowAudio.readyState >= 3) onReady();
+                else stState.shadowAudio.addEventListener('canplaythrough', onReady, { once: true });
                 stState.shadowAudio.addEventListener('error', () => reject("Error audio"), { once: true });
             });
 
         } catch (e) {
             console.error(e);
-            alert("Error: " + e);
+            alert("Error inicio: " + (e.message || e));
             resetModule();
             return;
         }
@@ -480,7 +478,7 @@
         stState.config = { width: 360, height: 640, duration: 15, fps: 30 };
         stPrepareStaticLayer();
 
-        try { await runDualStreamRecording(); }
+        try { await runRecordingPhase(); }
         catch (e) {
             console.error(e);
             stState.isEncoding = false;
@@ -489,29 +487,29 @@
         }
     });
 
-    // --- GRABACIÓN DUAL (V68) ---
-    async function runDualStreamRecording() {
-        // A. PREPARAR GRABADORA DE AUDIO (Nativa = Fluida)
-        const audioStream = stState.mediaStreamDest.stream;
-        const options = { mimeType: 'audio/webm;codecs=opus' };
-
-        stState.audioChunks = [];
+    // --- FUNCIÓN DE CIERRE SEGURO (Anti-Freeze) ---
+    async function safeFlush(encoder, name) {
+        if (encoder.state !== 'configured') return;
         try {
-            stState.mediaRecorder = new MediaRecorder(audioStream, options);
-        } catch(e) {
-            stState.mediaRecorder = new MediaRecorder(audioStream); // Fallback
+            // Promesa con Timeout: Si flush tarda > 1s, lo forzamos.
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error(`Timeout flushing ${name}`)), 1000)
+            );
+            await Promise.race([encoder.flush(), timeoutPromise]);
+        } catch (e) {
+            console.warn(`[V69] Salto forzado de flush (${name}):`, e);
         }
+        encoder.close();
+    }
 
-        stState.mediaRecorder.ondataavailable = (e) => {
-            if (e.data.size > 0) stState.audioChunks.push(e.data);
-        };
+    async function runRecordingPhase() {
+        const trackProcessor = new MediaStreamTrackProcessor({ track: stState.mediaStreamDest.stream.getAudioTracks()[0] });
+        const audioReader = trackProcessor.readable.getReader();
 
-        // B. PREPARAR GRABADORA DE VIDEO (Muxer = Calidad Perfecta)
-        // OJO: Solo video (sin audio, para no saturar CPU)
         let muxer = new Muxer({
             target: new ArrayBufferTarget(),
             video: { codec: 'avc', width: stState.config.width, height: stState.config.height },
-            // Sin Audio Track en el Muxer
+            audio: { codec: 'opus', numberOfChannels: 2, sampleRate: 48000 },
             fastStart: 'in-memory',
             firstTimestampBehavior: 'offset'
         });
@@ -522,22 +520,34 @@
         });
         videoEncoder.configure({
             codec: 'avc1.42001E', width: stState.config.width, height: stState.config.height,
-            bitrate: 2500000, framerate: 30
+            bitrate: 2000000, framerate: 30
         });
 
-        // --- ARRANQUE SINCRONIZADO CON PRE-ROLL ---
-        stDOM.statusText.innerText = "Sincronizando...";
+        let audioEncoder = new AudioEncoder({
+            output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
+            error: e => console.error("Audio Error:", e)
+        });
+        audioEncoder.configure({
+            codec: 'opus', numberOfChannels: 2, sampleRate: 48000, bitrate: 128000
+        });
 
-        // 1. Encender grabadora de audio (capturando silencio/latido)
-        stState.mediaRecorder.start();
+        // Bucle Audio
+        const processAudio = async () => {
+            while (stState.isEncoding) {
+                try {
+                    const result = await audioReader.read();
+                    if (result.done) break;
+                    if (audioEncoder.state === 'configured') audioEncoder.encode(result.value);
+                    result.value.close();
+                } catch (e) { break; }
+            }
+        };
+        processAudio();
 
-        // 2. Esperar estabilización (Pre-Roll)
-        await new Promise(r => setTimeout(r, 400));
-
-        // 3. Play Música
-        stState.shadowAudio.play();
-        console.log("[V68] Acción!");
-        stDOM.statusText.innerHTML = `<span style="color:#0f0">GRABANDO DUAL...</span>`;
+        // ARRANQUE (Warm-Up V66 integrado)
+        stDOM.statusText.innerText = "Iniciando...";
+        await new Promise(r => setTimeout(r, 200)); // Estabilización
+        stState.shadowAudio.play().catch(e=>console.warn(e));
 
         const startTime = performance.now();
         const durationMs = stState.config.duration * 1000;
@@ -549,14 +559,15 @@
             const elapsed = now - startTime;
 
             if (elapsed >= durationMs) {
-                finishDualRecording(muxer, videoEncoder);
+                // AQUÍ OCURRÍA EL BLOQUEO
+                finishRecording(muxer, videoEncoder, audioEncoder, audioReader);
                 return;
             }
 
             if (frameCount % 10 === 0) {
                 stState.analyserNode.getByteFrequencyData(dataArray);
                 const vol = dataArray.reduce((a,b)=>a+b,0);
-                stDOM.statusText.innerHTML = `<span style="color:#0f0">REC DUAL (${vol})</span>`;
+                stDOM.statusText.innerHTML = `<span style="color:#0f0">REC (${vol})</span>`;
             }
 
             stDOM.progressFill.style.width = (elapsed / durationMs) * 100 + "%";
@@ -564,7 +575,6 @@
             stCtx.drawImage(stState.staticCanvas, 0, 0);
             stDrawDynamicLayer(elapsed / 1000);
 
-            // Generar solo video
             const vFrame = new VideoFrame(stDOM.canvas, {
                 timestamp: elapsed * 1000,
                 duration: (1000 / 30) * 1000
@@ -580,50 +590,48 @@
         requestAnimationFrame(drawLoop);
     }
 
-    async function finishDualRecording(muxer, vEnc) {
+    async function finishRecording(muxer, vEnc, aEnc, aReader) {
         stState.isEncoding = false;
-        stDOM.statusText.innerText = "Finalizando...";
+        stDOM.statusText.innerText = "Finalizando (Seguro)...";
 
-        // Parar audio recorder
-        stState.mediaRecorder.stop();
+        // 1. Detener lector
+        try { await aReader.cancel(); } catch(e) {}
 
-        // Cerrar video encoder
-        if (vEnc.state === 'configured') await vEnc.flush();
-        vEnc.close();
+        // 2. Cerrar Encoders con Timeout (La solución al "pegado")
+        await safeFlush(vEnc, "Video");
+        await safeFlush(aEnc, "Audio");
 
         if (stState.keepAliveOsc) { try{stState.keepAliveOsc.stop()}catch(e){} }
 
-        // Finalizar Muxer (Solo Video)
-        muxer.finalize();
-        const videoBuffer = muxer.target.buffer;
-        stState.videoBlob = new Blob([videoBuffer], { type: 'video/mp4' });
+        // 3. Finalizar Muxer
+        try {
+            muxer.finalize();
+            const buffer = muxer.target.buffer;
 
-        // Esperar a que el audio recorder termine de escribir
-        stState.mediaRecorder.onstop = () => {
-            const audioBlob = new Blob(stState.audioChunks, { type: 'audio/webm' });
-            stState.audioBlob = audioBlob;
-
-            console.log(`[V68] Video: ${stState.videoBlob.size}, Audio: ${stState.audioBlob.size}`);
-
-            cleanupAudio();
-            uploadDualToServer(stState.videoBlob, stState.audioBlob);
-        };
+            if (buffer.byteLength > 0) {
+                stState.localBlob = new Blob([buffer], { type: 'video/mp4' });
+                cleanupAudio();
+                uploadToServer(stState.localBlob);
+            } else {
+                throw new Error("0 bytes generados");
+            }
+        } catch (e) {
+            alert("Error finalizando: " + e.message);
+            resetModule();
+        }
     }
 
-    // --- SUBIDA DOBLE AL SERVIDOR ---
-    async function uploadDualToServer(vBlob, aBlob) {
-        stDOM.statusText.innerHTML = `<span style="color:#00aaff">🚀 MEZCLANDO (Nube)...</span>`;
+    async function uploadToServer(blob) {
+        stDOM.statusText.innerHTML = `<span style="color:#00aaff">🚀 OPTIMIZANDO...</span>`;
 
         const formData = new FormData();
-        formData.append('video', vBlob, 'video.mp4'); // Video Mudo H.264
-        formData.append('audio', aBlob, 'audio.webm'); // Audio Fluido Opus
+        formData.append('video', blob, 'video.mp4');
 
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 300000);
+            const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 min
 
-            console.log(`[V68] Enviando a ${SERVER_URL}/merge ...`);
-            const response = await fetch(`${SERVER_URL}/merge`, { // Endpoint /merge
+            const response = await fetch(`${SERVER_URL}/convert`, {
                 method: 'POST',
                 body: formData,
                 signal: controller.signal
@@ -632,7 +640,7 @@
 
             if (!response.ok) {
                 const text = await response.text();
-                throw new Error(`Servidor: ${response.status} - ${text}`);
+                throw new Error(`Server: ${response.status} - ${text}`);
             }
 
             stDOM.statusText.innerHTML = `<span style="color:#0f0">📥 LISTO!</span>`;
@@ -643,15 +651,13 @@
 
         } catch (e) {
             console.error(e);
-            alert(`Error Servidor: ${e.message}.`);
-            // En este caso no podemos descargar "original" porque son 2 archivos separados.
-            // Podríamos descargar el video mudo como consuelo.
-            stState.finalBlob = vBlob;
+            alert(`Error Servidor: ${e.message}. Se descarga original.`);
+            stState.finalBlob = blob;
             stShowFinalUI();
         }
     }
 
-    // UTILS (Sin cambios)
+    // UTILS
     function roundRect(ctx, x, y, w, h, r) {
         if (w < 2 * r) r = w / 2; if (h < 2 * r) r = h / 2;
         ctx.moveTo(x+r, y); ctx.arcTo(x+w, y, x+w, y+h, r);
@@ -746,7 +752,6 @@
         stDOM.loadingUI.style.display = 'none';
         stDOM.finalActions.style.display = 'block';
         console.log(`[STORY MODULE] Listo.`);
-
         stDOM.statusText.innerHTML = `<span style="color:#0f0">✅ LISTO PARA WHATSAPP</span>`;
 
         stDOM.shareWaBtn.onclick = async () => {
