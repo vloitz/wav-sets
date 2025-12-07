@@ -1,306 +1,10 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Vloitz - High Quality Sets</title>
-    <link rel="stylesheet" href="style.css">
-
-
-    <link rel="apple-touch-icon" sizes="180x180" href="favicon/apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="512x512" href="favicon/web-app-manifest-512x512.png">
-    <link rel="icon" type="image/png" sizes="192x192" href="favicon/web-app-manifest-192x192.png">
-    <link rel="icon" type="image/png" sizes="96x96" href="favicon/favicon-96x96.png">
-    <link rel="icon" type="image/svg+xml" href="favicon/favicon.svg">
-    <link rel="icon" type="image/x-icon" href="favicon/favicon.ico">
-
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#1DB954">
-
-    <meta property="og:title" content="Vloitz - High Quality Sets">
-    <meta property="og:description" content="Listen to curated electronic music sets by Vloitz in FLAC/WAV quality.">
-    <meta property="og:url" content="https://vloitz.github.io/wav-sets/">
-    <meta property="og:type" content="website">
-
-    <meta property="og:image" content="https://raw.githubusercontent.com/vloitz/wav-sets/13cd4e385c41b2f2f3ba6bfaec022629a41f898e/perfil/LOGO_1200x1200_COMPRESS.png">
-    <meta property="og:image:type" content="image/png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="1200">
-<script src="https://unpkg.com/wavesurfer.js@7.7.5/dist/wavesurfer.min.js"></script>
-    <script src="https://unpkg.com/wavesurfer.js@7.7.5/dist/plugins/regions.min.js"></script>
-</head>
-<body>
-
-    <header class="profile-header">
-        <div class="profile-banner"></div>
-        <div class="profile-info">
-            <img src="" alt="Vloitz Profile" class="profile-pic" id="profile-pic-img">
-
-            <div class="profile-details-container">
-                <h1 class="profile-name">Vloitz</h1>
-                <p class="profile-location">Lima, Peru</p>
-
-                <div class="profile-bio" id="profile-bio-container">
-                    <span id="bio-short">
-                        Desarrollador y Curador Musical (ÉLITE House/Grooves). 🚀 Construyo mis herramientas para una curación técnica. Mi propósito: encontrar sonidos que vibren en la piel y te lleven a un viaje. Enfocado en el 'Future HITS'.                    </span>
-                    <span id="bio-extended" style="display: none;">
-                        <br><br>Esto no es una promesa; es mi propósito. Hubo un momento que redefinió mi camino y me confirmó que esto es lo que debo hacer. Mi pasión es la curación musical.
-                        <br><br>Filtro miles de tracks (House, Tech, Groove) buscando solo aquellos que tienen un propósito: crear una <strong>conexión</strong>.
-                        <br><br>Busco la música que te lleva a un viaje, te ancla al presente o te ayuda a ver el pasado de otra forma. Sonidos que te permiten desconectar para poder conectar contigo mismo.
-                        <br><br>Te ofrezco esta curación en la máxima calidad FLAC, sin costo. Es mi compromiso. Si lo que escuchas te marca... es porque eras parte.
-                    </span>
-                    <span id="bio-toggle" class="bio-toggle-link">... Ver más</span>
-                 </div>
-
-                <div class="profile-socials">
-                    <a href="https://soundcloud.com/vloitz" target="_blank" rel="noopener" class="social-icon soundcloud" title="SoundCloud">
-                        <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>SoundCloud</title><path d="M23.999 14.165c-.052 1.796-1.612 3.169-3.4 3.169h-8.18a.68.68 0 0 1-.675-.683V7.862a.747.747 0 0 1 .452-.724s.75-.513 2.333-.513a5.364 5.364 0 0 1 2.763.755 5.433 5.433 0 0 1 2.57 3.54c.282-.08.574-.121.868-.12.884 0 1.73.358 2.347.992s.948 1.49.922 2.373ZM10.721 8.421c.247 2.98.427 5.697 0 8.672a.264.264 0 0 1-.53 0c-.395-2.946-.22-5.718 0-8.672a.264.264 0 0 1 .53 0ZM9.072 9.448c.285 2.659.37 4.986-.006 7.655a.277.277 0 0 1-.55 0c-.331-2.63-.256-5.02 0-7.655a.277.277 0 0 1 .556 0Zm-1.663-.257c.27 2.726.39 5.171 0 7.904a.266.266 0 0 1-.532 0c-.38-2.69-.257-5.21 0-7.904a.266.266 0 0 1 .532 0Zm-1.647.77a26.108 26.108 0 0 1-.008 7.147.272.272 0 0 1-.542 0 27.955 27.955 0 0 1 0-7.147.275.275 0 0 1 .55 0Zm-1.67 1.769c.421 1.865.228 3.5-.029 5.388a.257.257 0 0 1-.514 0c-.21-1.858-.398-3.549 0-5.389a.272.272 0 0 1 .543 0Zm-1.655-.273c.388 1.897.26 3.508-.01 5.412-.026.28-.514.283-.54 0-.244-1.878-.347-3.54-.01-5.412a.283.283 0 0 1 .56 0Zm-1.668.911c.4 1.268.257 2.292-.026 3.572a.257.257 0 0 1-.514 0c-.241-1.262-.354-2.312-.023-3.572a.283.283 0 0 1 .563 0Z"/></svg>
-                    </a>
-                    <a href="https://www.youtube.com/@Vloitz" target="_blank" rel="noopener" class="social-icon youtube" title="YouTube">
-                        <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>YouTube</title><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
-                    </a>
-                    <a href="https://www.instagram.com/italozuta/" target="_blank" rel="noopener" class="social-icon instagram" title="Instagram">
-                        <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>Instagram</title><path d="M7.0301.084c-1.2768.0602-2.1487.264-2.911.5634-.7888.3075-1.4575.72-2.1228 1.3877-.6652.6677-1.075 1.3368-1.3802 2.127-.2954.7638-.4956 1.6365-.552 2.914-.0564 1.2775-.0689 1.6882-.0626 4.947.0062 3.2586.0206 3.6671.0825 4.9473.061 1.2765.264 2.1482.5635 2.9107.308.7889.72 1.4573 1.388 2.1228.6679.6655 1.3365 1.0743 2.1285 1.38.7632.295 1.6361.4961 2.9134.552 1.2773.056 1.6884.069 4.9462.0627 3.2578-.0062 3.668-.0207 4.9478-.0814 1.28-.0607 2.147-.2652 2.9098-.5633.7889-.3086 1.4578-.72 2.1228-1.3881.665-.6682 1.0745-1.3378 1.3795-2.1284.2957-.7632.4966-1.636.552-2.9124.056-1.2809.0692-1.6898.063-4.948-.0063-3.2583-.021-3.6668-.0817-4.9465-.0607-1.2797-.264-2.1487-.5633-2.9117-.3084-.7889-.72-1.4568-1.3876-2.1228C21.2982 1.33 20.628.9208 19.8378.6165 19.074.321 18.2017.1197 16.9244.0645 15.6471.0093 15.236-.005 11.977.0014 8.718.0076 8.31.0215 7.0301.0839m.1402 21.6932c-1.17-.0509-1.8053-.2453-2.2287-.408-.5606-.216-.96-.4771-1.3819-.895-.422-.4178-.6811-.8186-.9-1.378-.1644-.4234-.3624-1.058-.4171-2.228-.0595-1.2645-.072-1.6442-.079-4.848-.007-3.2037.0053-3.583.0607-4.848.05-1.169.2456-1.805.408-2.2282.216-.5613.4762-.96.895-1.3816.4188-.4217.8184-.6814 1.3783-.9003.423-.1651 1.0575-.3614 2.227-.4171 1.2655-.06 1.6447-.072 4.848-.079 3.2033-.007 3.5835.005 4.8495.0608 1.169.0508 1.8053.2445 2.228.408.5608.216.96.4754 1.3816.895.4217.4194.6816.8176.9005 1.3787.1653.4217.3617 1.056.4169 2.2263.0602 1.2655.0739 1.645.0796 4.848.0058 3.203-.0055 3.5834-.061 4.848-.051 1.17-.245 1.8055-.408 2.2294-.216.5604-.4763.96-.8954 1.3814-.419.4215-.8181.6811-1.3783.9-.4224.1649-1.0577.3617-2.2262.4174-1.2656.0595-1.6448.072-4.8493.079-3.2045.007-3.5825-.006-4.848-.0608M16.953 5.5864A1.44 1.44 0 1 0 18.39 4.144a1.44 1.44 0 0 0-1.437 1.4424M5.8385 12.012c.0067 3.4032 2.7706 6.1557 6.173 6.1493 3.4026-.0065 6.157-2.7701 6.1506-6.1733-.0065-3.4032-2.771-6.1565-6.174-6.1498-3.403.0067-6.156 2.771-6.1496 6.1738M8 12.0077a4 4 0 1 1 4.008 3.9921A3.9996 3.9996 0 0 1 8 12.0077"/></svg>
-                    </a>
-                    <a href="https://www.tiktok.com/@vloitz_" target="_blank" rel="noopener" class="social-icon tiktok" title="TikTok">
-                        <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>TikTok</title><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg>
-                    </a>
-                </div>
-            </div>
-
-            <div class="profile-extra-content">
-                <div class="latest-set-highlight">
-                    <h5>Último Set</h5>
-                    <p id="latest-set-title">Cargando...</p>
-                    <span id="latest-set-date"></span>
-                </div>
-            </div>
-        </div>
-    </header>
-
-    <main class="app-container">
-        <section class="player-card">
-            <img src="" alt="Cover Art" class="player-cover-art" id="current-cover-art">
-            <div class="player-details">
-                <span class="audio-quality-badge">FLAC</span>
-                <h2 id="current-track-title">Cargando...</h2>
-                <h3 id="current-track-artist">Vloitz</h3>
-
-                <div class="waveform-container">
-                    <div id="waveform"></div>
-                </div>
-                    <div class="player-controls">
-
-                        <button id="prevBtn" class="skip-btn" title="Pista Anterior">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M11 18V6l-8.5 6 8.5 6zm.5-6l8.5 6V6l-8.5 6z"/>
-                                <path d="M0 0h24v24H0z" fill="none"/>
-                            </svg>
-                        </button>
-
-                        <button id="playPauseBtn" disabled title="Reproducir/Pausar">
-                            <svg id="playIcon" class="player-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M8 5v14l11-7z"/>
-                                <path d="M0 0h24v24H0z" fill="none"/>
-                            </svg>
-                            <svg id="pauseIcon" class="player-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="display:none;">
-                                <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
-                                <path d="M0 0h24v24H0z" fill="none"/>
-                            </svg>
-                        </button>
-
-                        <button id="nextBtn" class="skip-btn" title="Siguiente Pista">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M4 18l8.5-6L4 6v12zm9-12v12l8.5-6-8.5-6z"/>
-                                <path d="M0 0h24v24H0z" fill="none"/>
-                            </svg>
-                        </button>
-
-                        <div class="time-display">
-                            <span id="currentTime">0:00</span>
-                            <span class="time-divider">/</span> <span id="totalDuration">0:00</span>
-                        </div>
-
-                        <button id="shareBtn" class="action-btn" title="Compartir Set">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/>
-                            </svg>
-                        </button>
-
-                    </div>
-                <audio id="audio-player" crossorigin="anonymous" style="display: none;"></audio>
-            </div>
-        </section>
-
-        <section class="current-tracklist-container">
-        <div class="current-tracklist-header">
-            <h4>Tracklist del Set</h4>
-
-        <div class="controls-wrapper">
-            <label class="favorites-filter" for="fav-toggle">
-                <input type="checkbox" id="fav-toggle">
-                <span class="star-icon">★</span>
-                <span>Mostrar Favoritos</span>
-            </label>
-
-            <button id="autoLoopBtn" class="auto-loop-button" title="Activar/Desactivar Auto-Bucle de Favoritos">
-                <svg width="800px" height="800px" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" class="iconify iconify--noto" preserveAspectRatio="xMidYMid meet"><path d="M116 4H12c-4.42 0-8 3.58-8 8v104c0 4.42 3.58 8 8 8h104c4.42 0 8-3.58 8-8V12c0-4.42-3.58-8-8-8z" fill="#f77e00"></path><path d="M109.7 4H11.5A7.555 7.555 0 0 0 4 11.5v97.9c-.01 4.14 3.34 7.49 7.48 7.5H109.6c4.14.01 7.49-3.34 7.5-7.48V11.5c.09-4.05-3.13-7.41-7.18-7.5h-.22z" fill="#ff9800"></path><path d="M39.7 12.9c0-2.3-1.6-3-10.8-2.7c-7.7.3-11.5 1.2-13.8 4s-2.9 8.5-3 15.3c0 4.8 0 9.3 2.5 9.3c3.4 0 3.4-7.9 6.2-12.3c5.4-8.7 18.9-10.6 18.9-13.6z" opacity=".75" fill="#ffbd52"></path><path d="M83.6 67a3.996 3.996 0 0 1-5.64-.44c-.61-.71-.95-1.62-.96-2.56V50c0-1.1-.9-2-2-2H41c-4.8 0-11.5 1.5-12 12L14.2 73.3A36.01 36.01 0 0 1 13 64c0-17.7 12.5-32 28-32h34c1.1 0 2-.9 2-2V16a4 4 0 0 1 6.6-3l24 24a3.994 3.994 0 0 1 .35 5.65c-.11.13-.23.24-.35.35l-24 24z" fill="#fafafa"></path><path d="M38.4 61a3.996 3.996 0 0 1 5.64.44c.61 .71-.95 1.62-.96 2.56v14c0 1.1.9 2 2 2h34c4.8 0 11.6-1.5 12-12l14.8-13.3c.81 3.03 1.21 6.16 1.2 9.3c0 17.7-12.5 32-28 32H47c-1.1 0-2 .9-2 2v14a4 4 0 0 1-6.6 3l-24-24a3.994 3.994 0 0 1-.35-5.65c.11-.13.23-.24.35-.35l24-24z" fill="#fafafa"></path></svg>
-                <span>Auto-Bucle</span>
-            </button>
-
-            <button id="spectrumBtn" class="auto-loop-button" title="Activar/Desactivar Colores">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
-                </svg>
-                <span>Espectro</span>
-            </button>
-
-        </div>
-            </div>
-            <ul id="current-tracklist" class="current-tracklist">
-                <li>Cargando tracklist...</li>
-            </ul>
-        </section>
-
-        <section class="tracklist-container">
-            <h3>Todos los Sets (FLAC/WAV)</h3>
-            <ul id="tracklist" class="tracklist"></ul>
-        </section>
-    </main>
-
-    <div id="share-modal-overlay" class="share-modal-overlay" style="display: none;">
-        <div class="share-modal-content">
-            <div class="share-modal-header">
-                <h3>Compartir</h3>
-                <button id="closeShareBtn" class="share-modal-close">&times;</button>
-            </div>
-
-            <div class="share-modal-body">
-
-                <div class="share-social-row">
-                    <a id="shareWaBtn" href="#" target="_blank" class="social-share-btn wa" title="Compartir en WhatsApp">
-                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
-                    </a>
-
-                    <a id="shareFbBtn" href="#" target="_blank" class="social-share-btn fb" title="Compartir en Facebook">
-                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.101 23.691v-7.98H6.627v-3.667h2.474v-1.58c0-4.085 1.848-5.978 5.858-5.978.401 0 .955.042 1.468.103a8.68 8.68 0 0 1 1.141.195v3.325a8.623 8.623 0 0 0-.653-.036c-2.148 0-2.797 1.603-2.797 2.87v1.101h4.188l-.582 3.667h-3.606v7.98H9.101Z"/></svg>
-                    </a>
-
-                    <a id="shareXBtn" href="#" target="_blank" class="social-share-btn x" title="Compartir en X">
-                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-                    </a>
-
-                    <button class="story-trigger-btn" id="stOpenBtn" title="Crear Story">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" display="none"/> <path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
-                        </svg>
-                    </button>
-
-                </div>
-
-                <div class="share-input-group">
-                    <input type="text" id="shareUrlInput" readonly value="https://vloitz.github.io/...">
-                    <button id="copyShareUrlBtn">Copiar</button>
-                </div>
-
-                <div class="share-option-row">
-                    <label class="share-checkbox-label">
-                        <input type="checkbox" id="shareTimeCheckbox">
-                        <span class="checkmark"></span>
-                        <span id="shareTimeLabel">Iniciar en 0:00</span>
-                    </label>
-                </div>
-            </div>
-        </div>
-    </div>
-
-
-    <div id="pwa-toast" class="pwa-toast" style="display: none;">
-        <div class="pwa-content">
-            <div class="pwa-text">
-                <strong>Instalar Vloitz App</strong>
-                <span>Mejor rendimiento y pantalla completa.</span>
-            </div>
-            <div class="pwa-actions">
-                <button id="pwaDismissBtn">Ahora no</button>
-                <button id="pwaInstallBtn">Instalar</button>
-            </div>
-            <div class="pwa-progress-container">
-                <div id="pwaProgressFill" class="pwa-progress-fill"></div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js')
-                .then(() => console.log('[PWA] Service Worker Registrado Correctamente'))
-                .catch(err => console.error('[PWA] Error al registrar SW:', err));
-        }
-    </script>
-
-    <script src="app.js"></script>
-
-<div id="storyOverlay">
-        <button class="story-close-global" id="stCloseBtn">&times;</button>
-
-        <div class="story-card-wrapper">
-            <div id="stViewIntro">
-                <img src="" class="st-album-art" id="stUiCover">
-                <h2 class="st-title" id="stUiTitle">Cargando...</h2>
-                <p class="st-artist">Vloitz • Audio Story</p>
-
-            <div class="st-controls-row">
-                <div class="st-control-group">
-                    <label class="st-switch">
-                        <input type="checkbox" id="stHqToggle">
-                        <span class="st-slider round"></span>
-                    </label>
-                    <span id="stQualityText" class="st-quality-label">Modo Seguro</span>
-                </div>
-
-                <div class="st-control-group">
-                    <select id="stDurationSelect" class="st-select">
-                        <option value="15" selected>15 seg</option>
-                        <option value="30">30 seg</option>
-                        <option value="45">45 seg</option>
-                        <option value="60">60 seg (Riesgo)</option>
-                    </select>
-                </div>
-            </div>
-
-                <button class="st-create-btn" id="stStartBtn">
-                    CREAR STORY
-                </button>
-            </div>
-
-            <div id="stViewProcess">
-                <canvas id="storyCanvas" width="360" height="640"></canvas>
-
-                <div class="st-process-ui" id="stLoadingUI">
-                    <div class="st-status-text" id="stStatusText">Iniciando motor...</div>
-                    <div class="st-progress-bg"><div class="st-progress-fill" id="stProgressFill"></div></div>
-                </div>
-
-                <div id="stFinalActions">
-                    <button class="st-wa-btn" id="stShareWaBtn">Enviar a WhatsApp</button>
-                    <div class="st-secondary-actions">
-                        <div style="font-size: 11px; color:#666;">Clip listo</div>
-                        <button class="st-download-link" id="stDlManualBtn">Descargar archivo manual</button>
-                        <button class="st-retry-btn" id="stRetryBtn">Reintentar</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
 <script type="module">
     import { Muxer, ArrayBufferTarget } from 'https://esm.sh/mp4-muxer@5.1.0';
-    // Importamos FFmpeg 0.12 (Versión Moderna) y Utilidades
-    import { FFmpeg } from 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js';
-    import { fetchFile, toBlobURL } from 'https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js';
+    
+    // IMPORTANTE: Usamos la versión 0.11.x que es la más estable para entornos sin Headers de Seguridad
+    import { createFFmpeg, fetchFile } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/+esm';
 
-    const version = "V51: V38.5 Generator + FFmpeg 0.12 Transcoder (The Final Fix)";
+    const version = "V51: V38.5 Base + FFmpeg Local Transcode (FreeConvert Clone)";
     console.log(`[STORY MODULE] CARGANDO ${version}`);
 
     const stDOM = {
@@ -329,8 +33,6 @@
     const stState = {
         isEncoding: false,
         finalBlob: null,
-        audioData: new Array(20).fill(5),
-        staticCanvas: null,
         config: {},
         currentSetData: null,
         startTime: 0,
@@ -347,29 +49,26 @@
     const stCoverImg = new Image();
     stCoverImg.crossOrigin = "Anonymous";
 
-    // --- CARGAR FFMPEG (ASÍNCRONO) ---
-    (async () => {
+    // --- CARGADOR FFMPEG (MODO SEGURO / SINGLE THREAD) ---
+    const loadFFmpeg = async () => {
+        if (stState.ffmpeg) return; // Ya cargado
         try {
-            stState.ffmpeg = new FFmpeg();
-            stState.ffmpeg.on('log', ({ message }) => console.log('[FFmpeg]', message));
-            
-            // Usamos la versión core 0.12.6
-            const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
-            
-            // Cargar con URLs explícitas
-            await stState.ffmpeg.load({
-                coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-                wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+            console.log("[V51] Cargando motor de conversión...");
+            // corePath explícito para asegurar versión compatible
+            stState.ffmpeg = createFFmpeg({ 
+                log: true,
+                corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js'
             });
-            
-            console.log("[V51] FFmpeg Cargado y Listo.");
-            if(stDOM.startBtn) stDOM.startBtn.innerText = "CREAR STORY (Listo)";
+            await stState.ffmpeg.load();
+            console.log("[V51] Motor FFmpeg LISTO.");
         } catch (e) {
-            console.error("[V51] Error cargando FFmpeg:", e);
-            stDOM.statusText.innerText = "Error cargando motor de video. Recarga la página.";
+            console.error("[V51] Falló carga FFmpeg:", e);
             stState.ffmpeg = null;
         }
-    })();
+    };
+    // Iniciamos carga en background
+    loadFFmpeg();
+
 
     // --- UI EVENTS ---
     if(stDOM.hqToggle) {
@@ -386,7 +85,6 @@
             if (realSet && wave) {
                 stState.currentSetData = realSet;
                 stState.startTime = wave.getCurrentTime();
-                
                 let activeTrackName = realSet.title;
                 if (realSet.tracklist) {
                     for (let i = realSet.tracklist.length - 1; i >= 0; i--) {
@@ -405,6 +103,9 @@
             resetModule();
             stDOM.statusText.innerText = version;
             stDOM.statusText.style.color = "#00ff00";
+            
+            // Reintentar carga de FFmpeg si falló antes
+            if (!stState.ffmpeg) loadFFmpeg();
         });
     }
 
@@ -446,28 +147,21 @@
     // --- START BUTTON ---
     stDOM.startBtn.addEventListener('click', async () => {
         if (stState.isEncoding) return;
-        
-        if (!stState.ffmpeg) {
-            alert("El motor de conversión aún no está listo. Espera unos segundos.");
-            return;
-        }
-
         stDOM.startBtn.disabled = true;
-        stDOM.startBtn.innerText = "Iniciando V51...";
+        stDOM.startBtn.innerText = "Generando (Paso 1/2)...";
 
         const mainAudio = document.getElementById('audio-player');
         if (!mainAudio.paused) mainAudio.pause();
 
         try {
             if (!stState.blobUrl) {
-                console.log("[V51] Descargando...");
                 const response = await fetch(stState.currentSetData.audio_url);
                 if (!response.ok) throw new Error("Error red");
                 const blob = await response.blob();
                 stState.blobUrl = URL.createObjectURL(blob);
             }
 
-            // Usamos lógica V38.5 (Opus 48k - El generador fiable)
+            // 1. GENERACIÓN BASE (V38.5 Logic - Opus 48k)
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             stState.audioContext = new AudioContext({ latencyHint: 'playback', sampleRate: 48000 });
             
@@ -498,10 +192,7 @@
 
             stDOM.startBtn.innerText = "Sincronizando...";
             await stState.shadowAudio.play();
-
-            console.log("[V51] Esperando señal...");
             await waitForAudioSignal();
-            console.log("[V51] Señal OK.");
 
         } catch (e) {
             console.error(e);
@@ -524,7 +215,7 @@
         catch (e) {
             console.error(e);
             stState.isEncoding = false;
-            alert("Encoder error: " + e.message);
+            alert("Error: " + e.message);
             resetModule();
         }
     });
@@ -545,6 +236,44 @@
         });
     }
 
+    // --- TRANSCODIFICADOR TIPO FREECONVERT ---
+    async function convertToAAC(originalBlob) {
+        if (!stState.ffmpeg) throw new Error("Motor FFmpeg no cargado");
+        
+        stDOM.statusText.innerHTML = `<span style="color:#ffa500">⚙️ CONVIRTIENDO AUDIO (AAC)...</span>`;
+        console.log("[V51] Iniciando conversión...");
+
+        const ffmpeg = stState.ffmpeg;
+        const inputName = 'input.mp4';
+        const outputName = 'output.mp4';
+
+        // 1. Escribir en memoria
+        await ffmpeg.FS('writeFile', inputName, await fetchFile(originalBlob));
+
+        // 2. Ejecutar COMANDO MAGICO
+        // Copiamos video (H264) y convertimos audio (Opus -> AAC)
+        await ffmpeg.run(
+            '-i', inputName, 
+            '-c:v', 'copy',       // No tocar video (Rápido)
+            '-c:a', 'aac',        // Convertir a AAC (WhatsApp Friendly)
+            '-b:a', '128k',       
+            '-ar', '44100',       // 44.1kHz Estándar
+            '-ac', '2',           // Stereo
+            '-strict', 'experimental', // Necesario para AAC en algunas versiones
+            outputName
+        );
+
+        // 3. Leer resultado
+        const data = ffmpeg.FS('readFile', outputName);
+        
+        // 4. Limpiar
+        ffmpeg.FS('unlink', inputName);
+        ffmpeg.FS('unlink', outputName);
+
+        return new Blob([data.buffer], { type: 'video/mp4' });
+    }
+
+    // --- SANITIZADOR V38.5 ---
     function cloneAndSanitizeAudioChunk(originalChunk, newTimestamp) {
         const planeSize = originalChunk.allocationSize({ planeIndex: 0 });
         const totalSize = planeSize * originalChunk.numberOfChannels;
@@ -564,39 +293,8 @@
         });
     }
 
-    // --- CONVERSOR FFMPEG (La Magia de FreeConvert local) ---
-    async function convertToAAC(originalBlob) {
-        const ffmpeg = stState.ffmpeg;
-        if (!ffmpeg) throw new Error("FFmpeg no disponible");
-
-        stDOM.statusText.innerHTML = `<span style="color:#ffa500">⚙️ CONVIRTIENDO (Esto tarda)...</span>`;
-        console.log("[V51] Iniciando conversión FFmpeg...");
-
-        const inputName = 'input.mp4';
-        const outputName = 'output.mp4';
-
-        // 1. Escribir archivo en memoria virtual
-        await ffmpeg.writeFile(inputName, await fetchFile(originalBlob));
-
-        // 2. Ejecutar conversión
-        // -c:v copy: No tocamos el video (rápido y barato en RAM)
-        // -c:a aac: Convertimos Opus a AAC (Lo que WhatsApp quiere)
-        // -b:a 128k: Bitrate estándar
-        // -strict experimental: Para asegurar compatibilidad
-        await ffmpeg.exec(['-i', inputName, '-c:v', 'copy', '-c:a', 'aac', '-b:a', '128k', outputName]);
-
-        // 3. Leer resultado
-        const data = await ffmpeg.readFile(outputName);
-        
-        // 4. Limpiar memoria (Crucial para no crashear en 2GB RAM)
-        await ffmpeg.deleteFile(inputName);
-        await ffmpeg.deleteFile(outputName);
-
-        return new Blob([data.buffer], { type: 'video/mp4' });
-    }
-
     async function runRealTimeEncoding() {
-        // --- MOTOR V38.5 (GENERADOR BASE) ---
+        // --- MOTOR DE GRABACIÓN V38.5 (MP4 + OPUS) ---
         const trackProcessor = new MediaStreamTrackProcessor({ track: stState.mediaStreamDest.stream.getAudioTracks()[0] });
         const audioReader = trackProcessor.readable.getReader();
         const firstChunkResult = await audioReader.read();
@@ -624,14 +322,12 @@
         });
 
         let audioChunkCount = 0;
-        let readChunkCount = 1;
-
         let audioEncoder = new AudioEncoder({
             output: (chunk, meta) => {
                 audioChunkCount++;
                 muxer.addAudioChunk(chunk, meta);
             },
-            error: e => console.error("Audio Encoder Fatal:", e)
+            error: e => console.error("Audio Error:", e)
         });
         
         audioEncoder.configure({
@@ -730,18 +426,19 @@
             if (buffer.byteLength > 0) {
                 const opusBlob = new Blob([buffer], { type: 'video/mp4' });
                 
-                // --- FASE 2: CONVERSIÓN CON FFMPEG ---
-                if (stState.ffmpeg) {
+                // --- EL PASO MAGICO: CONVERSIÓN ---
+                if (stState.ffmpeg && stState.ffmpeg.isLoaded()) {
                     try {
                         const aacBlob = await convertToAAC(opusBlob);
                         console.log("[V51] Conversión Exitosa!");
                         stState.finalBlob = aacBlob;
                     } catch (err) {
-                        console.error("FFmpeg Falló:", err);
-                        stState.finalBlob = opusBlob; // Fallback
-                        alert("Conversión falló (Memoria insuficiente). Se descarga original.");
+                        console.error("[V51] Error conversión:", err);
+                        stState.finalBlob = opusBlob; 
+                        alert("Fallo conversión. Se descarga original.");
                     }
                 } else {
+                    console.log("[V51] FFmpeg no listo. Usando original.");
                     stState.finalBlob = opusBlob;
                 }
                 
@@ -867,6 +564,3 @@
         };
     }
 </script>
-
-</body>
-</html>
