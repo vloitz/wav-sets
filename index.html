@@ -296,11 +296,14 @@
 
 <script type="module">
     import { Muxer, ArrayBufferTarget } from 'https://esm.sh/mp4-muxer@5.1.0';
-    // Importamos la versión 0.11.x que funciona sin headers de seguridad y en móviles
-    import { createFFmpeg, fetchFile } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/+esm';
 
-    const version = "V53: Sequential Memory Relay (Opus Rec -> Purge -> AAC Convert)";
+    const version = "V54: Script-Tag FFmpeg + Sequential Flow (Robust Loader)";
     console.log(`[STORY MODULE] CARGANDO ${version}`);
+
+    // --- VARIABLES GLOBALES ---
+    let ffmpeg = null;
+    const FFmpegLibURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js';
+    const FFmpegCoreURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js';
 
     const stDOM = {
         openBtn: document.getElementById('stOpenBtn'),
@@ -325,47 +328,62 @@
 
     const stCtx = stDOM.canvas.getContext('2d', { alpha: false, desynchronized: true });
 
-    // Estado global
-    let stState = {
+    const stState = {
         isEncoding: false,
         finalBlob: null,
         intermediateBlob: null,
+        audioData: new Array(20).fill(5),
+        staticCanvas: null,
         config: {},
         currentSetData: null,
         startTime: 0,
-        // Referencias pesadas para limpiar
         audioContext: null,
         mediaStreamDest: null,
         sourceNode: null,
         shadowAudio: null,
         blobUrl: null,
         analyserNode: null,
-        ffmpeg: null
+        keepAliveOsc: null
     };
 
     const stCoverImg = new Image();
     stCoverImg.crossOrigin = "Anonymous";
 
-    // --- CARGA DIFERIDA DE FFMPEG ---
-    // No lo cargamos al inicio para no ocupar RAM mientras navegas
-    const loadFFmpeg = async () => {
-        if (stState.ffmpeg) return true;
+    // --- CARGADOR ROBUSTO DE FFMPEG ---
+    function loadFFmpegScript() {
+        return new Promise((resolve, reject) => {
+            if (window.FFmpeg) { resolve(); return; } // Ya existe
+
+            const script = document.createElement('script');
+            script.src = FFmpegLibURL;
+            script.onload = () => {
+                console.log("[V54] Librería FFmpeg descargada.");
+                resolve();
+            };
+            script.onerror = () => reject(new Error("No se pudo descargar FFmpeg.js"));
+            document.body.appendChild(script);
+        });
+    }
+
+    async function initFFmpeg() {
         try {
-            console.log("[V53] Cargando motor de conversión...");
-            stDOM.statusText.innerText = "Cargando motor de audio...";
-            stState.ffmpeg = createFFmpeg({
+            await loadFFmpegScript();
+
+            const { createFFmpeg } = window.FFmpeg;
+            ffmpeg = createFFmpeg({
                 log: true,
-                corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js' // Versión Single-Thread segura
+                corePath: FFmpegCoreURL // URL explícita para evitar errores de ruta
             });
-            await stState.ffmpeg.load();
-            console.log("[V53] Motor Listo.");
+
+            await ffmpeg.load();
+            console.log("[V54] Motor FFmpeg INICIALIZADO.");
             return true;
         } catch (e) {
-            console.error("Error cargando FFmpeg:", e);
-            alert("No se pudo cargar el convertidor. Revisa tu conexión.");
+            console.error("[V54] Error crítico cargando motor:", e);
+            alert(`Error cargando convertidor: ${e.message}. Revisa tu internet.`);
             return false;
         }
-    };
+    }
 
     // --- UI EVENTS ---
     if(stDOM.hqToggle) {
@@ -400,6 +418,9 @@
             resetModule();
             stDOM.statusText.innerText = version;
             stDOM.statusText.style.color = "#00ff00";
+
+            // Precargar motor al abrir el modal (ahorra tiempo)
+            if (!ffmpeg) initFFmpeg();
         });
     }
 
@@ -421,7 +442,6 @@
         fullCleanup();
     }
 
-    // --- LIMPIEZA AGRESIVA (EL PURGADO) ---
     function fullCleanup() {
         if (stState.shadowAudio) {
             stState.shadowAudio.pause();
@@ -429,10 +449,6 @@
             stState.shadowAudio.src = "";
             stState.shadowAudio = null;
         }
-        if (stState.sourceNode) { try{stState.sourceNode.disconnect();}catch(e){} stState.sourceNode=null; }
-        if (stState.analyserNode) { try{stState.analyserNode.disconnect();}catch(e){} stState.analyserNode=null; }
-        if (stState.mediaStreamDest) { stState.mediaStreamDest=null; }
-
         if (stState.audioContext) {
             try { stState.audioContext.close(); } catch(e){}
             stState.audioContext = null;
@@ -441,22 +457,25 @@
             URL.revokeObjectURL(stState.blobUrl);
             stState.blobUrl = null;
         }
-        // Forzamos al recolector de basura de JS soltando referencias
         stState.audioData = new Array(20).fill(5);
     }
 
-    // --- START BUTTON (SECUENCIAL) ---
+    // --- START BUTTON (SECURE FLOW) ---
     stDOM.startBtn.addEventListener('click', async () => {
         if (stState.isEncoding) return;
         stDOM.startBtn.disabled = true;
 
-        // FASE 1: Cargar Motor
-        if (!await loadFFmpeg()) {
-            resetModule();
-            return;
+        // VERIFICACIÓN DE MOTOR
+        if (!ffmpeg || !ffmpeg.isLoaded()) {
+            stDOM.startBtn.innerText = "Cargando Motor...";
+            const loaded = await initFFmpeg();
+            if (!loaded) {
+                resetModule();
+                return;
+            }
         }
 
-        stDOM.startBtn.innerText = "Grabando (Paso 1)...";
+        stDOM.startBtn.innerText = "Paso 1: Grabando...";
         const mainAudio = document.getElementById('audio-player');
         if (!mainAudio.paused) mainAudio.pause();
 
@@ -468,7 +487,7 @@
                 stState.blobUrl = URL.createObjectURL(blob);
             }
 
-            // Configuración Base (La que funciona: Opus 48k)
+            // Motor V38.5 (Opus 48k)
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             stState.audioContext = new AudioContext({ latencyHint: 'playback', sampleRate: 48000 });
 
@@ -489,6 +508,13 @@
             stState.sourceNode.connect(stState.analyserNode);
             stState.analyserNode.connect(stState.mediaStreamDest);
             stState.sourceNode.connect(stState.audioContext.destination);
+
+            const osc = stState.audioContext.createOscillator();
+            const gain = stState.audioContext.createGain();
+            osc.frequency.value = 1; gain.gain.value = 0.0001;
+            osc.connect(gain); gain.connect(stState.mediaStreamDest);
+            osc.start();
+            stState.keepAliveOsc = osc;
 
             stDOM.startBtn.innerText = "Sincronizando...";
             await stState.shadowAudio.play();
@@ -553,7 +579,7 @@
         });
     }
 
-    // --- FASE 1: GRABACIÓN (Genera MP4 Opus) ---
+    // --- FASE 1: GRABAR OPUS (Lo que tu móvil sabe hacer) ---
     async function runRecordingPhase() {
         const trackProcessor = new MediaStreamTrackProcessor({ track: stState.mediaStreamDest.stream.getAudioTracks()[0] });
         const audioReader = trackProcessor.readable.getReader();
@@ -681,24 +707,25 @@
         if (buffer.byteLength > 0) {
             stState.intermediateBlob = new Blob([buffer], { type: 'video/mp4' });
 
-            // FASE 2: PURGADO
-            console.log("[V53] Purgando memoria...");
-            fullCleanup(); // Liberamos RAM antes de FFmpeg
+            // FASE 2: PURGADO TOTAL DE MEMORIA
+            console.log("[V54] Purgando RAM...");
+            fullCleanup(); // Liberamos RAM del navegador
 
             // FASE 3: CONVERSIÓN
-            setTimeout(runConversionPhase, 500); // Pequeña pausa
+            // Pequeño delay para que el Garbage Collector respire
+            setTimeout(runConversionPhase, 1000);
         } else {
             alert("Error: 0 bytes.");
             resetModule();
         }
     }
 
-    // --- FASE 3: CONVERSIÓN (El "FreeConvert" Local) ---
+    // --- FASE 3: CONVERSIÓN (El Milagro) ---
     async function runConversionPhase() {
-        stDOM.statusText.innerHTML = `<span style="color:#ffa500">⚙️ CONVIRTIENDO AUDIO (AAC)...</span>`;
-        console.log("[V53] Iniciando transcodificación...");
+        stDOM.statusText.innerHTML = `<span style="color:#ffa500">⚙️ CONVIRTIENDO (Paso 2)...</span>`;
+        console.log("[V54] Iniciando conversión FFmpeg...");
 
-        const ffmpeg = stState.ffmpeg;
+        const { fetchFile } = window.FFmpeg;
         const inputName = 'temp_opus.mp4';
         const outputName = 'story_aac.mp4';
 
@@ -714,7 +741,7 @@
                 '-c:v', 'copy',
                 '-c:a', 'aac',
                 '-b:a', '128k',
-                '-strict', 'experimental', // Clave para AAC
+                '-strict', 'experimental',
                 outputName
             );
 
@@ -729,19 +756,19 @@
 
             // 5. Entregar
             stState.finalBlob = new Blob([data.buffer], { type: 'video/mp4' });
-            console.log("[V53] ¡ÉXITO! Archivo AAC generado.");
+            console.log("[V54] ¡ÉXITO! Archivo AAC generado.");
             stShowFinalUI();
 
         } catch (e) {
-            console.error("[V53] Falló FFmpeg:", e);
-            // Fallback: Entregar el original (al menos se ve en Chrome)
+            console.error("[V54] Falló FFmpeg:", e);
+            // Fallback: Entregar el original
             stState.finalBlob = stState.intermediateBlob;
             alert("Memoria insuficiente para convertir audio. Se descarga el original.");
             stShowFinalUI();
         }
     }
 
-    // UTILS GRAFICOS (Igual)
+    // UTILS GRAFICOS
     function roundRect(ctx, x, y, w, h, r) {
         if (w < 2 * r) r = w / 2; if (h < 2 * r) r = h / 2;
         ctx.moveTo(x+r, y); ctx.arcTo(x+w, y, x+w, y+h, r);
