@@ -297,10 +297,10 @@
 <script type="module">
     import { Muxer, ArrayBufferTarget } from 'https://esm.sh/mp4-muxer@5.1.0';
 
-    const version = "V56: Cloud Fixer (API Key Integrada)";
+    const version = "V56.5: Cloud Fixer (Safe Mode - Auto Codec)";
     console.log(`[STORY MODULE] CARGANDO ${version}`);
 
-    // --- TU LLAVE MAESTRA (Ya integrada) ---
+    // --- TU LLAVE MAESTRA ---
     const API_KEY = 'api_production_3706deb6dca4a4a05edf51545b39af7100674dcd07ecf713f2d47f7d75ff92cf.6934f748142a194b3640feb5.6934fa2ea22aa85dd55c0fb2';
 
     const stDOM = {
@@ -329,7 +329,7 @@
     const stState = {
         isEncoding: false,
         finalBlob: null,
-        localBlob: null, // Respaldo del archivo Opus
+        localBlob: null,
         audioData: new Array(20).fill(5),
         staticCanvas: null,
         config: {},
@@ -421,6 +421,7 @@
     // --- START BUTTON ---
     stDOM.startBtn.addEventListener('click', async () => {
         if (stState.isEncoding) return;
+
         stDOM.startBtn.disabled = true;
         stDOM.startBtn.innerText = "Paso 1: Grabando...";
 
@@ -435,8 +436,7 @@
                 stState.blobUrl = URL.createObjectURL(blob);
             }
 
-            // --- CONFIGURACIÓN ESTABLE V38.5 (MP4 + OPUS) ---
-            // Usamos 48000Hz porque es lo que tu móvil soporta bien
+            // CONFIGURACIÓN V38.5 (MP4 + Opus)
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             stState.audioContext = new AudioContext({ latencyHint: 'playback', sampleRate: 48000 });
 
@@ -527,7 +527,6 @@
         });
     }
 
-    // --- GRABACIÓN LOCAL (V38.5 - Estable) ---
     async function runRecordingPhase() {
         const trackProcessor = new MediaStreamTrackProcessor({ track: stState.mediaStreamDest.stream.getAudioTracks()[0] });
         const audioReader = trackProcessor.readable.getReader();
@@ -652,111 +651,102 @@
         const buffer = muxer.target.buffer;
 
         if (buffer.byteLength > 0) {
-            // Guardamos el blob crudo (MP4+Opus)
+            // Guardamos el blob local
             stState.localBlob = new Blob([buffer], { type: 'video/mp4' });
 
-            // FASE 2: ENVIAR A LA NUBE (FreeConvert)
+            // FASE 2: ENVIAR A LA NUBE
             cleanupAudio(); // Liberar memoria
-            uploadAndConvertAPI(stState.localBlob);
+            uploadToFreeConvert(stState.localBlob);
         } else {
             alert("Error: 0 bytes.");
             resetModule();
         }
     }
 
-    // --- FASE 2: INTEGRACIÓN API FREECONVERT ---
-    async function uploadAndConvertAPI(blob) {
-        // Usamos la API Key integrada
-        const key = API_KEY;
-        if (!key) {
-            alert("Error: Falta API Key. Descargando original.");
-            stState.finalBlob = blob;
+    // --- FASE 2: INTEGRACIÓN API FREECONVERT (MODO SEGURO) ---
+    async function uploadToFreeConvert(fileBlob) {
+        if (!API_KEY) {
+            alert("Falta API Key. Se descarga el original.");
+            stState.finalBlob = fileBlob;
             stShowFinalUI(false);
             return;
         }
 
-        stDOM.statusText.innerHTML = `<span style="color:#00aaff">☁️ SUBIENDO A FREECONVERT...</span>`;
+        stDOM.statusText.innerHTML = `<span style="color:#00aaff">☁️ SUBIENDO...</span>`;
+        console.log("[V56.5] Iniciando proceso API...");
 
         try {
             // 1. Obtener URL de subida
             const importRes = await fetch('https://api.freeconvert.com/v1/process/import/upload', {
                 method: 'POST',
-                headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' }
+                headers: { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json' }
             });
-
-            if (!importRes.ok) {
-                const errData = await importRes.json();
-                throw new Error(errData.message || "Error API Init");
-            }
-
             const importData = await importRes.json();
-            const uploadUrl = importData.presigned_url;
 
-            // 2. Subir Archivo
-            await fetch(uploadUrl, {
+            if (!importRes.ok) throw new Error(importData.message || "Fallo Import");
+            const uploadUrl = importData.presigned_url;
+            const inputFileId = importData.id;
+
+            // 2. Subir Archivo (PUT directo)
+            const uploadRes = await fetch(uploadUrl, {
                 method: 'PUT',
-                body: blob,
+                body: fileBlob,
                 headers: { 'Content-Type': 'video/mp4' }
             });
 
-            // 3. Crear Trabajo de Conversión
-            stDOM.statusText.innerHTML = `<span style="color:#ffa500">⚙️ PROCESANDO (COPY VIDEO + AAC)...</span>`;
+            if (!uploadRes.ok) throw new Error("Fallo en la subida del archivo (Network/CORS)");
 
+            // 3. Crear Trabajo de Conversión
+            stDOM.statusText.innerHTML = `<span style="color:#ffa500">⚙️ CONVIRTIENDO (AUTO)...</span>`;
+
+            // CAMBIO V56.5: Usamos input_group_id para mayor seguridad y codecs AUTO para evitar cuelgues
             const convertRes = await fetch('https://api.freeconvert.com/v1/process/convert', {
                 method: 'POST',
-                headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+                headers: { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    input_group_id: importData.import_id, // Identificador del archivo subido
+                    input_group_id: importData.import_id,
                     output_format: 'mp4',
                     options: {
-                        audio_codec: "aac", // LA CLAVE: Forzar AAC
-                        video_codec: "copy" // RAPIDEZ: No tocar video
+                        // En lugar de copy, usamos auto para que el servidor reconstruya si está dañado
+                        audio_codec: "aac",
+                        video_codec: "auto"
                     }
                 })
             });
 
-            if (!convertRes.ok) {
-                const errData = await convertRes.json();
-                throw new Error(errData.message || "Fallo en Convert");
-            }
-
             const jobData = await convertRes.json();
+            if (!convertRes.ok) throw new Error(jobData.message || "Fallo Convert");
             const jobId = jobData.id;
 
-            // 4. Polling (Esperar resultado)
+            // 4. Polling
             let resultUrl = null;
             let attempts = 0;
 
-            while (attempts < 30) { // Max 60 seg
+            while (attempts < 40) { // Esperar hasta 80s
                 await new Promise(r => setTimeout(r, 2000));
 
                 const statusRes = await fetch(`https://api.freeconvert.com/v1/process/jobs/${jobId}`, {
-                    headers: { 'Authorization': `Bearer ${key}` }
+                    headers: { 'Authorization': `Bearer ${API_KEY}` }
                 });
                 const statusData = await statusRes.json();
 
                 if (statusData.status === 'completed') {
-                    // Buscar la URL del resultado
-                    if (statusData.tasks) {
+                    if (statusData.tasks && statusData.tasks.length > 0) {
                         const exportTask = statusData.tasks.find(t => t.operation === "export/url" && t.status === "completed");
-                        if (exportTask && exportTask.result) {
-                            resultUrl = exportTask.result.url;
-                        }
+                        if (exportTask?.result?.url) resultUrl = exportTask.result.url;
                     }
-                    if (!resultUrl && statusData.result && statusData.result.url) {
-                         resultUrl = statusData.result.url;
-                    }
+                    if (!resultUrl && statusData.result?.url) resultUrl = statusData.result.url;
                     break;
                 } else if (statusData.status === 'failed') {
-                    throw new Error("El trabajo falló en el servidor.");
+                    throw new Error("El servidor falló al procesar el archivo.");
                 }
                 attempts++;
             }
 
-            if (!resultUrl) throw new Error("Tiempo de espera agotado.");
+            if (!resultUrl) throw new Error("Tiempo agotado.");
 
             // 5. Descargar Resultado
-            stDOM.statusText.innerHTML = `<span style="color:#0f0">📥 BAJANDO MP4 FINAL...</span>`;
+            stDOM.statusText.innerHTML = `<span style="color:#0f0">📥 BAJANDO FINAL...</span>`;
             const finalRes = await fetch(resultUrl);
             const finalBuffer = await finalRes.arrayBuffer();
 
@@ -764,14 +754,14 @@
             stShowFinalUI(true);
 
         } catch (e) {
-            console.error(e);
-            alert(`Error API: ${e.message}. Se descarga el original (Opus).`);
+            console.error("API Error:", e);
+            alert(`Error Nube: ${e.message}. Se descarga el original.`);
             stState.finalBlob = stState.localBlob;
             stShowFinalUI(false);
         }
     }
 
-    // UTILS VISUALES
+    // UTILS (Visuales sin cambios)
     function roundRect(ctx, x, y, w, h, r) {
         if (w < 2 * r) r = w / 2; if (h < 2 * r) r = h / 2;
         ctx.moveTo(x+r, y); ctx.arcTo(x+w, y, x+w, y+h, r);
@@ -867,7 +857,7 @@
         stDOM.finalActions.style.display = 'block';
         console.log(`[STORY MODULE] Listo.`);
 
-        if (isCloudSuccess) stDOM.statusText.innerHTML = `<span style="color:#0f0">✅ LISTO PARA WHATSAPP</span>`;
+        if (isCloudSuccess) stDOM.statusText.innerHTML = `<span style="color:#0f0">✅ FIXED (CLOUD)</span>`;
         else stDOM.statusText.innerHTML = `<span style="color:#f00">⚠️ ORIGINAL (OPUS)</span>`;
 
         stDOM.shareWaBtn.onclick = async () => {
