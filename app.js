@@ -238,52 +238,47 @@ document.addEventListener('DOMContentLoaded', () => {
     const ColorController = (() => {
         let palette = [];
 
-// Generador de paleta Ajustado (Vibrante pero menos Pastel)
         const generatePalette = () => {
+            // Tu Paleta "Contraste Técnico"
+            const baseTones = [
+                [29, 185, 84],   // 1. Verde Vloitz (Marca - Inicio)
+                [140, 0, 220],   // 2. Morado Profundo
+                [255, 100, 0],   // 3. Naranja Ámbar
+                [0, 120, 255],   // 4. Azul Eléctrico
+                [230, 0, 0],     // 5. Rojo Intenso
+                [0, 190, 200],   // 6. Cyan/Turquesa
+                [255, 190, 0],   // 7. Amarillo Oro
+                [80, 80, 80],    // 8. Gris Acero
+                [255, 50, 100],  // 9. Salmón Neón
+                [120, 220, 0]    // 10. Lima Ácido
+            ];
 
-        // Paleta Reordenada (Estilo "Cyberpunk/Tech" - Sin efecto Arcoíris)
-                    const baseTones = [
-                        [29, 185, 84],   // 1. Verde Vloitz (Marca - Inicio)
-                        [140, 0, 220],   // 2. Morado Profundo (Contraste fuerte)
-                        [255, 100, 0],   // 3. Naranja Ámbar (Cálido)
-                        [0, 120, 255],   // 4. Azul Eléctrico (Frío)
-                        [230, 0, 0],     // 5. Rojo Intenso (Agresivo)
-                        [0, 190, 200],   // 6. Cyan/Turquesa (Futurista)
-                        [255, 190, 0],   // 7. Amarillo Oro (Brillante)
-                        [80, 80, 80],    // 8. Gris Acero (Neutro/Descanso visual)
-                        [255, 50, 100],  // 9. Salmón Neón (Acento)
-                        [120, 220, 0]    // 10. Lima Ácido (Tech House vibe)
-                    ];
-
-            // Eliminamos la variación 'Muteado' que añadía mucho gris/blanco
-            const variations = ['Vibrante', 'Profundo', 'Intenso'];
+            // Variaciones sutiles para no aburrir, pero respetando el tono base
+            const variations = ['Normal', 'Profundo'];
 
             baseTones.forEach(([r, g, b]) => {
                 variations.forEach(variant => {
                     let finalR = r, finalG = g, finalB = b;
 
                     if (variant === 'Profundo') {
-                        // Oscurecer un 40% (Menos pastel, más dark mode)
-                        finalR = Math.round(r * 0.6);
-                        finalG = Math.round(g * 0.6);
-                        finalB = Math.round(b * 0.6);
-                    } else if (variant === 'Intenso') {
-                        // Saturación pura
-                        finalR = r; finalG = g; finalB = b;
+                        // Oscurecemos un poco (30%) para dar variedad sin cambiar el color base
+                        finalR = Math.round(r * 0.7);
+                        finalG = Math.round(g * 0.7);
+                        finalB = Math.round(b * 0.7);
                     }
 
-                    // Guardamos
+                    // AQUI ESTÁ LA CLAVE:
+                    // waveColor: Tiene opacidad (0.2) para que se vea la onda detrás.
+                    // textColor: Es el MISMO color RGB, pero con opacidad 1.0 (Sólido).
                     palette.push({
-                        // Bajamos opacidad a 0.2 (20%) para que se mezcle mejor con el fondo negro
                         waveColor: `rgba(${finalR}, ${finalG}, ${finalB}, 0.2)`,
                         textColor: `rgb(${finalR}, ${finalG}, ${finalB})`
                     });
                 });
             });
-            console.log(`[ColorController] Paleta ajustada generada.`);
+            console.log(`[ColorController] Paleta sincronizada generada.`);
         };
 
-        // Obtener color (con loop infinito si index > 30)
         const getColor = (index) => {
             if (palette.length === 0) generatePalette();
             return palette[index % palette.length];
