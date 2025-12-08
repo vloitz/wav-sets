@@ -205,30 +205,68 @@ body, html {
 .skip-btn:hover {
     color: var(--text-primary);
 }
-/* Tiempos (Izquierda del Share, Derecha del Next) */
+
+
+/* --- Visualización de Tiempo (Definitivo) --- */
 .time-display {
-    font-size: 0.85em;
-    color: var(--text-secondary);
-    font-variant-numeric: tabular-nums; /* Números monoespaciados para que no bailen */
-    min-width: 85px; /* Reserva espacio fijo */
-    text-align: center;
+    margin-left: auto; /* Se pega a la derecha */
     display: flex;
-    justify-content: center;
-    gap: 4px;
+    align-items: center;
+    justify-content: flex-end;
+
+    /* Tipografía técnica para estabilidad numérica */
+    font-family: 'Roboto Mono', monospace, sans-serif;
+    font-size: 0.85em; /* Tamaño ideal y legible */
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums; /* Evita que los números "bailen" */
+
+    /* Ya no necesitamos apretar las letras */
+    letter-spacing: normal;
+    white-space: nowrap;
 }
 
-/* Botón Share (Alineado a la derecha, pero flexible) */
-#shareBtn {
-    margin-left: auto; /* Empuja el botón al extremo derecho */
-    color: var(--text-secondary);
-    background: none;
-    border: none;
-    cursor: pointer;
-    transition: color 0.2s;
-    padding: 8px; /* Área de toque */
+.time-divider {
+    margin: 0 5px; /* Espacio cómodo alrededor de la barra / */
+    opacity: 0.5;
 }
-#shareBtn:hover { color: var(--brand-color); }
-#shareBtn svg { width: 22px; height: 22px; }
+
+/* Ajuste para móviles muy pequeños */
+@media (max-width: 380px) {
+    .time-display {
+        font-size: 0.8em;
+    }
+}
+
+.share-btn-floating {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    z-index: 10;
+    background-color: rgba(0, 0, 0, 0.5); /* Fondo oscuro semitransparente */
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #fff;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    padding: 0;
+}
+
+.share-btn-floating:hover {
+    background-color: var(--brand-color);
+    border-color: var(--brand-color);
+    color: #000;
+    transform: scale(1.1);
+}
+
+.share-btn-floating svg {
+    width: 16px;
+    height: 16px;
+}
 
 /* AJUSTES RESPONSIVE (MÓVIL) */
 @media (max-width: 450px) {
@@ -241,24 +279,6 @@ body, html {
         gap: 8px; /* Menos espacio entre botones en móvil */
     }
 
-/* Ajuste Quirúrgico para Tiempos Largos */
-.time-display {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-
-    /* Tipografía técnica para ahorrar espacio */
-    font-family: 'Roboto Mono', monospace, sans-serif; /* Si carga, mejor. Si no, sans-serif */
-    font-size: 0.7em; /* Un pelín más pequeño (antes 0.9em) */
-    font-weight: 500;
-    letter-spacing: -0.5px; /* Truco: Juntar un poco los números */
-    font-variant-numeric: tabular-nums; /* Evita que el ancho cambie al correr los segundos */
-
-    color: var(--text-secondary);
-    min-width: 80px; /* Ancho mínimo controlado */
-    white-space: nowrap; /* Prohibido saltar de línea */
-}
 
 
 /* Reducir márgenes del divisor "/" */
