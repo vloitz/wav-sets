@@ -275,7 +275,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Guardamos
                     palette.push({
                         // Bajamos opacidad a 0.2 (20%) para que se mezcle mejor con el fondo negro
-                        waveColor: `rgba(${finalR}, ${finalG}, ${finalB}, 0.25)`,
+                        waveColor: `rgba(${finalR}, ${finalG}, ${finalB}, 0.2)`,
                         textColor: `rgb(${finalR}, ${finalG}, ${finalB})`
                     });
                 });
