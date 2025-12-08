@@ -238,49 +238,39 @@ document.addEventListener('DOMContentLoaded', () => {
     const ColorController = (() => {
         let palette = [];
 
-        // Generador de paleta profesional (Portado de segmentos.html)
+// Generador de paleta Ajustado (Vibrante pero menos Pastel)
         const generatePalette = () => {
-            /*
             const baseTones = [
                 [230, 0, 0],   [0, 200, 80],   [0, 120, 255], [255, 190, 0], [220, 0, 200],
                 [0, 190, 200], [255, 100, 0],  [140, 0, 220], [120, 220, 0], [255, 50, 100]
             ];
-            */
 
-            const baseTones = [
-                [29, 185, 84],  // Verde Spotify (Marca)
-                [80, 80, 80],   // Gris Oscuro
-                [200, 200, 200], // Gris Claro
-                [40, 160, 100], // Verde Bosque
-                [100, 100, 100] // Gris Medio
-            ];
-
-            const variations = ['Vibrante', 'Muteado', 'Profundo'];
+            // Eliminamos la variación 'Muteado' que añadía mucho gris/blanco
+            const variations = ['Vibrante', 'Profundo', 'Intenso'];
 
             baseTones.forEach(([r, g, b]) => {
                 variations.forEach(variant => {
                     let finalR = r, finalG = g, finalB = b;
 
-                    if (variant === 'Muteado') {
-                        const intensity = 0.6;
-                        const gray = (r + g + b) / 3;
-                        finalR = Math.round(r * intensity + gray * (1 - intensity));
-                        finalG = Math.round(g * intensity + gray * (1 - intensity));
-                        finalB = Math.round(b * intensity + gray * (1 - intensity));
-                    } else if (variant === 'Profundo') {
-                        finalR = Math.round(r * 0.5);
-                        finalG = Math.round(g * 0.5);
-                        finalB = Math.round(b * 0.5);
+                    if (variant === 'Profundo') {
+                        // Oscurecer un 40% (Menos pastel, más dark mode)
+                        finalR = Math.round(r * 0.6);
+                        finalG = Math.round(g * 0.6);
+                        finalB = Math.round(b * 0.6);
+                    } else if (variant === 'Intenso') {
+                        // Saturación pura
+                        finalR = r; finalG = g; finalB = b;
                     }
 
-                    // Guardamos rgba para la onda (transparente) y rgb para el texto (solido)
+                    // Guardamos
                     palette.push({
-                        waveColor: `rgba(${finalR}, ${finalG}, ${finalB}, 0.25)`, // 25% opacidad para fondo
-                        textColor: `rgb(${finalR}, ${finalG}, ${finalB})`         // 100% opacidad para texto
+                        // Bajamos opacidad a 0.2 (20%) para que se mezcle mejor con el fondo negro
+                        waveColor: `rgba(${finalR}, ${finalG}, ${finalB}, 0.2)`,
+                        textColor: `rgb(${finalR}, ${finalG}, ${finalB})`
                     });
                 });
             });
-            console.log(`[ColorController] Paleta generada con ${palette.length} tonos.`);
+            console.log(`[ColorController] Paleta ajustada generada.`);
         };
 
         // Obtener color (con loop infinito si index > 30)
