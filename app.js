@@ -560,15 +560,23 @@ let wasPlayingBeforeDrag = false; // Para saber si pausar/reanudar
         }
     }
 
-    // Formatear tiempo
+// Formatear tiempo inteligente (Soporte para +1 Hora)
     function formatTime(seconds) {
         seconds = Number(seconds);
-        if (isNaN(seconds) || seconds < 0) {
-            seconds = 0;
+        if (isNaN(seconds) || seconds < 0) seconds = 0;
+
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = Math.floor(seconds % 60);
+
+        const mDisplay = m < 10 ? (h > 0 ? '0' + m : m) : m; // Si hay hora, poner 0 al minuto (1:05:00)
+        const sDisplay = s < 10 ? '0' + s : s;
+
+        if (h > 0) {
+            return `${h}:${mDisplay}:${sDisplay}`; // Formato H:MM:SS
+        } else {
+            return `${mDisplay}:${sDisplay}`;      // Formato MM:SS
         }
-        const minutes = Math.floor(seconds / 60);
-        const secs = Math.floor(seconds % 60);
-        return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
     }
 
     // --- Mostrar el tracklist del set actual ---
