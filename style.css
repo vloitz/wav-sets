@@ -276,7 +276,7 @@ body, html {
     }
 
     .controls-center-group {
-        gap: 8px; /* Menos espacio entre botones en móvil */
+        gap: 1px; /* Menos espacio entre botones en móvil */
     }
 
 
