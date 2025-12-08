@@ -297,10 +297,9 @@
 <script type="module">
     import { Muxer, ArrayBufferTarget } from 'https://esm.sh/mp4-muxer@5.1.0';
 
-    const version = "V78: Visual Perfection (Fix 0:15 Timer) + Server";
+    const version = "V79+: iOS/Android Universal (Auto-Detect + Compat Check)";
     console.log(`[STORY MODULE] CARGANDO ${version}`);
 
-    // --- TU SERVIDOR (Render) ---
     const SERVER_URL = 'https://vloitz-server.onrender.com';
 
     const stDOM = {
@@ -331,6 +330,7 @@
         finalBlob: null,
         videoBlob: null,
         audioBlob: null,
+        audioExt: 'webm', // Se detectará dinámicamente
         audioData: new Array(20).fill(5),
         staticCanvas: null,
         durationSeconds: 15,
@@ -344,11 +344,61 @@
         analyserNode: null,
         mediaRecorder: null,
         audioChunks: [],
-        keepAliveOsc: null
+        keepAliveOsc: null,
+        isIOS: false
     };
 
     const stCoverImg = new Image();
     stCoverImg.crossOrigin = "Anonymous";
+
+    // --- DETECCIÓN DE COMPATIBILIDAD ---
+    function checkCompatibility() {
+        const issues = [];
+
+        // 1. Check WebCodecs (necesario para video H.264)
+        if (typeof VideoEncoder === 'undefined') {
+            issues.push('Tu navegador no soporta WebCodecs (VideoEncoder)');
+        }
+
+        // 2. Check MediaRecorder (necesario para audio)
+        if (typeof MediaRecorder === 'undefined') {
+            issues.push('Tu navegador no soporta MediaRecorder');
+        }
+
+        // 3. Check formato de audio (WebM o MP4)
+        const supportsWebM = MediaRecorder.isTypeSupported?.('audio/webm;codecs=opus');
+        const supportsMP4 = MediaRecorder.isTypeSupported?.('audio/mp4');
+
+        if (!supportsWebM && !supportsMP4) {
+            issues.push('No se detectó soporte para grabación de audio');
+        }
+
+        // 4. Detectar iOS
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+        if (isIOS) {
+            console.log('[V79+] Dispositivo iOS detectado');
+
+            // iOS requiere 17.4+ para WebCodecs
+            const iOSVersion = navigator.userAgent.match(/OS (\d+)_/);
+            const version = iOSVersion ? parseInt(iOSVersion[1]) : 0;
+
+            if (version > 0 && version < 17) {
+                issues.push(`iOS ${version} detectado. Se requiere iOS 17.4+ para esta función.`);
+            } else if (version >= 17) {
+                console.log(`[V79+] iOS ${version} compatible ✓`);
+            }
+        }
+
+        return {
+            compatible: issues.length === 0,
+            issues,
+            isIOS,
+            supportsWebM,
+            supportsMP4
+        };
+    }
 
     // --- UI EVENTS ---
     if(stDOM.hqToggle) {
@@ -418,9 +468,32 @@
         }
     }
 
-    // --- START BUTTON ---
+    // --- START BUTTON (CON CHECK DE COMPATIBILIDAD) ---
     stDOM.startBtn.addEventListener('click', async () => {
         if (stState.isEncoding) return;
+
+        // ✅ VERIFICAR COMPATIBILIDAD
+        const compat = checkCompatibility();
+
+        if (!compat.compatible) {
+            const msg = '❌ Dispositivo no compatible\n\n' +
+                        compat.issues.join('\n\n') +
+                        '\n\n📱 Requisitos mínimos:\n' +
+                        '• Android 5+ con Chrome 94+\n' +
+                        '• iOS 17.4+ con Safari\n' +
+                        '• 2GB+ RAM recomendado';
+            alert(msg);
+            return;
+        }
+
+        // Guardar info de plataforma
+        stState.isIOS = compat.isIOS;
+
+        if (stState.isIOS) {
+            console.log('[V79+] Modo iOS activado');
+        } else {
+            console.log('[V79+] Modo Android activado');
+        }
 
         stDOM.startBtn.disabled = true;
         stDOM.startBtn.innerText = "Preparando...";
@@ -448,13 +521,14 @@
 
             stPrepareStaticLayer();
 
-            // 1. PASE DE AUDIO (Nativo)
+            // 1. PASE DE AUDIO (Auto-detect iOS/Android)
             stDOM.statusText.innerText = "Fase 1: Capturando Audio...";
             stState.audioBlob = await runAudioPass();
 
             if (!stState.audioBlob || stState.audioBlob.size === 0) throw new Error("Blob de audio vacío");
+            console.log(`[V79+] Audio: ${(stState.audioBlob.size/1024).toFixed(1)} KB (${stState.audioExt})`);
 
-            // 2. PASE DE VIDEO (Visual Perfect)
+            // 2. PASE DE VIDEO
             stDOM.statusText.innerText = "Fase 2: Renderizando Video...";
             stState.shadowAudio.currentTime = stState.startTime;
             await new Promise(r => setTimeout(r, 100));
@@ -462,6 +536,7 @@
             stState.videoBlob = await runVideoPass();
 
             if (!stState.videoBlob || stState.videoBlob.size === 0) throw new Error("Video vacío");
+            console.log(`[V79+] Video: ${(stState.videoBlob.size/1024).toFixed(1)} KB`);
 
             // 3. SUBIDA
             await handleServerUpload();
@@ -498,7 +573,7 @@
         stState.sourceNode.connect(stState.audioContext.destination);
 
         await new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => reject(new Error("Timeout carga audio")), 30000);
+            const timeout = setTimeout(() => reject(new Error("Timeout carga audio (Red lenta)")), 30000);
             const checkReady = () => {
                 if (stState.shadowAudio.readyState >= 3) {
                     clearTimeout(timeout);
@@ -507,21 +582,41 @@
             };
             stState.shadowAudio.addEventListener('canplay', checkReady);
             stState.shadowAudio.addEventListener('canplaythrough', checkReady);
-            stState.shadowAudio.addEventListener('error', (e) => reject(new Error("Error red")), { once: true });
+            stState.shadowAudio.addEventListener('error', (e) => reject(new Error("Error de red")), { once: true });
             stState.shadowAudio.load();
             checkReady();
         });
     }
 
-    // --- PASE 1: AUDIO ---
+    // --- PASE 1: AUDIO (AUTO-DETECT iOS/ANDROID) ---
     function runAudioPass() {
         return new Promise(async (resolve, reject) => {
             const audioStream = stState.mediaStreamDest.stream;
-            const options = { mimeType: 'audio/webm;codecs=opus' };
+
+            // ✅ DETECCIÓN AUTOMÁTICA DE FORMATO
+            let options = { mimeType: 'audio/webm;codecs=opus' };
+            stState.audioExt = 'webm';
+
+            // Check WebM (Android preferido)
+            if (!MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+                // Fallback a MP4 (iOS)
+                if (MediaRecorder.isTypeSupported('audio/mp4')) {
+                    console.log("[V79+] Usando formato iOS (MP4/AAC)");
+                    options = { mimeType: 'audio/mp4' };
+                    stState.audioExt = 'm4a';
+                } else {
+                    console.warn("[V79+] Formato desconocido, usando default");
+                    options = {};
+                    stState.audioExt = 'webm';
+                }
+            } else {
+                console.log("[V79+] Usando formato Android (WebM/Opus)");
+            }
 
             try {
                 stState.mediaRecorder = new MediaRecorder(audioStream, options);
             } catch(e) {
+                console.error("Error MediaRecorder:", e);
                 stState.mediaRecorder = new MediaRecorder(audioStream);
             }
 
@@ -531,7 +626,8 @@
             };
 
             stState.mediaRecorder.onstop = () => {
-                const blob = new Blob(stState.audioChunks, { type: 'audio/webm' });
+                const finalType = stState.mediaRecorder.mimeType || options.mimeType || 'audio/webm';
+                const blob = new Blob(stState.audioChunks, { type: finalType });
                 resolve(blob);
             };
 
@@ -547,7 +643,7 @@
         });
     }
 
-    // --- PASE 2: VIDEO (VISUAL FIX V78) ---
+    // --- PASE 2: VIDEO (VISUAL FIX + SYNC-LOCK) ---
     function runVideoPass() {
         return new Promise(async (resolve, reject) => {
             let muxer = new Muxer({
@@ -562,10 +658,14 @@
                 error: e => console.error("Video Error:", e)
             });
             videoEncoder.configure({
-                codec: 'avc1.42001E', width: stState.config.width, height: stState.config.height,
-                bitrate: 2000000, framerate: stState.config.fps
+                codec: 'avc1.42001E',
+                width: stState.config.width,
+                height: stState.config.height,
+                bitrate: 2000000,
+                framerate: stState.config.fps
             });
 
+            // SYNC-LOCK
             await stState.shadowAudio.play();
 
             const initialTime = stState.shadowAudio.currentTime;
@@ -581,8 +681,7 @@
                 let elapsed = now - startTime;
                 let isLastFrame = false;
 
-                // --- MAGIA VISUAL: CLAMPING ---
-                // Si nos pasamos, forzamos a que sea el tiempo exacto para el último frame
+                // CLAMPING para 0:15 exacto
                 if (elapsed >= durationMs) {
                     elapsed = durationMs;
                     isLastFrame = true;
@@ -591,9 +690,6 @@
                 stDOM.progressFill.style.width = (elapsed / durationMs) * 100 + "%";
                 stUpdateAudioSimulation(frameCount);
                 stCtx.drawImage(stState.staticCanvas, 0, 0);
-
-                // Ahora stDrawDynamicLayer recibirá 15.000 exactos en el último frame
-                // 15.000 / 1 = 15 -> Math.floor(15) = 15. ¡TEXTO 0:15 GARANTIZADO!
                 stDrawDynamicLayer(elapsed / 1000);
 
                 const vFrame = new VideoFrame(stDOM.canvas, {
@@ -608,7 +704,6 @@
                 frameCount++;
 
                 if (isLastFrame) {
-                    // Detenemos y cerramos DESPUÉS de haber dibujado el frame 15
                     stState.shadowAudio.pause();
                     videoEncoder.flush().then(() => {
                         videoEncoder.close();
@@ -630,7 +725,12 @@
         try {
             const formData = new FormData();
             formData.append('video', stState.videoBlob, 'video.mp4');
-            formData.append('audio', stState.audioBlob, 'audio.webm');
+
+            // ✅ ENVÍO DINÁMICO SEGÚN FORMATO DETECTADO
+            const audioFilename = `audio.${stState.audioExt}`;
+            formData.append('audio', stState.audioBlob, audioFilename);
+
+            console.log(`[V79+] Enviando: video.mp4 + ${audioFilename}`);
 
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 300000);
@@ -655,7 +755,7 @@
 
         } catch (e) {
             console.error(e);
-            alert(`Error Servidor: ${e.message}.`);
+            alert(`Error Servidor: ${e.message}`);
             stState.finalBlob = stState.videoBlob;
             stShowFinalUI();
         } finally {
@@ -663,7 +763,7 @@
         }
     }
 
-    // UTILS
+    // UTILS (Igual que V78)
     function roundRect(ctx, x, y, w, h, r) {
         if (w < 2 * r) r = w / 2; if (h < 2 * r) r = h / 2;
         ctx.moveTo(x+r, y); ctx.arcTo(x+w, y, x+w, y+h, r);
@@ -737,15 +837,14 @@
         }
         const progY = barsBaseY + 10;
         stCtx.fillStyle = "#333"; stCtx.fillRect(startX, progY, imgSize, 3);
-        const progress = Math.min(1, secondsElapsed / stState.config.duration);
+        const progress = Math.min(1, secondsElapsed / stState.durationSeconds);
         stCtx.fillStyle = "#1DB954"; stCtx.fillRect(startX, progY, imgSize * progress, 3);
         stCtx.beginPath(); stCtx.arc(startX + (imgSize * progress), progY + 1.5, 3, 0, Math.PI*2); stCtx.fill();
 
         const timeY = barsBaseY + 10 + 15;
         stCtx.fillStyle = "#666"; stCtx.font = "400 9px Inter, sans-serif"; stCtx.textAlign = "left";
 
-        // --- RELOJ VISUAL RELATIVO ---
-        // Usamos secondsElapsed directamente que ahora sí llega a 15.000
+        // CONTADOR RELATIVO (0:00 → 0:15)
         const m = Math.floor(secondsElapsed / 60);
         const s = Math.floor(secondsElapsed % 60);
 
@@ -758,11 +857,10 @@
         stCtx.fillText("FLAC • HIFI", w/2, badgeY + 11);
     }
 
-    // UI FINAL
     function stShowFinalUI() {
         stDOM.loadingUI.style.display = 'none';
         stDOM.finalActions.style.display = 'block';
-        console.log(`[STORY MODULE] Listo.`);
+        console.log(`[V79+] Completado exitosamente`);
 
         stDOM.statusText.innerHTML = `<span style="color:#0f0">✅ LISTO PARA WHATSAPP</span>`;
 
