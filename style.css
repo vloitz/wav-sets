@@ -275,7 +275,7 @@ body, html {
         gap: 0px;
     }
 
-    .controls-center-group {
+    .controls-center-group { /* MUY IMPORTANTE ESTE VALOR PARA MI ES VITAL ,NO BORRAR*/
         gap: 1px; /* Menos espacio entre botones en móvil */
     }
 
