@@ -297,7 +297,7 @@
 <script type="module">
     import { Muxer, ArrayBufferTarget } from 'https://esm.sh/mp4-muxer@5.1.0';
 
-    const version = "V76: Perfect Sync (Visual Timer Fix + Server)";
+    const version = "V77: Final Polish (Relative Timer 0:00->0:15) + Server";
     console.log(`[STORY MODULE] CARGANDO ${version}`);
 
     const SERVER_URL = 'https://vloitz-server.onrender.com';
@@ -336,7 +336,7 @@
         config: {},
         currentSetData: null,
         startTime: 0,
-        videoStartTime: 0, // <--- LA CLAVE DE LA SINCRONIZACIÓN VISUAL
+        videoStartTime: 0,
         audioContext: null,
         mediaStreamDest: null,
         sourceNode: null,
@@ -436,7 +436,6 @@
             stDOM.viewProcess.style.display = 'block';
             stState.isEncoding = true;
 
-            // Configurar duración
             const durationSelect = document.getElementById('stDurationSelect');
             stState.durationSeconds = durationSelect ? parseInt(durationSelect.value) : 15;
 
@@ -449,25 +448,23 @@
 
             stPrepareStaticLayer();
 
-            // 1. PASE DE AUDIO
+            // 1. AUDIO PASS
             stDOM.statusText.innerText = "Fase 1: Capturando Audio...";
             stState.audioBlob = await runAudioPass();
 
             if (!stState.audioBlob || stState.audioBlob.size === 0) throw new Error("Audio vacío");
-            console.log(`[V76] Audio OK: ${(stState.audioBlob.size/1024).toFixed(1)} KB`);
 
-            // 2. PASE DE VIDEO
+            // 2. VIDEO PASS
             stDOM.statusText.innerText = "Fase 2: Renderizando Video...";
-            // Resetear audio
+
             stState.shadowAudio.currentTime = stState.startTime;
             await new Promise(r => setTimeout(r, 100));
 
             stState.videoBlob = await runVideoPass();
 
             if (!stState.videoBlob || stState.videoBlob.size === 0) throw new Error("Video vacío");
-            console.log(`[V76] Video OK: ${(stState.videoBlob.size/1024).toFixed(1)} KB`);
 
-            // 3. SUBIDA
+            // 3. UPLOAD
             await handleServerUpload();
 
         } catch (e) {
@@ -517,7 +514,6 @@
         });
     }
 
-    // --- AUDIO PASS (Sin margen extra) ---
     function runAudioPass() {
         return new Promise(async (resolve, reject) => {
             const audioStream = stState.mediaStreamDest.stream;
@@ -544,7 +540,6 @@
 
             stState.shadowAudio.play();
 
-            // Duración exacta (Claude Fix)
             setTimeout(() => {
                 stState.shadowAudio.pause();
                 stState.mediaRecorder.stop();
@@ -552,7 +547,6 @@
         });
     }
 
-    // --- VIDEO PASS (Sync-Lock + Visual Fix) ---
     function runVideoPass() {
         return new Promise(async (resolve, reject) => {
             let muxer = new Muxer({
@@ -568,21 +562,19 @@
             });
             videoEncoder.configure({
                 codec: 'avc1.42001E', width: stState.config.width, height: stState.config.height,
-                bitrate: 2000000, framerate: 30
+                bitrate: 2000000, framerate: stState.config.fps
             });
 
-            // 1. Play
             await stState.shadowAudio.play();
 
-            // 2. Sync-Lock (Esperar movimiento)
+            // SYNC-LOCK (La clave de la sincronización)
             const initialTime = stState.shadowAudio.currentTime;
             while (stState.shadowAudio.currentTime <= initialTime) {
                 await new Promise(r => requestAnimationFrame(r));
             }
 
-            // 3. CAPTURAR TIEMPO REAL (Visual Fix)
-            stState.videoStartTime = stState.shadowAudio.currentTime;
-            console.log(`[V76] Sync Video Start: ${stState.videoStartTime.toFixed(3)}s`);
+            // NO necesitamos guardar videoStartTime para el contador visual,
+            // usaremos el tiempo relativo del video (0 a 15)
 
             const startTime = performance.now();
             const durationMs = stState.durationSeconds * 1000;
@@ -606,12 +598,12 @@
                 stUpdateAudioSimulation(frameCount);
                 stCtx.drawImage(stState.staticCanvas, 0, 0);
 
-                // Pasamos elapsed para dibujar, pero usaremos videoStartTime para el texto
+                // PASAMOS EL TIEMPO RELATIVO (en segundos)
                 stDrawDynamicLayer(elapsed / 1000);
 
                 const vFrame = new VideoFrame(stDOM.canvas, {
                     timestamp: elapsed * 1000,
-                    duration: (1000 / 30) * 1000
+                    duration: (1000 / stState.config.fps) * 1000
                 });
 
                 if (videoEncoder.encodeQueueSize < 3) {
@@ -626,7 +618,7 @@
     }
 
     async function handleServerUpload() {
-        stDOM.statusText.innerHTML = `<span style="color:#00aaff">🚀 ENVIANDO A SERVIDOR...</span>`;
+        stDOM.statusText.innerHTML = `<span style="color:#00aaff">🚀 OPTIMIZANDO...</span>`;
 
         try {
             const formData = new FormData();
@@ -643,10 +635,7 @@
             });
             clearTimeout(timeoutId);
 
-            if (!response.ok) {
-                const text = await response.text();
-                throw new Error(`Servidor: ${response.status} - ${text}`);
-            }
+            if (!response.ok) throw new Error(`Servidor: ${response.status}`);
 
             stDOM.statusText.innerHTML = `<span style="color:#0f0">📥 ÉXITO!</span>`;
             const finalBlob = await response.blob();
@@ -722,6 +711,8 @@
             else stState.audioData[i] *= 0.85;
         }
     }
+
+    // --- CORRECCIÓN FINAL VISUAL (Contador Relativo) ---
     function stDrawDynamicLayer(secondsElapsed) {
         const w = stState.config.width; const h = stState.config.height;
         const cardW = w * 0.90; const cardH = h * 0.75;
@@ -731,29 +722,28 @@
         const cursorY = (cardY + 25) + imgSize + 25 + 20 + 18;
         const barsBaseY = cursorY + 40;
         const gap = 3; const barWidth = (imgSize - (19*gap)) / 20;
+
         for(let i=0; i < 20; i++) {
             let height = Math.max(4, stState.audioData[i]);
             if (i === 13) stCtx.fillStyle = "#1DB954"; else stCtx.fillStyle = "#3E3E3E";
             stCtx.fillRect(startX + (i * (barWidth + gap)), barsBaseY - height, barWidth, height);
         }
+
         const progY = barsBaseY + 10;
         stCtx.fillStyle = "#333"; stCtx.fillRect(startX, progY, imgSize, 3);
         const progress = Math.min(1, secondsElapsed / stState.config.duration);
         stCtx.fillStyle = "#1DB954"; stCtx.fillRect(startX, progY, imgSize * progress, 3);
         stCtx.beginPath(); stCtx.arc(startX + (imgSize * progress), progY + 1.5, 3, 0, Math.PI*2); stCtx.fill();
 
-        // --- VISUAL TIMER FIX ---
         const timeY = barsBaseY + 10 + 15;
         stCtx.fillStyle = "#666"; stCtx.font = "400 9px Inter, sans-serif"; stCtx.textAlign = "left";
 
-        // Usamos el tiempo REAL del audio para calcular el texto
-        const currentAudioTime = stState.videoStartTime + secondsElapsed;
-        const m = Math.floor(currentAudioTime / 60);
-        const s = Math.floor(currentAudioTime % 60);
+        // --- EL CAMBIO MAGICO: Usamos el tiempo relativo del video (0 -> 15) ---
+        // Ignoramos stState.startTime aquí
+        const m = Math.floor(secondsElapsed / 60);
+        const s = Math.floor(secondsElapsed % 60);
 
         stCtx.fillText(`${m}:${s.toString().padStart(2,'0')}`, startX, timeY);
-        // ------------------------
-
         stCtx.textAlign = "right"; stCtx.fillText("HIFI", startX + imgSize, timeY);
         const badgeY = timeY + 5;
         stCtx.textAlign = "center"; stCtx.strokeStyle = "#1DB954"; stCtx.lineWidth = 1;
