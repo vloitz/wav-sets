@@ -297,38 +297,20 @@
 <script type="module">
     import { Muxer, ArrayBufferTarget } from 'https://esm.sh/mp4-muxer@5.1.0';
 
-    const version = "V72: Logic Fix (Blobs Saved Before Cleanup)";
+    const version = "V73: Robust Loader + Sync Tweaks (Fix Stuck 'Preparando')";
     console.log(`[STORY MODULE] CARGANDO ${version}`);
 
-    const SERVER_URL = 'https://vloitz-server.onrender.com';
+    const SERVER_URL = 'https://vloitz-server.onrender.com'; 
 
-    const stDOM = {
-        openBtn: document.getElementById('stOpenBtn'),
-        closeBtn: document.getElementById('stCloseBtn'),
-        overlay: document.getElementById('storyOverlay'),
-        viewIntro: document.getElementById('stViewIntro'),
-        viewProcess: document.getElementById('stViewProcess'),
-        startBtn: document.getElementById('stStartBtn'),
-        retryBtn: document.getElementById('stRetryBtn'),
-        hqToggle: document.getElementById('stHqToggle'),
-        qualityText: document.getElementById('stQualityText'),
-        statusText: document.getElementById('stStatusText'),
-        progressFill: document.getElementById('stProgressFill'),
-        loadingUI: document.getElementById('stLoadingUI'),
-        finalActions: document.getElementById('stFinalActions'),
-        shareWaBtn: document.getElementById('stShareWaBtn'),
-        dlManualBtn: document.getElementById('stDlManualBtn'),
-        canvas: document.getElementById('storyCanvas'),
-        uiTitle: document.getElementById('stUiTitle'),
-        uiCover: document.getElementById('stUiCover')
-    };
+    // --- ESPERA SEGURA DEL DOM ---
+    window.addEventListener('DOMContentLoaded', initApp);
+    if (document.readyState === 'interactive' || document.readyState === 'complete') initApp();
 
-    const stCtx = stDOM.canvas.getContext('2d', { alpha: false, desynchronized: true });
-
+    let stDOM, stCtx;
     let stState = {
         isEncoding: false,
         finalBlob: null,
-        // Eliminamos videoBlob/audioBlob del estado global para evitar confusiones
+        localBlob: null,
         audioData: new Array(20).fill(5),
         staticCanvas: null,
         config: {},
@@ -347,48 +329,87 @@
     const stCoverImg = new Image();
     stCoverImg.crossOrigin = "Anonymous";
 
-    // --- UI EVENTS ---
-    if(stDOM.hqToggle) {
-        stDOM.hqToggle.addEventListener('change', () => {
-            stDOM.qualityText.innerText = stDOM.hqToggle.checked ? "Alta Calidad" : "Modo Seguro";
-            stDOM.qualityText.style.color = stDOM.hqToggle.checked ? "#fff" : "#1DB954";
-        });
+    function initApp() {
+        // Evitar doble inicialización
+        if (stDOM) return;
+
+        stDOM = {
+            openBtn: document.getElementById('stOpenBtn'),
+            closeBtn: document.getElementById('stCloseBtn'),
+            overlay: document.getElementById('storyOverlay'),
+            viewIntro: document.getElementById('stViewIntro'),
+            viewProcess: document.getElementById('stViewProcess'),
+            startBtn: document.getElementById('stStartBtn'),
+            retryBtn: document.getElementById('stRetryBtn'),
+            hqToggle: document.getElementById('stHqToggle'),
+            qualityText: document.getElementById('stQualityText'),
+            statusText: document.getElementById('stStatusText'),
+            progressFill: document.getElementById('stProgressFill'),
+            loadingUI: document.getElementById('stLoadingUI'),
+            finalActions: document.getElementById('stFinalActions'),
+            shareWaBtn: document.getElementById('stShareWaBtn'),
+            dlManualBtn: document.getElementById('stDlManualBtn'),
+            canvas: document.getElementById('storyCanvas'),
+            uiTitle: document.getElementById('stUiTitle'),
+            uiCover: document.getElementById('stUiCover')
+        };
+
+        if (!stDOM.canvas) return; // Si no hay canvas, no hacemos nada
+        stCtx = stDOM.canvas.getContext('2d', { alpha: false, desynchronized: true });
+
+        setupEvents();
     }
 
-    if(stDOM.openBtn) {
-        stDOM.openBtn.addEventListener('click', () => {
-            const realSet = window.currentLoadedSet;
-            const wave = window.wavesurfer;
-            if (realSet && wave) {
-                stState.currentSetData = realSet;
-                stState.startTime = wave.getCurrentTime();
-                let activeTrackName = realSet.title;
-                if (realSet.tracklist) {
-                    for (let i = realSet.tracklist.length - 1; i >= 0; i--) {
-                        const t = realSet.tracklist[i];
-                        const parts = t.time.split(':');
-                        const tSecs = parseInt(parts[0])*60 + parseInt(parts[1]);
-                        if (stState.startTime >= tSecs) { activeTrackName = t.title; break; }
+    function setupEvents() {
+        if(stDOM.hqToggle) {
+            stDOM.hqToggle.addEventListener('change', () => {
+                stDOM.qualityText.innerText = stDOM.hqToggle.checked ? "Alta Calidad" : "Modo Seguro";
+                stDOM.qualityText.style.color = stDOM.hqToggle.checked ? "#fff" : "#1DB954";
+            });
+        }
+
+        if(stDOM.openBtn) {
+            stDOM.openBtn.addEventListener('click', () => {
+                const realSet = window.currentLoadedSet;
+                const wave = window.wavesurfer;
+                if (realSet && wave) {
+                    stState.currentSetData = realSet;
+                    stState.startTime = wave.getCurrentTime();
+                    stState.currentTrackTitle = realSet.title; // Simplificado para demo
+                    
+                    // Lógica de título de track
+                    if (realSet.tracklist) {
+                        for (let i = realSet.tracklist.length - 1; i >= 0; i--) {
+                            const t = realSet.tracklist[i];
+                            const parts = t.time.split(':');
+                            const tSecs = parseInt(parts[0])*60 + parseInt(parts[1]);
+                            if (stState.startTime >= tSecs) { 
+                                stState.currentTrackTitle = t.title; 
+                                break; 
+                            }
+                        }
                     }
-                }
-                stState.currentTrackTitle = activeTrackName;
-                stDOM.uiTitle.innerText = activeTrackName;
-                stDOM.uiCover.src = realSet.cover_art_url;
-                stCoverImg.src = realSet.cover_art_url;
-            }
-            stDOM.overlay.classList.add('active');
-            resetModule();
-            stDOM.statusText.innerText = version;
-            stDOM.statusText.style.color = "#00ff00";
-        });
-    }
 
-    stDOM.closeBtn.addEventListener('click', () => {
-        stDOM.overlay.classList.remove('active');
-        stState.isEncoding = false;
-        cleanupAudio();
-    });
-    stDOM.retryBtn.addEventListener('click', resetModule);
+                    stDOM.uiTitle.innerText = stState.currentTrackTitle;
+                    stDOM.uiCover.src = realSet.cover_art_url;
+                    stCoverImg.src = realSet.cover_art_url;
+                }
+                stDOM.overlay.classList.add('active');
+                resetModule();
+                stDOM.statusText.innerText = version;
+                stDOM.statusText.style.color = "#00ff00";
+            });
+        }
+
+        stDOM.closeBtn.addEventListener('click', () => {
+            stDOM.overlay.classList.remove('active');
+            stState.isEncoding = false;
+            cleanupAudio();
+        });
+        stDOM.retryBtn.addEventListener('click', resetModule);
+        
+        stDOM.startBtn.addEventListener('click', startProcess);
+    }
 
     function resetModule() {
         stDOM.viewIntro.style.display = 'block';
@@ -404,7 +425,7 @@
     function cleanupAudio() {
         if (stState.shadowAudio) {
             stState.shadowAudio.pause();
-            if (document.body.contains(stState.shadowAudio)) document.body.removeChild(stState.shadowAudio);
+            if (stState.shadowAudio.parentNode) stState.shadowAudio.parentNode.removeChild(stState.shadowAudio);
             stState.shadowAudio.src = "";
             stState.shadowAudio = null;
         }
@@ -414,10 +435,10 @@
         }
     }
 
-    // --- START BUTTON ---
-    stDOM.startBtn.addEventListener('click', async () => {
+    // --- PROCESO PRINCIPAL ---
+    async function startProcess() {
         if (stState.isEncoding) return;
-
+        
         stDOM.startBtn.disabled = true;
         stDOM.startBtn.innerText = "Preparando...";
 
@@ -425,30 +446,74 @@
         if (!mainAudio.paused) mainAudio.pause();
 
         try {
-            stDOM.statusText.innerText = "Configurando...";
-            await prepareAudioEngine();
+            stDOM.statusText.innerText = "Cargando Audio...";
+            
+            // 1. CONFIGURAR AUDIO
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            stState.audioContext = new AudioContext({ latencyHint: 'playback', sampleRate: 48000 });
+            
+            stState.shadowAudio = new Audio();
+            stState.shadowAudio.crossOrigin = "anonymous";
+            stState.shadowAudio.src = stState.currentSetData.audio_url; 
+            stState.shadowAudio.currentTime = stState.startTime; 
+            stState.shadowAudio.volume = 1.0;
+            
+            // DOM Invisible
+            stState.shadowAudio.style.position = 'fixed';
+            stState.shadowAudio.style.opacity = '0.01';
+            document.body.appendChild(stState.shadowAudio);
 
-            // 1. PASE AUDIO
+            stState.mediaStreamDest = stState.audioContext.createMediaStreamDestination();
+            stState.analyserNode = stState.audioContext.createAnalyser();
+            stState.analyserNode.fftSize = 256; 
+
+            stState.sourceNode = stState.audioContext.createMediaElementSource(stState.shadowAudio);
+            stState.sourceNode.connect(stState.analyserNode);
+            stState.sourceNode.connect(stState.mediaStreamDest);
+            stState.sourceNode.connect(stState.audioContext.destination);
+
+            // 2. ESPERAR CARGA REAL (Con .load() forzado)
+            await new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => reject(new Error("Timeout carga audio (Red lenta)")), 30000);
+                
+                const onReady = () => { 
+                    clearTimeout(timeout); 
+                    resolve(); 
+                };
+
+                if (stState.shadowAudio.readyState >= 3) {
+                    onReady();
+                } else {
+                    stState.shadowAudio.addEventListener('canplay', onReady, { once: true });
+                    stState.shadowAudio.addEventListener('error', () => reject(new Error("Error cargando archivo audio")), { once: true });
+                    stState.shadowAudio.load(); // <--- CLAVE PARA EVITAR STUCK
+                }
+            });
+
+            // Si llegamos aquí, el audio está listo
+            stDOM.viewIntro.style.display = 'none';
+            stDOM.viewProcess.style.display = 'block';
+            stState.isEncoding = true;
+            stState.config = { width: 360, height: 640, duration: 15, fps: 30 };
+            
+            stPrepareStaticLayer();
+            
+            // 3. EJECUTAR SECUENCIA
+            // Paso A: Grabar Audio Puro
             stDOM.statusText.innerText = "Fase 1: Grabando Audio...";
-            console.log("[V72] Iniciando Audio Pass...");
-            const audioBlob = await runAudioPass(); // Guardamos en variable local
-
-            if (!audioBlob || audioBlob.size === 0) throw new Error("Audio vacío");
-            console.log("[V72] Audio capturado:", audioBlob.size);
-
-            // 2. PASE VIDEO
+            const audioBlob = await runAudioPass();
+            
+            // Paso B: Grabar Video Puro
             stDOM.statusText.innerText = "Fase 2: Renderizando Video...";
-            console.log("[V72] Iniciando Video Pass...");
-
-            // Resetear audio para el video
+            // Resetear audio para video
             stState.shadowAudio.currentTime = stState.startTime;
-            const videoBlob = await runVideoPass(); // Guardamos en variable local
+            // Esperar un poco a que el seek termine
+            await new Promise(r => setTimeout(r, 200));
+            
+            const videoBlob = await runVideoPass();
 
-            if (!videoBlob || videoBlob.size === 0) throw new Error("Video vacío");
-            console.log("[V72] Video capturado:", videoBlob.size);
-
-            // 3. ENVIAR (Ahora sí, tenemos las variables seguras)
-            cleanupAudio(); // Limpiamos el contexto, pero los blobs están en variables locales 'videoBlob' y 'audioBlob'
+            // Paso C: Enviar
+            cleanupAudio();
             await uploadDualToServer(videoBlob, audioBlob);
 
         } catch (e) {
@@ -457,45 +522,14 @@
             alert("Error: " + e.message);
             resetModule();
         }
-    });
-
-    async function prepareAudioEngine() {
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        stState.audioContext = new AudioContext({ latencyHint: 'playback', sampleRate: 48000 });
-
-        stState.shadowAudio = new Audio();
-        stState.shadowAudio.crossOrigin = "anonymous";
-        stState.shadowAudio.src = stState.currentSetData.audio_url;
-        stState.shadowAudio.currentTime = stState.startTime;
-        stState.shadowAudio.volume = 1.0;
-
-        stState.shadowAudio.style.position = 'fixed';
-        stState.shadowAudio.style.opacity = '0.01';
-        document.body.appendChild(stState.shadowAudio);
-
-        stState.mediaStreamDest = stState.audioContext.createMediaStreamDestination();
-        stState.analyserNode = stState.audioContext.createAnalyser();
-        stState.analyserNode.fftSize = 256;
-
-        stState.sourceNode = stState.audioContext.createMediaElementSource(stState.shadowAudio);
-        stState.sourceNode.connect(stState.analyserNode);
-        stState.sourceNode.connect(stState.mediaStreamDest);
-        stState.sourceNode.connect(stState.audioContext.destination);
-
-        await new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => reject(new Error("Timeout carga audio")), 20000);
-            const onReady = () => { clearTimeout(timeout); resolve(); };
-            if (stState.shadowAudio.readyState >= 2) onReady();
-            else stState.shadowAudio.addEventListener('canplay', onReady, { once: true });
-            stState.shadowAudio.addEventListener('error', () => reject(new Error("Error carga audio")), { once: true });
-        });
     }
 
+    // --- PASE 1: AUDIO (MediaRecorder) ---
     function runAudioPass() {
         return new Promise(async (resolve, reject) => {
             const audioStream = stState.mediaStreamDest.stream;
-            const options = { mimeType: 'audio/webm;codecs=opus' };
-
+            const options = { mimeType: 'audio/webm;codecs=opus' }; 
+            
             try {
                 stState.mediaRecorder = new MediaRecorder(audioStream, options);
             } catch(e) {
@@ -512,20 +546,25 @@
                 resolve(blob);
             };
 
-            // Pre-Roll
+            // ESTRATEGIA ANTI-CORTE:
+            // 1. Iniciar grabadora (Grabando silencio)
             stState.mediaRecorder.start();
-            await new Promise(r => setTimeout(r, 200));
-
+            
+            // 2. Esperar 500ms (Buffer de seguridad)
+            await new Promise(r => setTimeout(r, 500)); 
+            
+            // 3. Play (El sonido entra limpio)
             stState.shadowAudio.play();
-
-            // Duración exacta + margen
+            
+            // 4. Parar después de la duración exacta
             setTimeout(() => {
                 stState.shadowAudio.pause();
                 stState.mediaRecorder.stop();
-            }, stState.config.duration * 1000 + 300);
+            }, stState.config.duration * 1000 + 500); // +500ms margen final
         });
     }
 
+    // --- PASE 2: VIDEO (Mp4 Muxer) ---
     function runVideoPass() {
         return new Promise(async (resolve, reject) => {
             let muxer = new Muxer({
@@ -544,6 +583,7 @@
                 bitrate: 2000000, framerate: 30
             });
 
+            // Play solo para mover visualizador
             await stState.shadowAudio.play();
 
             const startTime = performance.now();
@@ -560,11 +600,6 @@
                         muxer.finalize();
                         const blob = new Blob([muxer.target.buffer], { type: 'video/mp4' });
                         resolve(blob);
-                    }).catch(err => {
-                         console.warn("Flush error:", err);
-                         videoEncoder.close();
-                         muxer.finalize();
-                         resolve(new Blob([muxer.target.buffer], { type: 'video/mp4' }));
                     });
                     return;
                 }
@@ -591,18 +626,17 @@
     }
 
     async function uploadDualToServer(vBlob, aBlob) {
-        stDOM.statusText.innerHTML = `<span style="color:#00aaff">🚀 MEZCLANDO (Nube)...</span>`;
-
+        stDOM.statusText.innerHTML = `<span style="color:#00aaff">🚀 NUBE PROCESANDO...</span>`;
+        
         const formData = new FormData();
         formData.append('video', vBlob, 'video.mp4');
         formData.append('audio', aBlob, 'audio.webm');
 
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 300000);
+            const timeoutId = setTimeout(() => controller.abort(), 300000); 
 
-            console.log(`[V72] Enviando a ${SERVER_URL}/merge ...`);
-            const response = await fetch(`${SERVER_URL}/merge`, {
+            const response = await fetch(`${SERVER_URL}/merge`, { 
                 method: 'POST',
                 body: formData,
                 signal: controller.signal
@@ -614,21 +648,22 @@
                 throw new Error(`Servidor: ${response.status} - ${text}`);
             }
 
-            stDOM.statusText.innerHTML = `<span style="color:#0f0">📥 LISTO!</span>`;
+            stDOM.statusText.innerHTML = `<span style="color:#0f0">📥 DESCARGANDO...</span>`;
             const finalBlob = await response.blob();
-
+            
             stState.finalBlob = finalBlob;
             stShowFinalUI();
 
         } catch (e) {
             console.error(e);
-            alert(`Error Servidor: ${e.message}.`);
-            stState.finalBlob = vBlob; // Fallback video mudo
+            alert(`Error Servidor: ${e.message}`);
+            // Fallback video mudo si falla server
+            stState.finalBlob = vBlob;
             stShowFinalUI();
         }
     }
 
-    // UTILS GRAFICOS
+    // UTILS GRAFICOS (Iguales)
     function roundRect(ctx, x, y, w, h, r) {
         if (w < 2 * r) r = w / 2; if (h < 2 * r) r = h / 2;
         ctx.moveTo(x+r, y); ctx.arcTo(x+w, y, x+w, y+h, r);
@@ -707,7 +742,7 @@
         stCtx.beginPath(); stCtx.arc(startX + (imgSize * progress), progY + 1.5, 3, 0, Math.PI*2); stCtx.fill();
         const timeY = barsBaseY + 10 + 15;
         stCtx.fillStyle = "#666"; stCtx.font = "400 9px Inter, sans-serif"; stCtx.textAlign = "left";
-        const m = Math.floor((stState.startTime + secondsElapsed) / 60);
+        const m = Math.floor((stState.startTime + secondsElapsed) / 60); 
         const s = Math.floor((stState.startTime + secondsElapsed) % 60);
         stCtx.fillText(`${m}:${s.toString().padStart(2,'0')}`, startX, timeY);
         stCtx.textAlign = "right"; stCtx.fillText("HIFI", startX + imgSize, timeY);
@@ -717,15 +752,14 @@
         stCtx.fillStyle = "#1DB954"; stCtx.font = "700 9px Inter, sans-serif";
         stCtx.fillText("FLAC • HIFI", w/2, badgeY + 11);
     }
-
-    // UI FINAL
+    
     function stShowFinalUI() {
         stDOM.loadingUI.style.display = 'none';
         stDOM.finalActions.style.display = 'block';
         console.log(`[STORY MODULE] Listo.`);
-
+        
         stDOM.statusText.innerHTML = `<span style="color:#0f0">✅ LISTO PARA WHATSAPP</span>`;
-
+        
         stDOM.shareWaBtn.onclick = async () => {
             if (!stState.finalBlob) return;
             const file = new File([stState.finalBlob], "story.mp4", { type: 'video/mp4' });
@@ -733,7 +767,7 @@
                 try { await navigator.share({ files: [file] }); } catch (e) {}
             } else { alert("Usa descargar manual."); }
         };
-
+        
         stDOM.dlManualBtn.onclick = () => {
             if (!stState.finalBlob) return;
             const url = URL.createObjectURL(stState.finalBlob);
