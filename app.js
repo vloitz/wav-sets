@@ -60,6 +60,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const prevBtn = document.getElementById('prevBtn'); // <-- AÑADE ESTA LÍNEA
     const nextBtn = document.getElementById('nextBtn'); // <-- AÑADE ESTA LÍNEA
 
+    // --- Referencias para Seek Buttons ---
+    const seekBackBtn = document.getElementById('seekBackBtn');
+    const seekFwdBtn = document.getElementById('seekFwdBtn');
+
 
     let currentTrackNameForNotification = null;
 
@@ -1581,6 +1585,25 @@ function toggleFavorite(seconds, buttonElement) {
         });
     }
     // --- FIN: Listeners para Skip Buttons ---
+
+    // --- Listeners para Seek Buttons (+/- 5s) ---
+    if (seekBackBtn) {
+        seekBackBtn.addEventListener('click', () => {
+            if (wavesurfer) {
+                wavesurfer.skip(-5); // Retrocede 5 segundos
+                console.log("Seek -5s");
+            }
+        });
+    }
+
+    if (seekFwdBtn) {
+        seekFwdBtn.addEventListener('click', () => {
+            if (wavesurfer) {
+                wavesurfer.skip(5); // Adelanta 5 segundos
+                console.log("Seek +5s");
+            }
+        });
+    }
 
     // --- INICIO: Inicialización ShareController (Fase 5) ---
     if (typeof ShareController !== 'undefined') {
