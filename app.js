@@ -1,3 +1,22 @@
+// -------------------------------------------------------------------------
+// VLOITZ HYBRID AUDIO ENGINE v1.0
+// -------------------------------------------------------------------------
+// © 2025 Kevin Italo Cajaleon Zuta (Vloitz). Todos los derechos reservados.
+//
+// Arquitectura propietaria de renderizado híbrido (Client-Server) para
+// generar video MP4/AAC nativo en dispositivos Android de gama baja.
+// -------------------------------------------------------------------------
+
+console.log(
+    "%c VLOITZ ENGINE %c v1.0 (Stable) \n%c by Kevin Italo Cajaleon Zuta ",
+    "background: #1DB954; color: #000; font-weight: bold; padding: 4px; border-radius: 3px;",
+    "color: #1DB954; font-weight: bold;",
+    "color: #b3b3b3; font-size: 11px;"
+);
+console.log("%c 🚀 Arquitectura: WebM Nativo + Sync-Lock + Cloud Transcoding", "color: #888; font-style: italic;");
+console.log("%c 🔒 Tecnología desarrollada en Lima, Perú. Ingeniería inversa prohibida.", "color: #ff5555; font-size: 10px;");
+
+
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DOM listo. Iniciando aplicación..."); // LOG INICIAL
 
