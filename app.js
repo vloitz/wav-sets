@@ -1572,130 +1572,136 @@ function toggleFavorite(seconds, buttonElement) {
 
     console.log("Aplicación inicializada y listeners configurados."); // LOG FINAL INIT
 
+    // --- FASE 12/13: Estrategia PWA Universal (Android + iOS Fix) ---
+    let deferredPrompt;
+    let ghostTimer;
+    const progressFill = document.getElementById('pwaProgressFill');
 
-// --- FASE 12/13: Estrategia "Sticky + Random Ghost" (MODO PRUEBAS) ---
-let deferredPrompt;
-let ghostTimer;
-const progressFill = document.getElementById('pwaProgressFill');
+    // Detección de iOS (iPhone/iPad)
+    const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    // Detección si ya está instalada (Standalone)
+    const isInStandaloneMode = ('standalone' in window.navigator) && (window.navigator.standalone);
 
-// --- VARIABLES DE CONTROL (MODO RÁPIDO) ---
-const PWA_CONFIG = {
-    INITIAL_DELAY: 5000,        // 5 seg: Primer aviso (Sticky)
-    // ¡OJO! Aquí usaremos SEGUNDOS para probar (0.2 = 12 segundos aprox)
-    // Cuando verifiques que funciona, cambias esto a [1, 2, 3]
-    GHOST_INTERVALS_MIN: [4, 9, 15, 25],
-    GHOST_DURATION: 5000        // 5 seg: Duración del fantasma
-};
+    const PWA_CONFIG = {
+        INITIAL_DELAY: 3000,        // 3 seg: Primer aviso
+        GHOST_INTERVALS_MIN: [4, 9, 15, 25],
+        GHOST_DURATION: 5000
+    };
 
-window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    console.log("[PWA] Evento capturado.");
+    // 1. Lógica para ANDROID (Automático)
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        console.log("[PWA] Evento Android capturado.");
 
-    // 1. Primer Impacto: AVISO FIJO
-    setTimeout(() => {
-        showStickyPrompt();
-    }, PWA_CONFIG.INITIAL_DELAY);
-});
+        setTimeout(() => {
+            showStickyPrompt();
+        }, PWA_CONFIG.INITIAL_DELAY);
+    });
 
-// Función 1: Aviso Fijo
-function showStickyPrompt() {
-    const pwaToast = document.getElementById('pwa-toast');
-    if (!pwaToast) return;
-
-    pwaToast.style.display = 'block';
-    if (progressFill) {
-        progressFill.style.transition = 'none';
-        progressFill.style.width = '0%';
-    }
-    setupButtons(pwaToast, true); // true = Modo Sticky
-}
-
-// Función 2: Programar Fantasma
-function scheduleNextGhost() {
-    // Elegir tiempo al azar
-    const minutes = PWA_CONFIG.GHOST_INTERVALS_MIN[Math.floor(Math.random() * PWA_CONFIG.GHOST_INTERVALS_MIN.length)];
-
-    // CONVERSIÓN: minutos * 60 * 1000
-    // Con 0.1 minutos -> son 6 segundos. Con 0.2 -> 12 segundos.
-    const delayMs = minutes * 60 * 1000;
-
-    console.log(`[PWA] Próximo fantasma en ${(delayMs/1000).toFixed(0)} segundos.`);
-
-    if (ghostTimer) clearTimeout(ghostTimer);
-    ghostTimer = setTimeout(() => {
-        triggerGhost();
-    }, delayMs);
-}
-
-// Función 3: El Fantasma (Con Barra)
-function triggerGhost() {
-    const pwaToast = document.getElementById('pwa-toast');
-    if (!pwaToast) return;
-
-    // Reset barra
-    if (progressFill) {
-        progressFill.style.transition = 'none';
-        progressFill.style.width = '100%';
+    // 2. Lógica para iOS (Manual - Forzamos el aviso si no está instalada)
+    if (isIos && !isInStandaloneMode) {
+        console.log("[PWA] iOS detectado. Forzando aviso manual.");
+        setTimeout(() => {
+            showStickyPrompt();
+        }, PWA_CONFIG.INITIAL_DELAY);
     }
 
-    pwaToast.style.display = 'block';
-    setupButtons(pwaToast, false); // false = Modo Fantasma
+    // Función 1: Aviso Fijo
+    function showStickyPrompt() {
+        const pwaToast = document.getElementById('pwa-toast');
+        if (!pwaToast) return;
 
-    // Animar barra
-    setTimeout(() => {
+        pwaToast.style.display = 'block';
         if (progressFill) {
-            progressFill.style.transition = `width ${PWA_CONFIG.GHOST_DURATION}ms linear`;
+            progressFill.style.transition = 'none';
             progressFill.style.width = '0%';
         }
-    }, 50);
+        setupButtons(pwaToast, true);
+    }
 
-    // Auto-Desvanecer
-    setTimeout(() => {
-        if (pwaToast.style.display === 'block') {
-            pwaToast.style.display = 'none';
-            console.log("[PWA] Fantasma desvanecido. Reprogramando...");
-            scheduleNextGhost(); // <--- EL BUCLE CONTINÚA
-        }
-    }, PWA_CONFIG.GHOST_DURATION);
-}
+    // Función 2: Programar Fantasma
+    function scheduleNextGhost() {
+        const minutes = PWA_CONFIG.GHOST_INTERVALS_MIN[Math.floor(Math.random() * PWA_CONFIG.GHOST_INTERVALS_MIN.length)];
+        const delayMs = minutes * 60 * 1000;
+        console.log(`[PWA] Próximo fantasma en ${(delayMs/1000).toFixed(0)} segundos.`);
 
-// Configuración de botones
-function setupButtons(pwaToast, isStickyMode) {
-    const installBtn = document.getElementById('pwaInstallBtn');
-    const dismissBtn = document.getElementById('pwaDismissBtn');
-
-    // INSTALAR
-    installBtn.onclick = async () => {
-        pwaToast.style.display = 'none';
         if (ghostTimer) clearTimeout(ghostTimer);
-        if (deferredPrompt) {
-            deferredPrompt.prompt();
-            const { outcome } = await deferredPrompt.userChoice;
-            console.log(`[PWA] Decisión: ${outcome}`);
-            deferredPrompt = null;
+        ghostTimer = setTimeout(() => {
+            triggerGhost();
+        }, delayMs);
+    }
+
+    // Función 3: El Fantasma
+    function triggerGhost() {
+        const pwaToast = document.getElementById('pwa-toast');
+        if (!pwaToast) return;
+
+        if (progressFill) {
+            progressFill.style.transition = 'none';
+            progressFill.style.width = '100%';
         }
-    };
 
-    // AHORA NO
-    dismissBtn.onclick = () => {
-        pwaToast.style.display = 'none';
+        pwaToast.style.display = 'block';
+        setupButtons(pwaToast, false);
 
-        if (isStickyMode) {
-            console.log("[PWA] Cerró Sticky. Inicia ciclo fantasma.");
-            scheduleNextGhost();
-        } else {
-            console.log("[PWA] Cerró Fantasma manual. Reprogramando.");
-            scheduleNextGhost();
-        }
-    };
-}
+        setTimeout(() => {
+            if (progressFill) {
+                progressFill.style.transition = `width ${PWA_CONFIG.GHOST_DURATION}ms linear`;
+                progressFill.style.width = '0%';
+            }
+        }, 50);
 
-window.addEventListener('appinstalled', () => {
-    const pwaToast = document.getElementById('pwa-toast');
-    if(pwaToast) pwaToast.style.display = 'none';
-    if (ghostTimer) clearTimeout(ghostTimer);
-});
+        setTimeout(() => {
+            if (pwaToast.style.display === 'block') {
+                pwaToast.style.display = 'none';
+                scheduleNextGhost();
+            }
+        }, PWA_CONFIG.GHOST_DURATION);
+    }
+
+    // Configuración de botones (ADAPTADA PARA iOS)
+    function setupButtons(pwaToast, isStickyMode) {
+        const installBtn = document.getElementById('pwaInstallBtn');
+        const dismissBtn = document.getElementById('pwaDismissBtn');
+
+        // INSTALAR
+        installBtn.onclick = async () => {
+            // Lógica Diferente según el sistema
+            if (isIos) {
+                // EN IPHONE: Mostramos instrucciones (No podemos instalar por código)
+                alert("📲 Para instalar en iPhone:\n\n1. Pulsa el botón 'Compartir' (cuadrado con flecha) abajo.\n2. Busca y pulsa 'Agregar a Inicio'.");
+                // No ocultamos el toast inmediatamente para que puedan leerlo, o lo ocultamos si prefieres:
+                // pwaToast.style.display = 'none';
+            } else {
+                // EN ANDROID: Instalación automática
+                pwaToast.style.display = 'none';
+                if (ghostTimer) clearTimeout(ghostTimer);
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    const { outcome } = await deferredPrompt.userChoice;
+                    console.log(`[PWA] Decisión: ${outcome}`);
+                    deferredPrompt = null;
+                }
+            }
+        };
+
+        // AHORA NO
+        dismissBtn.onclick = () => {
+            pwaToast.style.display = 'none';
+            if (isStickyMode) {
+                scheduleNextGhost();
+            } else {
+                scheduleNextGhost();
+            }
+        };
+    }
+
+    window.addEventListener('appinstalled', () => {
+        const pwaToast = document.getElementById('pwa-toast');
+        if(pwaToast) pwaToast.style.display = 'none';
+        if (ghostTimer) clearTimeout(ghostTimer);
+    });
 
 
 });
