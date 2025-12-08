@@ -297,19 +297,11 @@
 <script type="module">
     import { Muxer, ArrayBufferTarget } from 'https://esm.sh/mp4-muxer@5.1.0';
 
-    const version = "V73: Claude's Fixes (Sync + Robust Loader + Blob Validation)";
+    const version = "V68: Exact Sync-Lock (No Delay) + Server Fix";
     console.log(`[STORY MODULE] CARGANDO ${version}`);
 
+    // --- TU SERVIDOR ---
     const SERVER_URL = 'https://vloitz-server.onrender.com';
-
-    // --- CONFIGURACIÓN GLOBAL ---
-    const CONFIG = {
-        width: 360,
-        height: 640,
-        fps: 30,
-        bitrate: 2000000, // 2Mbps para video
-        safetyMargin: 500 // 500ms extra para asegurar captura completa
-    };
 
     const stDOM = {
         openBtn: document.getElementById('stOpenBtn'),
@@ -337,11 +329,10 @@
     let stState = {
         isEncoding: false,
         finalBlob: null,
-        videoBlob: null,
-        audioBlob: null,
+        localBlob: null,
         audioData: new Array(20).fill(5),
         staticCanvas: null,
-        durationSeconds: 15,
+        config: {},
         currentSetData: null,
         startTime: 0,
         audioContext: null,
@@ -349,8 +340,6 @@
         sourceNode: null,
         shadowAudio: null,
         analyserNode: null,
-        mediaRecorder: null,
-        audioChunks: [],
         keepAliveOsc: null
     };
 
@@ -423,233 +412,228 @@
             try { stState.audioContext.close(); } catch(e){}
             stState.audioContext = null;
         }
-        // No borramos blobs aquí para permitir reintentos o descargas
     }
 
-    // --- START BUTTON (ROBUST FLOW) ---
+    // --- START BUTTON ---
     stDOM.startBtn.addEventListener('click', async () => {
         if (stState.isEncoding) return;
 
         stDOM.startBtn.disabled = true;
-        stDOM.startBtn.innerText = "Preparando...";
+        stDOM.startBtn.innerText = "Conectando...";
 
         const mainAudio = document.getElementById('audio-player');
         if (!mainAudio.paused) mainAudio.pause();
 
         try {
-            stDOM.statusText.innerText = "Configurando Audio...";
-            // 1. PREPARAR AUDIO (ROBUSTO)
-            await prepareAudioEngine();
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            stState.audioContext = new AudioContext({ latencyHint: 'playback', sampleRate: 48000 });
 
-            stDOM.viewIntro.style.display = 'none';
-            stDOM.viewProcess.style.display = 'block';
-            stState.isEncoding = true;
-
-            stPrepareStaticLayer();
-
-            // 2. PASE DE AUDIO (Nativo)
-            stDOM.statusText.innerText = "Fase 1: Capturando Audio...";
-            console.log("[V73] Iniciando Audio Pass...");
-            stState.audioBlob = await runAudioPass();
-
-            if (!stState.audioBlob || stState.audioBlob.size === 0) throw new Error("Blob de audio vacío");
-            console.log(`[V73] Audio Capturado: ${(stState.audioBlob.size/1024).toFixed(1)} KB`);
-
-            // 3. PASE DE VIDEO (WebCodecs)
-            stDOM.statusText.innerText = "Fase 2: Renderizando Video...";
-            console.log("[V73] Iniciando Video Pass...");
-
-            // Resetear audio al punto exacto
+            stState.shadowAudio = new Audio();
+            stState.shadowAudio.crossOrigin = "anonymous";
+            stState.shadowAudio.src = stState.currentSetData.audio_url;
             stState.shadowAudio.currentTime = stState.startTime;
-            // Pequeña pausa para asegurar seek
-            await new Promise(r => setTimeout(r, 100));
+            stState.shadowAudio.volume = 1.0;
 
-            stState.videoBlob = await runVideoPass();
+            stState.shadowAudio.style.position = 'fixed';
+            stState.shadowAudio.style.opacity = '0.01';
+            stState.shadowAudio.style.pointerEvents = 'none';
+            document.body.appendChild(stState.shadowAudio);
 
-            if (!stState.videoBlob || stState.videoBlob.size === 0) throw new Error("Blob de video vacío");
-            console.log(`[V73] Video Capturado: ${(stState.videoBlob.size/1024).toFixed(1)} KB`);
+            stState.mediaStreamDest = stState.audioContext.createMediaStreamDestination();
+            stState.analyserNode = stState.audioContext.createAnalyser();
+            stState.analyserNode.fftSize = 256;
 
-            // 4. SUBIDA AL SERVIDOR (Con limpieza segura)
-            await handleServerUpload();
+            stState.sourceNode = stState.audioContext.createMediaElementSource(stState.shadowAudio);
+            stState.sourceNode.connect(stState.analyserNode);
+            stState.analyserNode.connect(stState.mediaStreamDest);
+            stState.sourceNode.connect(stState.audioContext.destination);
+
+            const osc = stState.audioContext.createOscillator();
+            const gain = stState.audioContext.createGain();
+            osc.frequency.value = 1; gain.gain.value = 0.0001;
+            osc.connect(gain); gain.connect(stState.mediaStreamDest);
+            osc.start();
+            stState.keepAliveOsc = osc;
+
+            // Esperar carga mínima
+            await new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => reject("Timeout red"), 25000);
+                const onReady = () => { clearTimeout(timeout); resolve(); };
+
+                if (stState.shadowAudio.readyState >= 2) onReady();
+                else stState.shadowAudio.addEventListener('canplay', onReady, { once: true });
+                stState.shadowAudio.addEventListener('error', () => reject("Error audio"), { once: true });
+            });
+
+            console.log("[V68] Audio cargado. Preparando motor...");
 
         } catch (e) {
             console.error(e);
+            alert("Error inicio: " + (e.message || e));
+            resetModule();
+            return;
+        }
+
+        stDOM.viewIntro.style.display = 'none';
+        stDOM.viewProcess.style.display = 'block';
+        stState.isEncoding = true;
+
+        // Obtenemos duración del selector
+        const durationSelect = document.getElementById('stDurationSelect');
+        const selectedDuration = durationSelect ? parseInt(durationSelect.value) : 15;
+
+        stState.config = { width: 360, height: 640, duration: selectedDuration, fps: 30 };
+        stPrepareStaticLayer();
+
+        try { await runMuxerRecording(); }
+        catch (e) {
+            console.error(e);
             stState.isEncoding = false;
-            alert("Error: " + e.message);
+            alert("Error grabación: " + e.message);
             resetModule();
         }
     });
 
-    // --- CARGADOR ROBUSTO (Fix punto 5 de Claude) ---
-    async function prepareAudioEngine() {
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        stState.audioContext = new AudioContext({ latencyHint: 'playback', sampleRate: 48000 });
+    // --- GRABACIÓN SINCRONIZADA (SYNC-LOCK) ---
+    async function runMuxerRecording() {
+        const trackProcessor = new MediaStreamTrackProcessor({ track: stState.mediaStreamDest.stream.getAudioTracks()[0] });
+        const audioReader = trackProcessor.readable.getReader();
 
-        stState.shadowAudio = new Audio();
-        stState.shadowAudio.crossOrigin = "anonymous";
-        stState.shadowAudio.src = stState.currentSetData.audio_url;
-        stState.shadowAudio.currentTime = stState.startTime;
-        stState.shadowAudio.volume = 1.0;
-
-        stState.shadowAudio.style.position = 'fixed';
-        stState.shadowAudio.style.opacity = '0.01';
-        document.body.appendChild(stState.shadowAudio);
-
-        stState.mediaStreamDest = stState.audioContext.createMediaStreamDestination();
-        stState.analyserNode = stState.audioContext.createAnalyser();
-        stState.analyserNode.fftSize = 256;
-
-        stState.sourceNode = stState.audioContext.createMediaElementSource(stState.shadowAudio);
-        stState.sourceNode.connect(stState.analyserNode);
-        stState.sourceNode.connect(stState.mediaStreamDest);
-        stState.sourceNode.connect(stState.audioContext.destination);
-
-        // Oscilador
-        const osc = stState.audioContext.createOscillator();
-        const gain = stState.audioContext.createGain();
-        osc.frequency.value = 1; gain.gain.value = 0.0001;
-        osc.connect(gain); gain.connect(stState.mediaStreamDest);
-        osc.start();
-        stState.keepAliveOsc = osc;
-
-        // ESPERA ROBUSTA
-        console.log("[V73] Esperando readyState...");
-        return new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => reject(new Error("Timeout cargando audio (Red)")), 30000);
-
-            const checkReady = () => {
-                if (stState.shadowAudio.readyState >= 3) { // HAVE_FUTURE_DATA
-                    clearTimeout(timeout);
-                    resolve();
-                }
-            };
-
-            stState.shadowAudio.addEventListener('canplay', checkReady);
-            stState.shadowAudio.addEventListener('canplaythrough', checkReady);
-            stState.shadowAudio.addEventListener('error', (e) => reject(new Error("Error de red en audio")), { once: true });
-
-            // Forzar carga si ya tiene src
-            stState.shadowAudio.load();
-
-            // Check inmediato por si acaso
-            checkReady();
+        let muxer = new Muxer({
+            target: new ArrayBufferTarget(),
+            video: { codec: 'avc', width: stState.config.width, height: stState.config.height },
+            audio: { codec: 'opus', numberOfChannels: 2, sampleRate: 48000 },
+            fastStart: 'in-memory',
+            firstTimestampBehavior: 'offset'
         });
-    }
 
-    // --- PASE 1: AUDIO (Duración + Margen) ---
-    function runAudioPass() {
-        return new Promise(async (resolve, reject) => {
-            const audioStream = stState.mediaStreamDest.stream;
-            const options = { mimeType: 'audio/webm;codecs=opus' };
+        let videoEncoder = new VideoEncoder({
+            output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+            error: e => console.error("Video Error:", e)
+        });
+        videoEncoder.configure({
+            codec: 'avc1.42001E', width: stState.config.width, height: stState.config.height,
+            bitrate: 2000000, framerate: 30
+        });
 
-            try {
-                stState.mediaRecorder = new MediaRecorder(audioStream, options);
-            } catch(e) {
-                stState.mediaRecorder = new MediaRecorder(audioStream);
+        let audioEncoder = new AudioEncoder({
+            output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
+            error: e => console.error("Audio Error:", e)
+        });
+        audioEncoder.configure({
+            codec: 'opus', numberOfChannels: 2, sampleRate: 48000, bitrate: 128000
+        });
+
+        const processAudio = async () => {
+            while (stState.isEncoding) {
+                try {
+                    const result = await audioReader.read();
+                    if (result.done) break;
+                    if (audioEncoder.state === 'configured') audioEncoder.encode(result.value);
+                    result.value.close();
+                } catch (e) { break; }
+            }
+        };
+        processAudio();
+
+        // --- ARRANQUE CON SYNC-LOCK (La Magia V68) ---
+        stDOM.statusText.innerText = "Sincronizando...";
+
+        // 1. Damos Play
+        await stState.shadowAudio.play();
+
+        // 2. Esperamos a que el audio REALMENTE se mueva
+        // Esto elimina el "tiempo muerto" donde el audio carga pero el video ya graba
+        const initialAudioTime = stState.shadowAudio.currentTime;
+        console.log(`[V68] Esperando movimiento de audio desde: ${initialAudioTime}`);
+
+        while (stState.shadowAudio.currentTime <= initialAudioTime) {
+            // Pequeña espera en bucle hasta que detectamos avance
+            await new Promise(r => requestAnimationFrame(r));
+        }
+
+        console.log("[V68] Audio moviéndose. ¡GRABANDO!");
+        stDOM.statusText.innerHTML = `<span style="color:#0f0">GRABANDO...</span>`;
+
+        const startTime = performance.now();
+        const durationMs = stState.config.duration * 1000;
+        let frameCount = 0;
+        const dataArray = new Uint8Array(stState.analyserNode.frequencyBinCount);
+
+        const drawLoop = (now) => {
+            if (!stState.isEncoding) return;
+            const elapsed = now - startTime;
+
+            if (elapsed >= durationMs) {
+                finishRecording(muxer, videoEncoder, audioEncoder, audioReader);
+                return;
             }
 
-            stState.audioChunks = [];
-            stState.mediaRecorder.ondataavailable = (e) => {
-                if (e.data.size > 0) stState.audioChunks.push(e.data);
-            };
+            if (frameCount % 10 === 0) {
+                stState.analyserNode.getByteFrequencyData(dataArray);
+                const vol = dataArray.reduce((a,b)=>a+b,0);
+                stDOM.statusText.innerHTML = `<span style="color:#0f0">REC (${vol})</span>`;
+            }
 
-            stState.mediaRecorder.onstop = () => {
-                const blob = new Blob(stState.audioChunks, { type: 'audio/webm' });
-                resolve(blob);
-            };
+            stDOM.progressFill.style.width = (elapsed / durationMs) * 100 + "%";
+            stUpdateAudioSimulation(frameCount);
+            stCtx.drawImage(stState.staticCanvas, 0, 0);
+            stDrawDynamicLayer(elapsed / 1000);
 
-            // Pre-Roll
-            stState.mediaRecorder.start();
-            await new Promise(r => setTimeout(r, 200));
-
-            stState.shadowAudio.play();
-
-            // TIEMPO UNIFICADO: DURACION + MARGEN (Fix punto 3)
-            setTimeout(() => {
-                stState.shadowAudio.pause();
-                stState.mediaRecorder.stop();
-            }, (stState.durationSeconds * 1000) + CONFIG.safetyMargin);
-        });
-    }
-
-    // --- PASE 2: VIDEO (Sincronización Fix punto 1) ---
-    function runVideoPass() {
-        return new Promise(async (resolve, reject) => {
-            let muxer = new Muxer({
-                target: new ArrayBufferTarget(),
-                video: { codec: 'avc', width: CONFIG.width, height: CONFIG.height },
-                fastStart: 'in-memory',
-                firstTimestampBehavior: 'offset'
+            const vFrame = new VideoFrame(stDOM.canvas, {
+                timestamp: elapsed * 1000,
+                duration: (1000 / 30) * 1000
             });
 
-            let videoEncoder = new VideoEncoder({
-                output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
-                error: e => console.error("Video Error:", e)
-            });
-            videoEncoder.configure({
-                codec: 'avc1.42001E', width: CONFIG.width, height: CONFIG.height,
-                bitrate: CONFIG.bitrate, framerate: CONFIG.fps
-            });
-
-            // CLAUDE FIX 1: Capturar tiempo ANTES de play
-            const startTime = performance.now();
-            await stState.shadowAudio.play();
-
-            const durationMs = stState.durationSeconds * 1000;
-            let frameCount = 0;
-
-            const drawLoop = (now) => {
-                // Calcular tiempo transcurrido
-                const elapsed = now - startTime;
-
-                // Usamos el mismo límite que el audio: Duración + Margen
-                if (elapsed >= (durationMs + CONFIG.safetyMargin)) {
-                    stState.shadowAudio.pause();
-                    videoEncoder.flush().then(() => {
-                        videoEncoder.close();
-                        muxer.finalize();
-                        const blob = new Blob([muxer.target.buffer], { type: 'video/mp4' });
-                        resolve(blob);
-                    });
-                    return;
-                }
-
-                stDOM.progressFill.style.width = (elapsed / durationMs) * 100 + "%";
-                stUpdateAudioSimulation(frameCount);
-                stCtx.drawImage(stState.staticCanvas, 0, 0);
-                stDrawDynamicLayer(elapsed / 1000);
-
-                const vFrame = new VideoFrame(stDOM.canvas, {
-                    timestamp: elapsed * 1000,
-                    duration: (1000 / CONFIG.fps) * 1000
-                });
-
-                if (videoEncoder.encodeQueueSize < 3) {
-                    videoEncoder.encode(vFrame, { keyFrame: frameCount % 30 === 0 });
-                }
-                vFrame.close();
-                frameCount++;
-                requestAnimationFrame(drawLoop);
-            };
+            if (videoEncoder.encodeQueueSize < 3) {
+                videoEncoder.encode(vFrame, { keyFrame: frameCount % 30 === 0 });
+            }
+            vFrame.close();
+            frameCount++;
             requestAnimationFrame(drawLoop);
-        });
+        };
+        requestAnimationFrame(drawLoop);
     }
 
-    // --- UPLOAD & CLEANUP (Fix punto 2) ---
-    async function handleServerUpload() {
-        stDOM.statusText.innerHTML = `<span style="color:#00aaff">🚀 ENVIANDO A SERVIDOR...</span>`;
+    async function finishRecording(muxer, vEnc, aEnc, aReader) {
+        stState.isEncoding = false;
+        stDOM.statusText.innerText = "Empaquetando...";
+
+        try { await aReader.cancel(); } catch(e) {}
+        try {
+            if (vEnc.state === 'configured') await vEnc.flush();
+            vEnc.close();
+            if (aEnc.state === 'configured') await aEnc.flush();
+            aEnc.close();
+        } catch(e){}
+
+        if (stState.keepAliveOsc) { try{stState.keepAliveOsc.stop()}catch(e){} }
+
+        muxer.finalize();
+        const buffer = muxer.target.buffer;
+
+        if (buffer.byteLength > 0) {
+            stState.localBlob = new Blob([buffer], { type: 'video/mp4' });
+            cleanupAudio();
+            // AL SERVIDOR
+            uploadToServer(stState.localBlob);
+        } else {
+            alert("Error: 0 bytes.");
+            resetModule();
+        }
+    }
+
+    async function uploadToServer(blob) {
+        stDOM.statusText.innerHTML = `<span style="color:#00aaff">🚀 OPTIMIZANDO...</span>`;
+
+        const formData = new FormData();
+        formData.append('video', blob, 'video.mp4');
 
         try {
-            const formData = new FormData();
-            formData.append('video', stState.videoBlob, 'video.mp4');
-            formData.append('audio', stState.audioBlob, 'audio.webm');
-
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 min
 
-            console.log(`[V73] Uploading to ${SERVER_URL}/merge ...`);
-
-            const response = await fetch(`${SERVER_URL}/merge`, {
+            const response = await fetch(`${SERVER_URL}/convert`, {
                 method: 'POST',
                 body: formData,
                 signal: controller.signal
@@ -661,7 +645,7 @@
                 throw new Error(`Servidor: ${response.status} - ${text}`);
             }
 
-            stDOM.statusText.innerHTML = `<span style="color:#0f0">📥 ÉXITO!</span>`;
+            stDOM.statusText.innerHTML = `<span style="color:#0f0">📥 LISTO!</span>`;
             const finalBlob = await response.blob();
 
             stState.finalBlob = finalBlob;
@@ -669,18 +653,16 @@
 
         } catch (e) {
             console.error(e);
-            alert(`Error Servidor: ${e.message}.`);
-            // Fallback
-            stState.finalBlob = stState.videoBlob;
+            let msg = e.message;
+            if (e.name === 'AbortError') msg = "Tiempo agotado (Servidor despertando).";
+
+            alert(`Error: ${msg}. Se descargará original.`);
+            stState.finalBlob = blob;
             stShowFinalUI();
-        } finally {
-            // CLAUDE FIX 2: Cleanup SIEMPRE al final
-            cleanupAudio();
-            console.log("[V73] Recursos liberados.");
         }
     }
 
-    // UTILS
+    // UTILS VISUALES
     function roundRect(ctx, x, y, w, h, r) {
         if (w < 2 * r) r = w / 2; if (h < 2 * r) r = h / 2;
         ctx.moveTo(x+r, y); ctx.arcTo(x+w, y, x+w, y+h, r);
@@ -698,10 +680,10 @@
     }
     function stPrepareStaticLayer() {
         stState.staticCanvas = document.createElement('canvas');
-        stState.staticCanvas.width = CONFIG.width;
-        stState.staticCanvas.height = CONFIG.height;
+        stState.staticCanvas.width = stState.config.width;
+        stState.staticCanvas.height = stState.config.height;
         const sCtx = stState.staticCanvas.getContext('2d');
-        const w = CONFIG.width; const h = CONFIG.height;
+        const w = stState.config.width; const h = stState.config.height;
         sCtx.fillStyle = '#000000'; sCtx.fillRect(0, 0, w, h);
         const cardW = w * 0.90; const cardH = h * 0.75;
         const cardX = (w - cardW) / 2; const cardY = (h - cardH) / 2;
@@ -715,7 +697,7 @@
         try { sCtx.drawImage(stCoverImg, imgX, imgY, imgSize, imgSize); }
         catch(e) { sCtx.fillStyle = "#333"; sCtx.fillRect(imgX, imgY, imgSize, imgSize); }
         sCtx.restore();
-        const title = stState.currentTrackTitle || "Track Desconocido"; // Usar variable state mejorada
+        const title = stState.currentTrackTitle || "Track Desconocido";
         const artist = stState.currentSetData ? stState.currentSetData.title : "Vloitz Set";
         const textX = imgX; let cursorY = imgY + imgSize + 25;
         sCtx.textAlign = "left"; sCtx.fillStyle = "#1DB954"; sCtx.font = "700 10px Inter, sans-serif";
@@ -729,7 +711,7 @@
         sCtx.fillText("Escúchalo en vloitz.github.io/wav-sets", w/2, cardBottom - 15);
     }
     function stUpdateAudioSimulation(frame) {
-        const isKick = frame % (CONFIG.fps === 15 ? 12 : 24) === 0;
+        const isKick = frame % (stState.config.fps === 15 ? 12 : 24) === 0;
         for (let i = 0; i < 20; i++) {
             let targetHeight = 5 + Math.abs(Math.sin(frame * 0.2 + i) * 15) + Math.random() * 10;
             if (isKick && i < 6) targetHeight += 30;
@@ -739,7 +721,7 @@
         }
     }
     function stDrawDynamicLayer(secondsElapsed) {
-        const w = CONFIG.width; const h = CONFIG.height;
+        const w = stState.config.width; const h = stState.config.height;
         const cardW = w * 0.90; const cardH = h * 0.75;
         const startX = (w - (w * 0.90 * 0.85)) / 2;
         const imgSize = w * 0.90 * 0.85;
@@ -754,7 +736,7 @@
         }
         const progY = barsBaseY + 10;
         stCtx.fillStyle = "#333"; stCtx.fillRect(startX, progY, imgSize, 3);
-        const progress = Math.min(1, secondsElapsed / stState.durationSeconds);
+        const progress = Math.min(1, secondsElapsed / stState.config.duration);
         stCtx.fillStyle = "#1DB954"; stCtx.fillRect(startX, progY, imgSize * progress, 3);
         stCtx.beginPath(); stCtx.arc(startX + (imgSize * progress), progY + 1.5, 3, 0, Math.PI*2); stCtx.fill();
         const timeY = barsBaseY + 10 + 15;
@@ -770,10 +752,13 @@
         stCtx.fillText("FLAC • HIFI", w/2, badgeY + 11);
     }
 
+    // UI FINAL
     function stShowFinalUI() {
         stDOM.loadingUI.style.display = 'none';
         stDOM.finalActions.style.display = 'block';
         console.log(`[STORY MODULE] Listo.`);
+
+        stDOM.statusText.innerHTML = `<span style="color:#0f0">✅ LISTO PARA WHATSAPP</span>`;
 
         stDOM.shareWaBtn.onclick = async () => {
             if (!stState.finalBlob) return;
