@@ -1,0 +1,15 @@
+/* TEAM */
+  Founder & Lead Developer: Kevin Italo Cajaleon Zuta
+  Artistic Name: Vloitz
+  Location: Lima, Peru
+  Site: https://vloitz.github.io/wav-sets/
+  
+/* TECHNOLOGY */
+  Engine: Vloitz Hybrid Video Renderer (V78)
+  Stack: HTML5, Web Audio API, WebCodecs, Node.js (Render Cloud)
+  Innovation: Mobile-first video generation for low-end devices (2GB RAM)
+  Audio Visualization: Custom WaveSurfer Region-Overlay System
+
+/* ORIGIN */
+  Establecido: 2025
+  Misión: Democratizar la creación de contenido musical de alta fidelidad desde la web.
