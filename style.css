@@ -239,8 +239,8 @@ body, html {
 
 .share-btn-floating {
     position: absolute;
-    top: 15px;
-    left: 15px;
+    top: 5px;
+    left: 5px;
     z-index: 10;
     background-color: rgba(0, 0, 0, 0.5); /* Fondo oscuro semitransparente */
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -571,8 +571,8 @@ body, html {
 /* --- Badge FLAC --- */
 .audio-quality-badge {
     position: absolute;
-    top: 15px;
-    right: 15px;
+    top: 2px;
+    right: 2px;
     background-color: rgba(0, 0, 0, 0.65);
     color: #FF00FF;
     padding: 3px 9px;
