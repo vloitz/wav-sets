@@ -340,8 +340,8 @@ let wasPlayingBeforeDrag = false; // Para saber si pausar/reanudar
         wavesurfer = WaveSurfer.create({
             container: '#waveform',
             // --- Matching Prototype Visuals ---
-            waveColor: 'rgba(255, 255, 255, 0.60)', // Match prototype
-            progressColor: 'rgba(255, 255, 255, 0.60)', // Match prototype
+            waveColor: 'rgba(255, 255, 255, 0.20)', // Match prototype
+            progressColor: 'rgba(255, 255, 255, 0.90)', // Match prototype
             height: 128,                          // Match prototype
             barWidth: 3,                          // Match prototype
             barGap: 1,                           // Match prototype
