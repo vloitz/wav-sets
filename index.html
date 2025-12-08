@@ -857,19 +857,52 @@
         stCtx.fillText("FLAC • HIFI", w/2, badgeY + 11);
     }
 
+// UI FINAL MEJORADA (V80: Smart Sharing con Link)
     function stShowFinalUI() {
         stDOM.loadingUI.style.display = 'none';
         stDOM.finalActions.style.display = 'block';
-        console.log(`[V79+] Completado exitosamente`);
+        console.log(`[STORY MODULE] Listo.`);
 
-        stDOM.statusText.innerHTML = `<span style="color:#0f0">✅ LISTO PARA WHATSAPP</span>`;
+        stDOM.statusText.innerHTML = `<span style="color:#0f0">✅ LISTO PARA COMPARTIR</span>`;
 
         stDOM.shareWaBtn.onclick = async () => {
             if (!stState.finalBlob) return;
+
+            // 1. GENERAR DEEP LINK (Enlace al segundo exacto)
+            // Calculamos la URL base dinámicamente o la ponemos fija
+            const baseUrl = window.location.origin + window.location.pathname.replace('index.html', '');
+            const setId = stState.currentSetData.id;
+            const timeSec = Math.floor(stState.startTime); // Tiempo donde empezó la grabación
+
+            // Formato: .../share/ID/?t=123
+            const deepLink = `${baseUrl}share/${setId}/?t=${timeSec}`;
+            const shareText = `🎵 Escucha el set completo aquí: ${deepLink}`;
+
+            // 2. COPIAR AL PORTAPAPELES (Backup invisible)
+            try {
+                await navigator.clipboard.writeText(deepLink);
+                console.log("Link copiado al portapapeles:", deepLink);
+                // Opcional: Mostrar un toast rápido "Link copiado"
+            } catch (e) {
+                console.warn("No se pudo copiar al portapapeles automáticamente");
+            }
+
+            // 3. COMPARTIR NATIVO CON CAPTION
             const file = new File([stState.finalBlob], "story.mp4", { type: 'video/mp4' });
+
             if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                try { await navigator.share({ files: [file] }); } catch (e) {}
-            } else { alert("Usa descargar manual."); }
+                try {
+                    await navigator.share({
+                        files: [file],
+                        title: 'Vloitz Story',
+                        text: shareText // <--- AQUÍ VA EL ENLACE PARA WHATSAPP
+                    });
+                } catch (e) {
+                    console.log("Share cancelado o fallido", e);
+                }
+            } else {
+                alert("Tu navegador no soporta compartir archivos nativamente. Usa descargar.");
+            }
         };
 
         stDOM.dlManualBtn.onclick = () => {
