@@ -240,10 +240,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Generador de paleta Ajustado (Vibrante pero menos Pastel)
         const generatePalette = () => {
-            const baseTones = [
-                [230, 0, 0],   [0, 200, 80],   [0, 120, 255], [255, 190, 0], [220, 0, 200],
-                [0, 190, 200], [255, 100, 0],  [140, 0, 220], [120, 220, 0], [255, 50, 100]
-            ];
+
+        // Paleta Reordenada (Estilo "Cyberpunk/Tech" - Sin efecto Arcoíris)
+                    const baseTones = [
+                        [29, 185, 84],   // 1. Verde Vloitz (Marca - Inicio)
+                        [140, 0, 220],   // 2. Morado Profundo (Contraste fuerte)
+                        [255, 100, 0],   // 3. Naranja Ámbar (Cálido)
+                        [0, 120, 255],   // 4. Azul Eléctrico (Frío)
+                        [230, 0, 0],     // 5. Rojo Intenso (Agresivo)
+                        [0, 190, 200],   // 6. Cyan/Turquesa (Futurista)
+                        [255, 190, 0],   // 7. Amarillo Oro (Brillante)
+                        [80, 80, 80],    // 8. Gris Acero (Neutro/Descanso visual)
+                        [255, 50, 100],  // 9. Salmón Neón (Acento)
+                        [120, 220, 0]    // 10. Lima Ácido (Tech House vibe)
+                    ];
 
             // Eliminamos la variación 'Muteado' que añadía mucho gris/blanco
             const variations = ['Vibrante', 'Profundo', 'Intenso'];
@@ -254,9 +264,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (variant === 'Profundo') {
                         // Oscurecer un 40% (Menos pastel, más dark mode)
-                        finalR = Math.round(r * 0.6);
-                        finalG = Math.round(g * 0.6);
-                        finalB = Math.round(b * 0.6);
+                        finalR = Math.round(r * 0.5);
+                        finalG = Math.round(g * 0.5);
+                        finalB = Math.round(b * 0.5);
                     } else if (variant === 'Intenso') {
                         // Saturación pura
                         finalR = r; finalG = g; finalB = b;
