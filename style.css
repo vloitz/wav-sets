@@ -152,8 +152,18 @@ body, html {
 .player-controls {
     display: flex;
     align-items: center;
-    gap: 15px;
-    margin-top: 10px;
+    justify-content: center; /* Centrar todo el bloque */
+    position: relative; /* Para posicionar elementos absolutos si fuera necesario */
+    width: 100%;
+    margin-top: 25px;
+    gap: 15px; /* Espacio uniforme entre botones centrales */
+}
+
+/* Grupo Central (Prev, Seek, Play, Seek, Next) */
+.controls-center-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 
 #playPauseBtn {
@@ -195,17 +205,53 @@ body, html {
 .skip-btn:hover {
     color: var(--text-primary);
 }
+/* Tiempos (Izquierda del Share, Derecha del Next) */
 .time-display {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    font-size: 0.9em;
+    font-size: 0.85em;
     color: var(--text-secondary);
-    min-width: 90px;
-    justify-content: flex-end;
+    font-variant-numeric: tabular-nums; /* Números monoespaciados para que no bailen */
+    min-width: 85px; /* Reserva espacio fijo */
+    text-align: center;
+    display: flex;
+    justify-content: center;
+    gap: 4px;
 }
+
+/* Botón Share (Alineado a la derecha, pero flexible) */
+#shareBtn {
+    margin-left: auto; /* Empuja el botón al extremo derecho */
+    color: var(--text-secondary);
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: color 0.2s;
+    padding: 8px; /* Área de toque */
+}
+#shareBtn:hover { color: var(--brand-color); }
+#shareBtn svg { width: 22px; height: 22px; }
+
+/* AJUSTES RESPONSIVE (MÓVIL) */
+@media (max-width: 450px) {
+    .player-controls {
+        justify-content: space-between; /* Distribución en todo el ancho */
+        gap: 5px;
+    }
+
+    .controls-center-group {
+        gap: 8px; /* Menos espacio entre botones en móvil */
+    }
+
+    .time-display {
+        font-size: 0.75em;
+        min-width: auto; /* Dejar que se ajuste */
+        flex-direction: column; /* Apilar tiempos si es muy estrecho */
+        line-height: 1;
+        gap: 2px;
+    }
+    .time-divider { display: none; } /* Ocultar barra en móvil si apilamos */
+}
+
 .time-divider {
-    margin: 0 5px;
     opacity: 0.5;
 }
 
