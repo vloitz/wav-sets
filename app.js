@@ -264,9 +264,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (variant === 'Profundo') {
                         // Oscurecer un 40% (Menos pastel, más dark mode)
-                        finalR = Math.round(r * 0.5);
-                        finalG = Math.round(g * 0.5);
-                        finalB = Math.round(b * 0.5);
+                        finalR = Math.round(r * 0.6);
+                        finalG = Math.round(g * 0.6);
+                        finalB = Math.round(b * 0.6);
                     } else if (variant === 'Intenso') {
                         // Saturación pura
                         finalR = r; finalG = g; finalB = b;
@@ -275,7 +275,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Guardamos
                     palette.push({
                         // Bajamos opacidad a 0.2 (20%) para que se mezcle mejor con el fondo negro
-                        waveColor: `rgba(${finalR}, ${finalG}, ${finalB}, 0.2)`,
+                        waveColor: `rgba(${finalR}, ${finalG}, ${finalB}, 0.25)`,
                         textColor: `rgb(${finalR}, ${finalG}, ${finalB})`
                     });
                 });
