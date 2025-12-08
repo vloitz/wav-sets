@@ -263,7 +263,7 @@ body, html {
 
 /* Reducir márgenes del divisor "/" */
 .time-divider {
-    margin: 0 3px; /* Antes 5px, ahorramos 4px total */
+    margin: 0 1px; /* Antes 5px, ahorramos 4px total */
     opacity: 0.5;
     font-size: 0.9em;
 }
