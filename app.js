@@ -240,10 +240,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Generador de paleta profesional (Portado de segmentos.html)
         const generatePalette = () => {
+            /*
             const baseTones = [
                 [230, 0, 0],   [0, 200, 80],   [0, 120, 255], [255, 190, 0], [220, 0, 200],
                 [0, 190, 200], [255, 100, 0],  [140, 0, 220], [120, 220, 0], [255, 50, 100]
             ];
+            */
+
+            const baseTones = [
+                [29, 185, 84],  // Verde Spotify (Marca)
+                [80, 80, 80],   // Gris Oscuro
+                [200, 200, 200], // Gris Claro
+                [40, 160, 100], // Verde Bosque
+                [100, 100, 100] // Gris Medio
+            ];
+
             const variations = ['Vibrante', 'Muteado', 'Profundo'];
 
             baseTones.forEach(([r, g, b]) => {
