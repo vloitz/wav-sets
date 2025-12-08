@@ -271,7 +271,7 @@ body, html {
 /* AJUSTES RESPONSIVE (MÓVIL) */
 @media (max-width: 450px) {
     .player-controls {
-        justify-content: space-between; /* Distribución en todo el ancho */
+       /* justify-content: space-between;*/ /* Distribución en todo el ancho */
         gap: 0px;
     }
 
