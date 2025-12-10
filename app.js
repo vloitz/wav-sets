@@ -585,6 +585,27 @@ let wasPlayingBeforeDrag = false; // Para saber si pausar/reanudar
         }
     }
 
+    // --- FUNCIÓN AUTO-FOCUS PLAYER (UX MEJORA) ---
+    function focusPlayerCard() {
+        // [CONFIGURACIÓN] Ajusta este valor a tu gusto.
+        // + valor: El reproductor baja más.
+        // - valor: El reproductor sube más (se pega al tope).
+        const SCROLL_OFFSET_PX = 80; // <--- MODIFICA ESTO A GUSTO (80px suele dejar espacio para el header)
+
+        const playerCard = document.querySelector('.player-card');
+        if (!playerCard) return;
+
+        // Cálculo matemático para posición absoluta suave
+        const elementPosition = playerCard.getBoundingClientRect().top;
+        const offsetPosition = elementPosition + window.scrollY - SCROLL_OFFSET_PX;
+
+        window.scrollTo({
+            top: offsetPosition,
+            behavior: "smooth"
+        });
+        console.log("[UX] Enfocando reproductor automáticamente.");
+    }
+
     // --- Mostrar el tracklist del set actual ---
     function displayTracklist(tracklistData) {
         console.log("Mostrando tracklist para el set actual..."); // LOG
@@ -1101,6 +1122,8 @@ if (waveformInteractionElement && wavesurfer) {
         }
         // Caso 2: Clic en cualquier otra parte del item (para saltar)
         else {
+            focusPlayerCard();
+
             const listItem = target.closest('.current-tracklist-item');
             if (!listItem || !listItem.dataset.time) return;
 
@@ -1234,6 +1257,8 @@ function toggleFavorite(seconds, buttonElement) {
         const clickedItem = e.target.closest('.track-item');
         if (!clickedItem) return;
 
+        focusPlayerCard();
+
         const trackIndex = parseInt(clickedItem.dataset.index);
         console.log(`Clic en lista general de sets, item: ${trackIndex}`); // LOG
         if (trackIndex !== currentSetIndex && allSets[trackIndex]) {
@@ -1251,6 +1276,7 @@ function toggleFavorite(seconds, buttonElement) {
     // --- Botón Play/Pause Principal ---
     playPauseBtn.addEventListener('click', () => {
         console.log("Clic Play/Pause");
+        focusPlayerCard();
         // SIN check isReady aquí (como en v6 estable)
         if (wavesurfer && typeof wavesurfer.playPause === 'function') {
             wavesurfer.playPause();
@@ -1588,6 +1614,7 @@ function toggleFavorite(seconds, buttonElement) {
     if (prevBtn) {
         prevBtn.addEventListener('click', () => {
             console.log("Clic Previous");
+            focusPlayerCard();
             TrackNavigator.goToPrevious(); // <-- Llama a tu lógica existente
         });
     }
@@ -1595,6 +1622,7 @@ function toggleFavorite(seconds, buttonElement) {
     if (nextBtn) {
         nextBtn.addEventListener('click', () => {
             console.log("Clic Next");
+            focusPlayerCard();
             TrackNavigator.goToNext(); // <-- Llama a tu lógica existente
         });
     }
