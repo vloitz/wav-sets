@@ -558,6 +558,7 @@ body, html {
     }
     .controls-wrapper::-webkit-scrollbar { display: none; }
 
+
     .favorites-filter, .auto-loop-button {
         flex-shrink: 0; /* Evitar que se aplasten */
     }
@@ -950,3 +951,20 @@ input:checked + .st-slider:before { transform: translateX(18px); }
 /* ==========================================================================
    [MODULE END]
    ========================================================================== */
+
+/* --- OCULTAR BARRA DE DESPLAZAMIENTO GLOBAL --- */
+
+/* 1. Para Chrome, Safari y Navegadores Móviles (SIEMPRE PONER AL FINAL ESTO )*/
+::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    background: transparent !important;
+}
+
+/* 2. Para Firefox e IE */
+html, body {
+    scrollbar-width: none !important;  /* Firefox */
+    -ms-overflow-style: none !important;  /* IE */
+    overflow: auto; /* Mantiene el scroll funcional */
+}
