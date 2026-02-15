@@ -968,6 +968,6 @@ html, body {
     overflow-x: hidden; /* CORRECCIÓN: Permite scroll vertical nativo */
 }
 
-/* ASEGURAR ALTURA COMPLETA (Crucial para el fix) */
-html { height: 100%; }
-body { min-height: 100%; }
+/* ASEGURAR ALTURA COMPLETA (Crucial para el fix)
+   ELIMINADO: html { height: 100%; } causaba que PC no hiciera scroll */
+/* body { min-height: 100%; } */
