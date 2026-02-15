@@ -17,11 +17,10 @@ body, html {
     color: var(--text-primary);
 
     /* --- BLOQUEO DE ZOOM Y GESTOS --- */
-    touch-action: manipulation; /* Evita zoom por doble toque */
-    overscroll-behavior: none;  /* Evita el "rebote" elástico al scrollear al tope */
-    -webkit-user-select: none;  /* (Opcional) Evita seleccionar texto por error en la interfaz */
+    touch-action: manipulation;
+    /* overscroll-behavior: none; */ /* <--- COMENTADO: ESTO SOLUCIONA EL BLOQUEO */
+    -webkit-user-select: none;
     user-select: none;
-
 }
 
 .app-container {
@@ -966,7 +965,7 @@ input:checked + .st-slider:before { transform: translateX(18px); }
 html, body {
     scrollbar-width: none !important;  /* Firefox */
     -ms-overflow-style: none !important;  /* IE */
-    overflow-x: hidden; /* CORRECCIÓN: Permite scroll vertical nativo, oculta horizontal */
+    overflow-x: hidden; /* CORRECCIÓN: Permite scroll vertical nativo */
 }
 
 /* ASEGURAR ALTURA COMPLETA (Crucial para el fix) */
